@@ -55,12 +55,12 @@ database.query()
 #+end_src
 By default, a dictionary with all available trace IDs is included in the query results. This can seem a lot, but it is actually useful for grepping traces with descriptive names such as 'DC_LDC_DIVIDE'.
 
-- Refine your search either by author, age, or trace_id, or by combining arguments:
+- Refine your search either by author, age, or trace_id, or by combining arguments. Lists are also allowed:
 #+begin_src python
 database.query(author='Cavitte_2020')
 database.query(age='38100')
 database.query(trace_id='DC_LDC_DIVIDE')
-database.query(author='Cavitte_2020', age='38100')
+database.query(author=['Franke_2025', 'Winter_2018'], age='38100')
 #+end_src
 ** Visualization
 Use the results of the query in the plotting functions:

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import cmastro as cma
-from typing import Union
+from typing import Union, List
 
 class Database:
     def __init__(self, database_dir: str, file_db: str = 'isochrones.db'):
@@ -13,7 +13,7 @@ class Database:
         self.db_dir = database_dir
         self.file_db = os.path.join(self.db_dir, file_db)
 
-    def query(self, age=None, author=None, line=None):
+    def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None):
         conn = sqlite3.connect(self.file_db)
         cursor = conn.cursor()
 
@@ -26,14 +26,31 @@ class Database:
         conditions = []
         params = []
         if age is not None:
-            conditions.append('d.age = ?')
-            params.append(age)
+            if isinstance(age, list):
+                placeholders = ','.join(['?'] * len(age))
+                conditions.append(f'd.age IN ({placeholders})')
+                params.extend(age)
+            else:
+                conditions.append('d.age = ?')
+                params.append(age)
+
         if author is not None:
-            conditions.append('a.name = ?')
-            params.append(author)
-        if line is not None:
-            conditions.append('d.line = ?')
-            params.append(line)
+            if isinstance(author, list):
+                placeholders = ','.join(['?'] * len(author))
+                conditions.append(f'a.name IN ({placeholders})')
+                params.extend(author)
+            else:
+                conditions.append('a.name = ?')
+                params.append(author)
+
+        if trace_id is not None:
+            if isinstance(trace_id, list):
+                placeholders = ','.join(['?'] * len(trace_id))
+                conditions.append(f'd.line IN ({placeholders})')
+                params.extend(trace_id)
+            else:
+                conditions.append('d.line = ?')
+                params.append(trace_id)
 
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
@@ -48,15 +65,15 @@ class Database:
             'reference': set(),
             'doi': set(),
             'trace_id': set(),
-            '_query_params': {'age': age, 'author': author, 'line': line}
+            '_query_params': {'age': age, 'author': author, 'line': trace_id}
         }
 
-        for author_name, citations, doi, ages, line in results:
+        for author_name, citations, doi, ages, trace_id in results:
             metadata['author'].add(author_name)
             metadata['age'].add(ages)
             metadata['reference'].add(citations)
             metadata['doi'].add(doi)
-            metadata['trace_id'].add(line)
+            metadata['trace_id'].add(trace_id)
 
         return metadata
 
@@ -77,14 +94,31 @@ class Database:
         conditions = []
         params = []
         if age is not None:
-            conditions.append('d.age = ?')
-            params.append(age)
+            if isinstance(age, list):
+                placeholders = ','.join(['?'] * len(age))
+                conditions.append(f'd.age IN ({placeholders})')
+                params.extend(age)
+            else:
+                conditions.append('d.age = ?')
+                params.append(age)
+
         if author is not None:
-            conditions.append('a.name = ?')
-            params.append(author)
+            if isinstance(author, list):
+                placeholders = ','.join(['?'] * len(author))
+                conditions.append(f'a.name IN ({placeholders})')
+                params.extend(author)
+            else:
+                conditions.append('a.name = ?')
+                params.append(author)
+
         if line is not None:
-            conditions.append('d.line = ?')
-            params.append(line)
+            if isinstance(line, list):
+                placeholders = ','.join(['?'] * len(line))
+                conditions.append(f'd.line IN ({placeholders})')
+                params.extend(line)
+            else:
+                conditions.append('d.line = ?')
+                params.append(line)
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
         cursor.execute(query, params)
@@ -109,14 +143,31 @@ class Database:
         conditions = []
         params = []
         if age is not None:
-            conditions.append('d.age = ?')
-            params.append(age)
+            if isinstance(age, list):
+                placeholders = ','.join(['?'] * len(age))
+                conditions.append(f'd.age IN ({placeholders})')
+                params.extend(age)
+            else:
+                conditions.append('d.age = ?')
+                params.append(age)
+
         if author is not None:
-            conditions.append('a.name = ?')
-            params.append(author)
+            if isinstance(author, list):
+                placeholders = ','.join(['?'] * len(author))
+                conditions.append(f'a.name IN ({placeholders})')
+                params.extend(author)
+            else:
+                conditions.append('a.name = ?')
+                params.append(author)
+
         if line is not None:
-            conditions.append('d.line = ?')
-            params.append(line)
+            if isinstance(line, list):
+                placeholders = ','.join(['?'] * len(line))
+                conditions.append(f'd.line IN ({placeholders})')
+                params.extend(line)
+            else:
+                conditions.append('d.line = ?')
+                params.append(line)
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
         cursor.execute(query, params)
