@@ -4,57 +4,53 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import cmastro as cma
-from typing import Union, List
+from typing import Union, List, Dict, Tuple
 
 class Database:
-    def __init__(self, database_dir: str, file_db: str = 'isochrones.db'):
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db'):
         module_dir = os.path.dirname(os.path.abspath(__file__))
         self.gl = pd.read_pickle(os.path.join(module_dir, 'plotting', 'GL.pkl'))
         self.db_dir = database_dir
         self.file_db = os.path.join(self.db_dir, file_db)
 
-    def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None):
-        conn = sqlite3.connect(self.file_db)
-        cursor = conn.cursor()
-
-        query = '''
-            SELECT a.name, a.citation, a.doi, d.age, d.trace_id
+    def _build_query_and_params(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
+        """
+        Helper method to build the SQL query and parameters for filtering.
+        Returns the query string and parameters list.
+        """
+        query = f'''
+            SELECT {select_clause}
             FROM datasets d
             JOIN authors a ON d.author = a.id
         '''
-
         conditions = []
         params = []
-        if age is not None:
-            if isinstance(age, list):
-                placeholders = ','.join(['?'] * len(age))
-                conditions.append(f'd.age IN ({placeholders})')
-                params.extend(age)
-            else:
-                conditions.append('d.age = ?')
-                params.append(age)
 
-        if author is not None:
-            if isinstance(author, list):
-                placeholders = ','.join(['?'] * len(author))
-                conditions.append(f'a.name IN ({placeholders})')
-                params.extend(author)
-            else:
-                conditions.append('a.name = ?')
-                params.append(author)
-
-        if trace_id is not None:
-            if isinstance(trace_id, list):
-                placeholders = ','.join(['?'] * len(trace_id))
-                conditions.append(f'd.line IN ({placeholders})')
-                params.extend(trace_id)
-            else:
-                conditions.append('d.line = ?')
-                params.append(trace_id)
+        for field, column in [
+            (age, 'd.age'),
+            (author, 'a.name'),
+            (line, 'd.trace_id')
+        ]:
+            if field is not None:
+                if isinstance(field, list):
+                    placeholders = ','.join(['?'] * len(field))
+                    conditions.append(f'{column} IN ({placeholders})')
+                    params.extend(field)
+                else:
+                    conditions.append(f'{column} = ?')
+                    params.append(field)
 
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
 
+        return query, params
+
+    def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> Dict:
+        select_clause = 'a.name, a.citation, a.doi, d.age, d.trace_id'
+        query, params = self._build_query_and_params(age, author, trace_id, select_clause)
+
+        conn = sqlite3.connect(self.file_db)
+        cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
         conn.close()
@@ -65,7 +61,7 @@ class Database:
             'reference': set(),
             'doi': set(),
             'trace_id': set(),
-            '_query_params': {'age': age, 'author': author, 'line': trace_id}
+            '_query_params': {'age': age, 'author': author, 'trace_id': trace_id}
         }
 
         for author_name, citations, doi, ages, trace_id in results:
@@ -77,102 +73,47 @@ class Database:
 
         return metadata
 
-    def _get_file_paths_from_metadata(self, metadata):
-        """Internal method: Get file paths for all entries in metadata."""
+    def _get_file_paths_from_metadata(self, metadata) -> List:
         query_params = metadata.get('_query_params', {})
         age = query_params.get('age')
         author = query_params.get('author')
-        line = query_params.get('line')
+        line = query_params.get('trace_id')
+
+        select_clause = 'd.file_path'
+        query, params = self._build_query_and_params(age, author, line, select_clause)
 
         conn = sqlite3.connect(self.file_db)
         cursor = conn.cursor()
-        query = '''
-            SELECT d.file_path
-            FROM datasets d
-            JOIN authors a ON d.author = a.id
-        '''
-        conditions = []
-        params = []
-        if age is not None:
-            if isinstance(age, list):
-                placeholders = ','.join(['?'] * len(age))
-                conditions.append(f'd.age IN ({placeholders})')
-                params.extend(age)
-            else:
-                conditions.append('d.age = ?')
-                params.append(age)
-
-        if author is not None:
-            if isinstance(author, list):
-                placeholders = ','.join(['?'] * len(author))
-                conditions.append(f'a.name IN ({placeholders})')
-                params.extend(author)
-            else:
-                conditions.append('a.name = ?')
-                params.append(author)
-
-        if line is not None:
-            if isinstance(line, list):
-                placeholders = ','.join(['?'] * len(line))
-                conditions.append(f'd.line IN ({placeholders})')
-                params.extend(line)
-            else:
-                conditions.append('d.line = ?')
-                params.append(line)
-        if conditions:
-            query += ' WHERE ' + ' AND '.join(conditions)
         cursor.execute(query, params)
         file_paths = [row[0] for row in cursor.fetchall()]
         conn.close()
+
         return file_paths
 
-    def data_generator(self, metadata):
-        """Generate DataFrames and their associated authors for all entries in metadata."""
+    def data_generator(self, metadata: dict):
+        """
+        Generates DataFrames and their associated author names from the database based on the provided metadata.
+
+        This method queries the database using the filter parameters stored in the metadata,
+        retrieves the file paths and author names, and yields each DataFrame along with its author.
+
+        Args:
+            metadata: the results from the query()
+        """
         query_params = metadata.get('_query_params', {})
         age = query_params.get('age')
         author = query_params.get('author')
-        line = query_params.get('line')
+        line = query_params.get('trace_id')
+
+        select_clause = 'd.file_path, a.name'
+        query, params = self._build_query_and_params(age, author, line, select_clause)
 
         conn = sqlite3.connect(self.file_db)
         cursor = conn.cursor()
-        query = '''
-            SELECT d.file_path, a.name
-            FROM datasets d
-            JOIN authors a ON d.author = a.id
-        '''
-        conditions = []
-        params = []
-        if age is not None:
-            if isinstance(age, list):
-                placeholders = ','.join(['?'] * len(age))
-                conditions.append(f'd.age IN ({placeholders})')
-                params.extend(age)
-            else:
-                conditions.append('d.age = ?')
-                params.append(age)
-
-        if author is not None:
-            if isinstance(author, list):
-                placeholders = ','.join(['?'] * len(author))
-                conditions.append(f'a.name IN ({placeholders})')
-                params.extend(author)
-            else:
-                conditions.append('a.name = ?')
-                params.append(author)
-
-        if line is not None:
-            if isinstance(line, list):
-                placeholders = ','.join(['?'] * len(line))
-                conditions.append(f'd.line IN ({placeholders})')
-                params.extend(line)
-            else:
-                conditions.append('d.line = ?')
-                params.append(line)
-        if conditions:
-            query += ' WHERE ' + ' AND '.join(conditions)
         cursor.execute(query, params)
         results = cursor.fetchall()
         conn.close()
+
         for file_path, author_name in results:
             df = pd.read_pickle(file_path)
             yield df, author_name
@@ -199,7 +140,7 @@ class Database:
         plt.figure()
         plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
         for df, author in self.data_generator(metadata):
-            plt.plot(df.x/1000, df.y/1000, linewidth=1, color=colors[author])
+            plt.plot(df.x/1000, df.y/1000, linewidth=0.8, color=colors[author])
 
         ax = plt.gca()
         x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim

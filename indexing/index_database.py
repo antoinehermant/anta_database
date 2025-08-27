@@ -4,7 +4,7 @@ import pandas as pd
 import sqlite3
 
 class IndexDatabase:
-    def __init__(self, database_dir: str, file_db: str = 'isochrones.db', index: str = 'database_index.csv'):
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index: str = 'database_index.csv'):
         self.db_dir = database_dir
         self.file_db = os.path.join(self.db_dir, file_db)
         self.file_index = index

@@ -109,7 +109,8 @@ You can (re)compile the database, if for example you modify some data in the raw
 For this, make sure to follow the structure:
 #+begin_src bash
 AntADatabase/
-├── isochrones.db
+├── AntADatabase.db
+├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi
 ├── Author_YYYY
     ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
     ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
