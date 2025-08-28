@@ -44,7 +44,7 @@ Note: The database is not included in this repository. Contact me for access.
 - First, initialize the Database class:
 #+begin_src python
 from anta_database import Database
-database = Database('/path/to/AntADatabase/') # insert the path of the downloaded database
+database = Database('/path/to/AntADatabase/') # insert the path of the downloaded database, absolute path is recommanded
 #+end_src
 
 #+RESULTS:
@@ -87,12 +87,13 @@ results = database.query(age='38100')
 lazy_dfs = database.data_generator(results)
 
 mean_depth_trs = []
-for df, _ in lazy_dfs:
+for df, md in lazy_dfs:
     mean_depth_trs.append(np.mean(df[38100]))
 
 mean_depth = np.mean(mean_depth_trs)
 print('The mean depth of the 38ka isochrone across East Antarctica is', mean_depth, 'm')
 #+end_src
+Note: In the database, the file paths are relative to the database path. When initiating the database, you provide the absolute path to the database. So the data_generator function uses the relative path given in the results from the query and the absolute path to the database to read the files. The second argument returned by data_generator ('md' in the example above) is the unique metadata for the current df.
 * Advanced: Managing the database
 ** Reindexing
 You may want for example to update the age of the layers in a particular dataset.
@@ -141,4 +142,4 @@ Feel free to raise an issue on the GitHub if you find any bug or if you would li
 If you like this database and wish to help me develop this module, do not hesitate to contact me. You should then fork the repo, build feature branches and pull request. That would be much appreciated!
 * License
 Any data used through this database should be cited at source. For this, use the DOI provided in the metadata.
-If you used this tool for your work and this was usefull, please cite this repo, so other people get to know that it exists.
+If you used this tool for your work and this was useful, please cite this repo, so other people get to know that it exists.

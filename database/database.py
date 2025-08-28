@@ -1,4 +1,4 @@
-import os
+import os, sys
 import sqlite3
 import pandas as pd
 import numpy as np
@@ -44,6 +44,53 @@ class Database:
             query += ' WHERE ' + ' AND '.join(conditions)
 
         return query, params
+
+    def _get_file_metadata(self, file_path) -> Dict:
+        """
+        Helper method to build the SQL query and parameters for filtering.
+        Returns the query string and parameters list.
+        """
+        select_clause = 'a.name, d.age, d.trace_id, d.file_path'
+        query = f'''
+            SELECT {select_clause}
+            FROM datasets d
+            JOIN authors a ON d.author = a.id
+        '''
+        conditions = []
+        params = []
+
+        if file_path is not None:
+            if isinstance(file_path, list):
+                placeholders = ','.join(['?'] * len(file_path))
+                conditions.append(f'd.file_path IN ({placeholders})')
+                params.extend(file_path)
+            else:
+                conditions.append(f'd.file_path = ?')
+                params.append(file_path)
+
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+
+        conn = sqlite3.connect(self.file_db)
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+
+        metadata = {
+            'author': set(),
+            'age': set(),
+            'trace_id': set(),
+            'file_path': set(),
+        }
+
+        for author_name, age, trace_id, file_path in results:
+            metadata['author'].add(author_name)
+            metadata['age'].add(age)
+            metadata['trace_id'].add(trace_id)
+            metadata['file_path'].add(file_path)
+
+        return metadata
 
     def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> Dict:
         select_clause = 'a.name, a.citation, a.doi, d.age, d.trace_id'
@@ -103,10 +150,10 @@ class Database:
         query_params = metadata.get('_query_params', {})
         age = query_params.get('age')
         author = query_params.get('author')
-        line = query_params.get('trace_id')
+        trace_id = query_params.get('trace_id')
 
-        select_clause = 'd.file_path, a.name'
-        query, params = self._build_query_and_params(age, author, line, select_clause)
+        select_clause = 'd.file_path'
+        query, params = self._build_query_and_params(age, author, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db)
         cursor = conn.cursor()
@@ -114,12 +161,18 @@ class Database:
         results = cursor.fetchall()
         conn.close()
 
-        for file_path, author_name in results:
-            df = pd.read_pickle(file_path)
-            yield df, author_name
+        for file_path in results:
+            if len(file_path) > 1:
+                print('Returned more than 1 file path for current file, this has to be fixed. Exiting ...')
+                sys.exit()
+            else:
+                file_path = next(iter(file_path))
+                df = pd.read_pickle(os.path.join(self.db_dir, file_path))
+                metadata = self._get_file_metadata(file_path)
+            yield df, metadata
 
     def plotXY(self,
-               metadata: dict,
+               metadata: Dict,
                title: str = '',
                xlim: tuple = (None, None),
                ylim: tuple = (None, None),
@@ -139,7 +192,8 @@ class Database:
 
         plt.figure()
         plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
-        for df, author in self.data_generator(metadata):
+        for df, md in self.data_generator(metadata):
+            author = next(iter(md['author']))
             plt.plot(df.x/1000, df.y/1000, linewidth=0.8, color=colors[author])
 
         ax = plt.gca()
