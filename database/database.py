@@ -11,7 +11,9 @@ class Database:
         module_dir = os.path.dirname(os.path.abspath(__file__))
         self.gl = pd.read_pickle(os.path.join(module_dir, 'plotting', 'GL.pkl'))
         self.db_dir = database_dir
-        self.file_db = os.path.join(self.db_dir, file_db)
+        self.file_db = file_db
+        self.file_db_path = os.path.join(self.db_dir, file_db)
+        self.md = None
 
     def _build_query_and_params(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
         """
@@ -71,7 +73,7 @@ class Database:
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
 
-        conn = sqlite3.connect(self.file_db)
+        conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -82,6 +84,8 @@ class Database:
             'age': set(),
             'trace_id': set(),
             'file_path': set(),
+            'database_path': self.db_dir,
+            'file_db': self.file_db,
         }
 
         for author_name, age, trace_id, file_path in results:
@@ -96,7 +100,7 @@ class Database:
         select_clause = 'a.name, a.citation, a.doi, d.age, d.trace_id'
         query, params = self._build_query_and_params(age, author, trace_id, select_clause)
 
-        conn = sqlite3.connect(self.file_db)
+        conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -108,7 +112,9 @@ class Database:
             'reference': set(),
             'doi': set(),
             'trace_id': set(),
-            '_query_params': {'age': age, 'author': author, 'trace_id': trace_id}
+            '_query_params': {'age': age, 'author': author, 'trace_id': trace_id},
+            'database_path': self.db_dir,
+            'file_db': self.file_db,
         }
 
         for author_name, citations, doi, ages, trace_id in results:
@@ -118,6 +124,7 @@ class Database:
             metadata['doi'].add(doi)
             metadata['trace_id'].add(trace_id)
 
+        self.md = metadata
         return metadata
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
@@ -129,7 +136,7 @@ class Database:
         select_clause = 'd.file_path'
         query, params = self._build_query_and_params(age, author, line, select_clause)
 
-        conn = sqlite3.connect(self.file_db)
+        conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         file_paths = [row[0] for row in cursor.fetchall()]
@@ -137,7 +144,7 @@ class Database:
 
         return file_paths
 
-    def data_generator(self, metadata: dict):
+    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None):
         """
         Generates DataFrames and their associated author names from the database based on the provided metadata.
 
@@ -147,7 +154,15 @@ class Database:
         Args:
             metadata: the results from the query()
         """
-        query_params = metadata.get('_query_params', {})
+        if metadata:
+            md = metadata
+        elif self.md:
+            md = self.md
+        else:
+            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
+            sys.exit()
+
+        query_params = md.get('_query_params', {})
         age = query_params.get('age')
         author = query_params.get('author')
         trace_id = query_params.get('trace_id')
@@ -155,11 +170,19 @@ class Database:
         select_clause = 'd.file_path'
         query, params = self._build_query_and_params(age, author, trace_id, select_clause)
 
-        conn = sqlite3.connect(self.file_db)
+        conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
         conn.close()
+
+        if data_dir:
+            data_dir = data_dir
+        elif self.db_dir:
+            data_dir = self.db_dir
+        else:
+            print('No data dir provided, do not know where to look for data, exiting ...')
+            sys.exit()
 
         for file_path in results:
             if len(file_path) > 1:
@@ -167,18 +190,26 @@ class Database:
                 sys.exit()
             else:
                 file_path = next(iter(file_path))
-                df = pd.read_pickle(os.path.join(self.db_dir, file_path))
+                df = pd.read_pickle(os.path.join(data_dir, file_path))
                 metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
     def plotXY(self,
-               metadata: Dict,
+               metadata: Union[None, Dict] = None,
                title: str = '',
                xlim: tuple = (None, None),
                ylim: tuple = (None, None),
                scale_factor: float = 1.0,
                latex:bool = False,
                save: Union[str, None] = None) -> None:
+
+        if metadata:
+            metadata = metadata
+        elif self.md:
+            metadata = self.md
+        else:
+            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
+            sys.exit()
 
         cmaps = cma.cmaps['cma:emph_r']
         authors = list(metadata['author'])
