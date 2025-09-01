@@ -47,6 +47,22 @@ class CompileDatabase:
                 ds = ds[ds.columns.intersection(original_new_columns.columns)]
                 ds.columns = original_new_columns[ds.columns].iloc[0].values  # renaming the columns
 
+                if 'IceThk' in ds.columns and 'SurfElev' in ds.columns and not 'BedElev' in ds.columns:
+                    ds['BedElev'] = ds['SurfElev'] - ds['IceThk']
+                if 'IceThk' in ds.columns and 'BedElev' in ds.columns and not 'SurfElev' in ds.columns:
+                    ds['SurfElev'] = ds['BedElev'] + ds['IceThk']
+                if 'SurfElev' in ds.columns and 'BedElev' in ds.columns and not 'IceThk' in ds.columns:
+                    ds['IceThk'] = ds['SurfElev'] - ds['BedElev']
+
+                if self.wave_speed:
+                    for var in ['IceThk', 'BedElev']:
+                        if var in ds.columns:
+                            ds[var] *= self.wave_speed
+                if self.firn_correction:
+                    for var in ['IceThk', 'BedElev']:
+                        if var in ds.columns:
+                            ds[var] += self.firn_correction
+
                 if 'x' not in ds.columns and 'y' not in ds.columns:
                     if 'lon' in ds.columns and 'lat' in ds.columns:
                         transformer = Transformer.from_proj(
@@ -70,8 +86,12 @@ class CompileDatabase:
                     sys.exit()
 
                 if self.file_type == 'layer':
-                    age = ages[file_name_]
+                    age = str(ages[file_name_])
                     ds = ds.rename(columns={'IRHdepth': age})
+                    if self.wave_speed:
+                        ds[age] *= self.wave_speed
+                    if self.firn_correction:
+                        ds[age] += self.firn_correction
 
                     ds['Trace_ID'] = ds['Trace_ID'].astype(str)
                     ds['Trace_ID'] = ds['Trace_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
@@ -81,6 +101,12 @@ class CompileDatabase:
 
                     for trace_id in np.unique(ds.index):
                         ds_trace = ds.loc[trace_id]
+                        if 'distance' not in ds_trace.columns:
+                            x = ds_trace[['x', 'y']]
+                            distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
+                            cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
+                            ds_trace['distance'] = cumulative_distance
+
                         ds_trace_file = f'{dir_path}/pkl/{trace_id}/{file_name_}.pkl'
 
                         os.makedirs(f'{dir_path}/pkl/{trace_id}' , exist_ok=True)
@@ -88,26 +114,35 @@ class CompileDatabase:
                         print(ds_trace_file)
 
                 elif self.file_type == 'trace':
+                    if 'distance' not in ds.columns:
+                        x = ds[['x', 'y']]
+                        distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
+                        cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
+                        ds['distance'] = cumulative_distance
+
                     trace_id = file_name_
                     ages = {key: ages[key] for key in ds.columns if key in ages}
 
                     for IRH in ages:
-                        age_impl = ages.get(IRH)
-                        ds = ds.rename(columns={IRH: age_impl})
-
-                    for IRH in ages:
-                        ds_IRH = ds[ages.get(IRH)]
-                        if self.wave_speed:
-                            ds_IRH *= self.wave_speed
-                        if self.firn_correction:
-                            ds_IRH += self.firn_correction
+                        age = str(ages.get(IRH))
+                        ds_IRH = ds[IRH]
                         ds_IRH = pd.DataFrame({
-                            'x': ds['x'],
-                            'y': ds['y'],
                             'lon': ds['lon'],
                             'lat': ds['lat'],
-                            ages.get(IRH): ds_IRH,
+                            'x': ds['x'],
+                            'y': ds['y'],
+                            'distance': ds['distance'],
+                            age: ds_IRH,
                         })
+                        if self.wave_speed:
+                            ds_IRH[age] *= self.wave_speed
+                        if self.firn_correction:
+                            ds_IRH += self.firn_correction
+
+                        for var in ['IceThk', 'BedElev', 'SurfElev']:
+                            if var in ds.columns:
+                                ds_IRH[var] = ds[var]
+
                         ds_trace_file = f'{dir_path}/pkl/{trace_id}/{IRH}.pkl'
 
                         os.makedirs(f'{dir_path}/pkl/{trace_id}' , exist_ok=True)
