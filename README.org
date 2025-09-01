@@ -9,21 +9,23 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Memory efficiency: Only relevant data is read when needed.
 - Fast read performance: Lightweight and optimized for speed.
 ** Datasets currently included:
-- Cavitte et al. 2020, (doi.org/10.15784/601411)
-- Franke et al. 2025, (doi.org/10.1594/PANGAEA.973266)
-- Sanderson et al. 2024, (doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
 - Winter et al. 2018, (doi.org/10.1594/PANGAEA.895528)
+- Cavitte et al. 2020, (doi.org/10.15784/601411)
+- Beem et al. 2021, (doi.org/10.15784/601437)
+- Wang et al. 2023, (doi.org/10.1594/PANGAEA.958462)
+- Sanderson et al. 2024, (doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
+- Franke et al. 2025, (doi.org/10.1594/PANGAEA.973266)
 * Key Features
 - Efficient SQLite indexing
 - Quick visualization on Antarctica map
 - Generate lazy data for later use
 * Installation
-1. Clone this repository:
+1- Clone this repository:
 #+begin_src bash
 git clone git@github:antoinehermant/anta_database.git
 cd anta_database
 #+end_src
-2. Create a specific python environment (optional but recommended):
+2- Create a specific python environment (optional but recommended):
 #+begin_src bash
 '''Using conda'''
 conda create -n anta_database
@@ -34,7 +36,7 @@ conda install pip
 python -m venv /path/to/environment/anta_database # Replace the path with your desired environment path
 source /path/to/environment/anta_database
 #+end_src
-3. Install the Python module:
+3- Install the Python module:
 #+begin_src bash
 pip install .
 #+end_src
@@ -76,7 +78,7 @@ database.plotXY(results,
 #+end_src
 #+CAPTION: Example figure
 #+ATTR_ORG: :width 500 :align center
-[[./figures/AntA_38ka.png]]
+[[./anta_database/figures/AntA_38ka.png]]
 ** Generate Data
 Note: This part could be developed further in the future if there is the need. But for now, I am designing a separate Python module for constraining my ice sheet model of use, which is tailored to this database and other parallel processing libraries.
 
@@ -118,8 +120,7 @@ AntADatabase/
     ├── raw/
     └── pkl/
 #+end_src
-
-Then use the CompileDatabase class to compile the database:
+Then use the CompileDatabase class to compile the database.
 #+begin_src python
 from anta_database import CompileDatabase
 
@@ -128,12 +129,19 @@ dir_path_list = [ # list of the dataset subdirectories to compile
     './Sanderson_2024',
     './Franke_2025',
     './Cavitte_2020',
+    './Beem_2021',
 ]
 
 compiler = CompileDatabase(dir_path_list)
 compiler.compile()
 #+end_src
-Then reindex (see above)
+Then reindex (see above).
+By default, it assumes that the files in raw/ are sorted by IRH (one file = one layer and multiple traces). If the files are sorted the other way around (one file = one trace and multiple layers), you can set file_type='trace' in CompileDatabase(). Furthermore, if the depth is not given in meters but TWT, you should set the wave_speed (units should match values in the file) for conversion and firn_correction (meters):
+#+begin_src python
+dir_path = './Wang_2023'
+compiler = CompileDatabase(dir_path, file_type='trace', wave_speed=0.1685, firn_correction=15.5)
+compiler.compile()
+#+end_src
 * Support and contact
 You can email me for downloading the database: antoine.hermant@unibe.ch
 

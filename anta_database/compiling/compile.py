@@ -7,7 +7,7 @@ from pyproj import Transformer
 from typing import Union
 
 class CompileDatabase:
-    def __init__(self, dir_list: list[str], file_type: str = 'layer', wave_speed: Union[None, float] = None, firn_correction: Union[None, float] = None) -> None:
+    def __init__(self, dir_list: Union[str, list[str]], file_type: str = 'layer', wave_speed: Union[None, float] = None, firn_correction: Union[None, float] = None) -> None:
         self.dir_list = dir_list
         self.wave_speed = wave_speed
         self.firn_correction = firn_correction
@@ -18,6 +18,8 @@ class CompileDatabase:
         return dict(zip(ages['file'], ages['age']))
 
     def compile(self) -> None:
+        if not isinstance(self.dir_list, list):
+            self.dir_list = [self.dir_list]
         for dir_path in self.dir_list:
 
             raw_files = glob.glob(f'{dir_path}/raw/*.*')

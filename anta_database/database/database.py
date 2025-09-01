@@ -80,20 +80,13 @@ class Database:
         conn.close()
 
         metadata = {
-            'author': set(),
-            'age': set(),
-            'trace_id': set(),
-            'file_path': set(),
+            'author': results[0][0],
+            'age': results[0][1],
+            'trace_id': results[0][2],
+            'file_path': results[0][3],
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
-
-        for author_name, age, trace_id, file_path in results:
-            metadata['author'].add(author_name)
-            metadata['age'].add(age)
-            metadata['trace_id'].add(trace_id)
-            metadata['file_path'].add(file_path)
-
         return metadata
 
     def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> Dict:
@@ -224,7 +217,7 @@ class Database:
         plt.figure()
         plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
         for df, md in self.data_generator(metadata):
-            author = next(iter(md['author']))
+            author = md['author']
             plt.plot(df.x/1000, df.y/1000, linewidth=0.8, color=colors[author])
 
         ax = plt.gca()

@@ -6,11 +6,16 @@ setup(
     author="Antoine Hermant",
     author_email= "antoine.hermant@etik.com",
     url="https://github.com/antoinehermant/anta_database",
-    description= "SQLite database for the AntArchitecture radar data",
+    description= "SQLite database for the AntArchitecture Community Data",
     long_description="""""",
     packages=find_packages(),
+    package_data={
+        'anta_database': ['database/plotting/*.pkl'],
+    },
     install_requires=[
         'pandas',
+        'pyproj',
         'matplotlib',
+        'cmastro @ git+https://github.com/adrn/cmastro.git',
     ]
 )
