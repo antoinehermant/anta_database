@@ -64,6 +64,7 @@ database.query(age='38100')
 database.query(trace_id='DC_LDC_DIVIDE')
 database.query(author=['Franke_2025', 'Winter_2018'], age='38100')
 #+end_src
+Note: 'IceThk', 'SurfElev' and 'BedElev' are also valid age values. This is convenient when one wants to process the surface elevation as a layer for example.
 ** Visualization
 Use the results of the query in the plotting functions:
 #+begin_src python
@@ -90,7 +91,7 @@ lazy_dfs = database.data_generator(results)
 
 mean_depth_trs = []
 for df, md in lazy_dfs:
-    mean_depth_trs.append(np.mean(df[38100]))
+    mean_depth_trs.append(np.mean(df['38100']))
 
 mean_depth = np.mean(mean_depth_trs)
 print('The mean depth of the 38ka isochrone across East Antarctica is', mean_depth, 'm')
