@@ -18,7 +18,7 @@ class IndexDatabase:
     def index_database(self):
         Authors_ages = {}
         for _, row in self.index.iterrows():
-            ages = self.get_dict_ages(f"{row.directory}/IRH_ages.tab")
+            ages = self.get_dict_ages(f"{self.db_dir}/{row.directory}/IRH_ages.tab")
             Authors_ages.update({f"{row.directory}": ages})
 
         if os.path.exists(self.file_db):
@@ -60,13 +60,14 @@ class IndexDatabase:
 
         # Insert the metadata for each dataset into the table
         for file in glob.glob(f'{self.db_dir}/**/**/*.pkl', recursive=True):
-            print(file)
             dir_name, file_name = os.path.split(file)
             pkl_dir, trace_id = os.path.split(dir_name)
             author_dir, _ = os.path.split(pkl_dir)
 
             author = os.path.basename(author_dir)
             file_name_, ext = os.path.splitext(file_name)
+            relative_file_path = f'{author}/pkl/{trace_id}/{file_name}'
+            print(relative_file_path)
 
             # Get the author's ID from the authors table
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
@@ -77,7 +78,7 @@ class IndexDatabase:
             cursor.execute('''
                 INSERT INTO datasets (file_path, author, age, trace_id)
                 VALUES (?, ?, ?, ?)
-            ''', (file, author_id, age, trace_id))
+            ''', (relative_file_path, author_id, age, trace_id))
 
         conn.commit()
         conn.close()
