@@ -160,7 +160,7 @@ class Database:
         author = query_params.get('author')
         trace_id = query_params.get('trace_id')
 
-        select_clause = 'd.file_path'
+        select_clause = 'DISTINCT d.file_path'
         query, params = self._build_query_and_params(age, author, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
