@@ -70,6 +70,7 @@ Use the results of the query in the plotting functions:
 #+begin_src python
 results = database.query(age='38100')
 database.plotXY(results,
+                downscale_factor=1000, # downscale the datasets n times, which makes no visual difference but it is much lighter
                 title='AntArchitecture 38.1ka layer',
                 xlim=(-500, 2400), ylim=(-2200, 2200), # set the plot extent in km
                 scale_factor=0.5, # adjust the size of the plot
@@ -95,6 +96,10 @@ for df, md in lazy_dfs:
 
 mean_depth = np.mean(mean_depth_trs)
 print('The mean depth of the 38ka isochrone across East Antarctica is', mean_depth, 'm')
+#+end_src
+The downscale_factor argument in the data_generator reduces the size of the generated data by n times. This is useful when dealing with large data where the downscaling has a neglectable influence on the results:
+#+begin_src python
+lazy_dfs = database.data_generator(results, downscale_factor=10)
 #+end_src
 Note: In the database, the file paths are relative to the database path. When initiating the database, you provide the absolute path to the database. So the data_generator function uses the relative path given in the results from the query and the absolute path to the database to read the files. The second argument returned by data_generator ('md' in the example above) is the unique metadata for the current df.
 * Advanced: Managing the database

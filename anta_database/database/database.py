@@ -137,7 +137,7 @@ class Database:
 
         return file_paths
 
-    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None):
+    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None):
         """
         Generates DataFrames and their associated author names from the database based on the provided metadata.
 
@@ -184,11 +184,14 @@ class Database:
             else:
                 file_path = next(iter(file_path))
                 df = pd.read_pickle(os.path.join(data_dir, file_path))
+                if downscale_factor:
+                    df = df[::downscale_factor]
                 metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
     def plotXY(self,
                metadata: Union[None, Dict] = None,
+               downscale_factor: Union[None, int] = None,
                title: str = '',
                xlim: tuple = (None, None),
                ylim: tuple = (None, None),
@@ -216,7 +219,7 @@ class Database:
 
         plt.figure()
         plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
-        for df, md in self.data_generator(metadata):
+        for df, md in self.data_generator(metadata, downscale_factor=downscale_factor):
             author = md['author']
             plt.plot(df.x/1000, df.y/1000, linewidth=0.8, color=colors[author])
 
