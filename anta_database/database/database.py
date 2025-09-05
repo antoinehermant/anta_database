@@ -137,7 +137,7 @@ class Database:
 
         return file_paths
 
-    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None):
+    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None, downsample_distance: Union[None, float, int] = None):
         """
         Generates DataFrames and their associated author names from the database based on the provided metadata.
 
@@ -186,6 +186,10 @@ class Database:
                 df = pd.read_pickle(os.path.join(data_dir, file_path))
                 if downscale_factor:
                     df = df[::downscale_factor]
+                if downsample_distance:
+                    df['bin'] = np.floor(df['distance'] / downsample_distance) * downsample_distance
+                    df = df.groupby('bin').mean().reset_index()
+                    df.drop(columns=['bin'], inplace=True)
                 metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
