@@ -9,12 +9,12 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Memory efficiency: Only relevant data is read when needed.
 - Fast read performance: Lightweight and optimized for speed.
 ** Datasets currently included:
-- Winter et al. 2018, (doi.org/10.1594/PANGAEA.895528)
-- Cavitte et al. 2020, (doi.org/10.15784/601411)
-- Beem et al. 2021, (doi.org/10.15784/601437)
-- Wang et al. 2023, (doi.org/10.1594/PANGAEA.958462)
-- Sanderson et al. 2024, (doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
-- Franke et al. 2025, (doi.org/10.1594/PANGAEA.973266)
+- Winter et al. 2018, (https://doi.org/10.1594/PANGAEA.895528)
+- Cavitte et al. 2020, (https://doi.org/10.15784/601411)
+- Beem et al. 2021, (https://doi.org/10.15784/601437)
+- Wang et al. 2023, (https://doi.org/10.1594/PANGAEA.958462)
+- Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
+- Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 * Key Features
 - Efficient SQLite indexing
 - Quick visualization on Antarctica map
@@ -42,6 +42,7 @@ pip install .
 #+end_src
 Note: The database is not included in this repository. Contact me for access.
 * How to use with examples
+Also see the Jupyter Notebook 'example.ipynb' for a more integrated tutorial.
 ** Browsing Metadata
 - First, initialize the Database class:
 #+begin_src python
