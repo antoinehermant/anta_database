@@ -60,12 +60,13 @@ By default, a dictionary with all available trace IDs is included in the query r
 
 - Refine your search either by author, age, or trace_id, or by combining arguments. Lists are also allowed:
 #+begin_src python
-database.query(author='Cavitte_2020')
-database.query(age='38100')
-database.query(trace_id='DC_LDC_DIVIDE')
-database.query(author=['Franke_2025', 'Winter_2018'], age='38100')
+database.query(author='Cavitte_2020') # all data from Cavitte et al. 2020
+database.query(age='38100') # all datasets with the 38.1ka isochrone
+database.query(var='IceThk') # all datasets with IceThk variable
+database.query(trace_id='DC_LDC_DIVIDE') # all layers with the trace ID DC_LDC_DIVIDE
+database.query(author=['Franke_2025', 'Winter_2018'], age='38100') # example of multiple criteria
 #+end_src
-Note: 'IceThk', 'SurfElev' and 'BedElev' are also valid age values. This is convenient when one wants to process the surface elevation as a layer for example.
+Note: 'IceThk', 'SurfElev' and 'BedElev' are possible extra variables included in the database when the datasets contain the relevant data.
 ** Visualization
 Use the results of the query in the plotting functions:
 #+begin_src python

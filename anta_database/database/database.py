@@ -15,7 +15,7 @@ class Database:
         self.file_db_path = os.path.join(self.db_dir, file_db)
         self.md = None
 
-    def _build_query_and_params(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
+    def _build_query_and_params(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
         """
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
@@ -30,6 +30,7 @@ class Database:
 
         for field, column in [
             (age, 'd.age'),
+            (var, 'd.var'),
             (author, 'a.name'),
             (line, 'd.trace_id')
         ]:
@@ -45,6 +46,7 @@ class Database:
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
 
+        query += 'ORDER BY CAST(d.age AS INTEGER) ASC'
         return query, params
 
     def _get_file_metadata(self, file_path) -> Dict:
@@ -52,7 +54,7 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.age, d.trace_id, d.file_path'
+        select_clause = 'a.name, d.age, d.var, d.trace_id, d.file_path'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -82,16 +84,17 @@ class Database:
         metadata = {
             'author': results[0][0],
             'age': results[0][1],
-            'trace_id': results[0][2],
-            'file_path': results[0][3],
+            'var': results[0][2],
+            'trace_id': results[0][3],
+            'file_path': results[0][4],
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
         return metadata
 
-    def query(self, age: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> Dict:
-        select_clause = 'a.name, a.citation, a.doi, d.age, d.trace_id'
-        query, params = self._build_query_and_params(age, author, trace_id, select_clause)
+    def query(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None,author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> Dict:
+        select_clause = 'a.name, a.citation, a.doi, d.age, d.var, d.trace_id'
+        query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -100,22 +103,34 @@ class Database:
         conn.close()
 
         metadata = {
-            'author': set(),
-            'age': set(),
-            'reference': set(),
-            'doi': set(),
-            'trace_id': set(),
-            '_query_params': {'age': age, 'author': author, 'trace_id': trace_id},
+            'author': [],
+            'age': [],
+            'var': [],
+            'reference': [],
+            'doi': [],
+            'trace_id': [],
+            '_query_params': {'age': age, 'var': var, 'author': author, 'trace_id': trace_id},
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
-
-        for author_name, citations, doi, ages, trace_id in results:
-            metadata['author'].add(author_name)
-            metadata['age'].add(ages)
-            metadata['reference'].add(citations)
-            metadata['doi'].add(doi)
-            metadata['trace_id'].add(trace_id)
+        ages_list = []
+        vars_list = []
+        for author_name, citations, doi, ages, vars, trace_id in results:
+            metadata['author'].append(author_name)
+            metadata['reference'].append(citations)
+            metadata['doi'].append(doi)
+            metadata['trace_id'].append(trace_id)
+            # Check if the age is numeric
+            if ages is not None and ages.isdigit():
+                ages_list.append(int(ages))
+            if vars is not None:
+                vars_list.append(vars)
+        metadata['age'] = sorted({str(age) for age in set(ages_list)}, key=int)
+        metadata['var'] = sorted(set(vars_list))
+        metadata['author'] = list(dict.fromkeys(metadata['author']))
+        metadata['reference'] = list(dict.fromkeys(metadata['reference']))
+        metadata['doi'] = list(dict.fromkeys(metadata['doi']))
+        metadata['trace_id'] = list(set(metadata['trace_id']))
 
         self.md = metadata
         return metadata
@@ -123,11 +138,12 @@ class Database:
     def _get_file_paths_from_metadata(self, metadata) -> List:
         query_params = metadata.get('_query_params', {})
         age = query_params.get('age')
+        var = query_params.get('var')
         author = query_params.get('author')
         line = query_params.get('trace_id')
 
         select_clause = 'd.file_path'
-        query, params = self._build_query_and_params(age, author, line, select_clause)
+        query, params = self._build_query_and_params(age, var, author, line, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -157,11 +173,12 @@ class Database:
 
         query_params = md.get('_query_params', {})
         age = query_params.get('age')
+        var = query_params.get('var')
         author = query_params.get('author')
         trace_id = query_params.get('trace_id')
 
-        select_clause = 'DISTINCT d.file_path'
-        query, params = self._build_query_and_params(age, author, trace_id, select_clause)
+        select_clause = 'DISTINCT d.file_path, d.age'
+        query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -177,20 +194,15 @@ class Database:
             print('No data dir provided, do not know where to look for data, exiting ...')
             sys.exit()
 
-        for file_path in results:
-            if len(file_path) > 1:
-                print('Returned more than 1 file path for current file, this has to be fixed. Exiting ...')
-                sys.exit()
-            else:
-                file_path = next(iter(file_path))
-                df = pd.read_pickle(os.path.join(data_dir, file_path))
-                if downscale_factor:
-                    df = df[::downscale_factor]
-                if downsample_distance:
-                    df['bin'] = np.floor(df['distance'] / downsample_distance) * downsample_distance
-                    df = df.groupby('bin').mean().reset_index()
-                    df.drop(columns=['bin'], inplace=True)
-                metadata = self._get_file_metadata(file_path)
+        for file_path, age in results:
+            df = pd.read_pickle(os.path.join(data_dir, file_path))
+            if downscale_factor:
+                df = df[::downscale_factor]
+            if downsample_distance:
+                df['bin'] = np.floor(df['distance'] / downsample_distance) * downsample_distance
+                df = df.groupby('bin').mean().reset_index()
+                df.drop(columns=['bin'], inplace=True)
+            metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
     def plotXY(self,

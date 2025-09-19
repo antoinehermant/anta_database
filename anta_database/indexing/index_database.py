@@ -14,12 +14,20 @@ class IndexDatabase:
         ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age'])
         return dict(zip(ages['file'], ages['age']))
 
+    def get_dict_vars(self, tab_file) -> dict:
+        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'var'])
+        return dict(zip(ages['file'], ages['var']))
 
     def index_database(self):
         Authors_ages = {}
         for _, row in self.index.iterrows():
             ages = self.get_dict_ages(f"{self.db_dir}/{row.directory}/IRH_ages.tab")
             Authors_ages.update({f"{row.directory}": ages})
+
+        Extra_vars = {}
+        for _, row in self.index.iterrows():
+            vars = self.get_dict_ages(f"{self.db_dir}/{row.directory}/vars.tab")
+            Extra_vars.update({f"{row.directory}": vars})
 
         if os.path.exists(self.file_db):
             os.remove(self.file_db)
@@ -53,6 +61,7 @@ class IndexDatabase:
                 file_path TEXT,
                 author TEXT,
                 age TEXT,
+                var TEXT,
                 trace_id TEXT,
                 FOREIGN KEY (author) REFERENCES authors (id)
             )
@@ -73,12 +82,20 @@ class IndexDatabase:
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
             author_id = cursor.fetchone()[0]
 
-            age = Authors_ages[author][file_name_]
+            if file_name_ in Authors_ages[author]:
+                age = Authors_ages[author][file_name_]
+            else:
+                age = None
+
+            if file_name_ in Extra_vars[author]:
+                var = Extra_vars[author][file_name_]
+            else:
+                var = None
 
             cursor.execute('''
-                INSERT INTO datasets (file_path, author, age, trace_id)
-                VALUES (?, ?, ?, ?)
-            ''', (relative_file_path, author_id, age, trace_id))
+                INSERT INTO datasets (file_path, author, age, var, trace_id)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (relative_file_path, author_id, age, var, trace_id))
 
         conn.commit()
         conn.close()
