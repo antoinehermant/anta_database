@@ -7,6 +7,7 @@ setup(
     author_email= "antoine.hermant@etik.com",
     url="https://github.com/antoinehermant/anta_database",
     description= "SQLite database for the AntArchitecture Community Data",
+    license="MIT",
     long_description="""""",
     packages=find_packages(),
     package_data={
