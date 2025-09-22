@@ -156,6 +156,7 @@ You can email me for downloading the database: antoine.hermant@unibe.ch
 Feel free to raise an issue on the GitHub if you find any bug or if you would like a feature added.
 * Contribution
 If you like this database and wish to help me develop this module, do not hesitate to contact me. You should then fork the repo, build feature branches and pull request. That would be much appreciated!
-* License
+* Acknowledgments
+I am developing this tool as part of my PhD project, which is funded by the Swiss National Science Foundation (grant no. 211542, Project CHARIBDIS)
 Any data used through this database should be cited at source. For this, use the DOI provided in the metadata.
 If you used this tool for your work and this was useful, please cite this repo, so other people get to know that it exists.
