@@ -16,6 +16,6 @@ setup(
         'pandas',
         'pyproj',
         'matplotlib',
-        'cmastro @ git+https://github.com/adrn/cmastro.git',
+        'seaborn',
     ]
 )

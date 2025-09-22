@@ -3,7 +3,8 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import cmastro as cma
+from matplotlib.colors import LinearSegmentedColormap
+import seaborn as sns
 from typing import Union, List, Dict, Tuple
 
 class Database:
@@ -205,6 +206,22 @@ class Database:
             metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
+    def custom_cmap(self):
+
+        flare = plt.colormaps['magma_r']  # Sequential (yellow/orange/red)
+        crest = plt.colormaps['mako']  # Diverging (blue/white/red)
+
+        flare_colors = flare(np.linspace(0, 0.8, 256))  # Shape: (256, 4) RGBA
+        crest_colors = crest(np.linspace(0.2, 1, 256))  # Shape: (256, 4) RGBA
+        combined_colors = np.vstack((flare_colors, crest_colors))
+        custom_cmap = LinearSegmentedColormap.from_list(
+            'flare_crest',  # Name your colormap
+            combined_colors,
+            N=512  # Double the resolution (256 + 256)
+        )
+        return custom_cmap
+
+
     def plotXY(self,
                metadata: Union[None, Dict] = None,
                downscale_factor: Union[None, int] = None,
@@ -223,7 +240,7 @@ class Database:
             print('Please provide metadata of the files you want to generate the data from. Exiting ...')
             sys.exit()
 
-        cmaps = cma.cmaps['cma:emph_r']
+        cmaps = self.custom_cmap()
         authors = list(metadata['author'])
         color_indices = np.linspace(0.1, 0.9, len(authors))
         colors = {author: cmaps(i) for i, author in zip(color_indices, authors)}
