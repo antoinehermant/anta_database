@@ -1,7 +1,7 @@
 #+title: Python-Powered SQLite Database for AntArchitecture Community Data
 #+author: Antoine Hermant
 
-This Python module provides an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
+This Python module provides an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models. Have a look at the [[https://antoinehermant.github.io/anta_database][Documentation]] for quick start and further information.
 
 * SQLite Database
 The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
@@ -20,143 +20,33 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Quick visualization on Antarctica map
 - Generate lazy data for later use
 * Installation
-1- Clone this repository:
+The Python module can be directly installed from [PyPI](https://pypi.org/project/anta-database/) with:
+#+begin_src bash
+pip install anta_database
+#+end_src
+Note that this module is new and under development, so that the PyPI package may not contain the latest features. For the latest version and development, see the instruction below.
+To get started with the anta_database module, see the [[https://antoinehermant.github.io/anta_database][Documentation]].
+Also, you need the actual data to use this module. It is currently not available on any public repository, so please contact me.
+
+** Advanced installation
+One can install the latest commit from this GitHub directory with:
+#+begin_src bash
+pip install git+https://github.com/antoinehermant/anta_database.git
+#+end_src
+
+Or for development, you should clone this repo and install the module in development mode:
 #+begin_src bash
 git clone git@github:antoinehermant/anta_database.git
-cd anta_database
-#+end_src
-2- Create a specific python environment (optional but recommended):
-#+begin_src bash
-'''Using conda'''
-conda create -n anta_database
-conda activate anta_database
-conda install pip
-
-'''Using venv'''
-python -m venv /path/to/environment/anta_database # Replace the path with your desired environment path
-source /path/to/environment/anta_database
-#+end_src
-3- Install the Python module:
-#+begin_src bash
-pip install .
-#+end_src
-Note: The database is not included in this repository. Contact me for access.
-* How to use with examples
-Also see the Jupyter Notebook 'example.ipynb' for a more integrated tutorial.
-** Browsing Metadata
-- First, initialize the Database class:
-#+begin_src python
-from anta_database import Database
-database = Database('/path/to/AntADatabase/') # insert the path of the downloaded database, absolute path is recommanded
+pip install -e anta_database/
 #+end_src
 
-#+RESULTS:
-
-Then use the query() function to browse the database. query() without argument will return all metadata from the database:
-#+begin_src python
-database.query()
-#+end_src
-By default, a dictionary with all available trace IDs is included in the query results. This can seem a lot, but it is actually useful for grepping traces with descriptive names such as 'DC_LDC_DIVIDE'.
-
-- Refine your search either by author, age, or trace_id, or by combining arguments. Lists are also allowed:
-#+begin_src python
-database.query(author='Cavitte_2020') # all data from Cavitte et al. 2020
-database.query(age='38100') # all datasets with the 38.1ka isochrone
-database.query(var='IceThk') # all datasets with IceThk variable
-database.query(trace_id='DC_LDC_DIVIDE') # all layers with the trace ID DC_LDC_DIVIDE
-database.query(author=['Franke_2025', 'Winter_2018'], age='38100') # example of multiple criteria
-#+end_src
-Note: 'IceThk', 'SurfElev' and 'BedElev' are possible extra variables included in the database when the datasets contain the relevant data.
-** Visualization
-Use the results of the query in the plotting functions:
-#+begin_src python
-results = database.query(age='38100')
-database.plotXY(results,
-                downscale_factor=1000, # downscale the datasets n times, which makes no visual difference but it is much lighter
-                title='AntArchitecture 38.1ka layer',
-                xlim=(-500, 2400), ylim=(-2200, 2200), # set the plot extent in km
-                scale_factor=0.5, # adjust the size of the plot
-                latex=True, # use latex compilers for plotting if you have them installed on your system
-                # save='AntA_38ka.pdf', # Uncomment to save the figure, otherwise it we visualize with pyplot
-                )
-#+end_src
-#+CAPTION: Example figure
-#+ATTR_ORG: :width 500 :align center
-[[./anta_database/figures/AntA_38ka.png]]
-** Generate Data
-Note: This part could be developed further in the future if there is the need. But for now, I am designing a separate Python module for constraining my ice sheet model of use, which is tailored to this database and other parallel processing libraries.
-
-The data_generator() function reads the query and 'yield' the dataframes for later use.
-Here is a quick example of how this can be used for computing the mean layer depth:
-#+begin_src python
-results = database.query(age='38100')
-lazy_dfs = database.data_generator(results)
-
-mean_depth_trs = []
-for df, md in lazy_dfs:
-    mean_depth_trs.append(np.mean(df['38100']))
-
-mean_depth = np.mean(mean_depth_trs)
-print('The mean depth of the 38ka isochrone across East Antarctica is', mean_depth, 'm')
-#+end_src
-The downscale_factor argument in the data_generator reduces the size of the generated data by n times. This is useful when dealing with large data where the downscaling has a neglectable influence on the results:
-#+begin_src python
-lazy_dfs = database.data_generator(results, downscale_factor=10)
-#+end_src
-Note: In the database, the file paths are relative to the database path. When initiating the database, you provide the absolute path to the database. So the data_generator function uses the relative path given in the results from the query and the absolute path to the database to read the files. The second argument returned by data_generator ('md' in the example above) is the unique metadata for the current df.
-* Advanced: Managing the database
-** Reindexing
-You may want for example to update the age of the layers in a particular dataset.
-For this, you just need to modify the ages in the file called 'IRH_ages.tab' located under a dataset directory. Then, reindex with the IndexDatabase class:
-#+begin_src python
-from anta_database import IndexDatabase
-
-db_path = '/path/to/root/of/the/database/' # path to 'AntADatabase/'
-indexing = IndexDatabase(db_path)
-indexing.index_database()
-#+end_src
-** (Re)compile the database
-You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset.
-For this, make sure to follow the structure:
-#+begin_src bash
-AntADatabase/
-├── AntADatabase.db
-├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi
-├── Author_YYYY
-    ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
-    ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
-    ├── raw/
-    └── pkl/
-#+end_src
-Then use the CompileDatabase class to compile the database.
-#+begin_src python
-from anta_database import CompileDatabase
-
-dir_path_list = [ # list of the dataset subdirectories to compile
-    './Winter_2018',
-    './Sanderson_2024',
-    './Franke_2025',
-    './Cavitte_2020',
-    './Beem_2021',
-]
-
-compiler = CompileDatabase(dir_path_list)
-compiler.compile()
-#+end_src
-Then reindex (see above).
-By default, it assumes that the files in raw/ are sorted by IRH (one file = one layer and multiple traces). If the files are sorted the other way around (one file = one trace and multiple layers), you can set file_type='trace' in CompileDatabase(). Furthermore, if the depth is not given in meters but TWT, you should set the wave_speed (units should match values in the file) for conversion and firn_correction (meters):
-#+begin_src python
-dir_path = './Wang_2023'
-compiler = CompileDatabase(dir_path, file_type='trace', wave_speed=0.1685, firn_correction=15.5)
-compiler.compile()
-#+end_src
 * Support and contact
 You can email me for downloading the database: antoine.hermant@unibe.ch
 
 Feel free to raise an issue on the GitHub if you find any bug or if you would like a feature added.
 * Contribution
 If you like this database and wish to help me develop this module, do not hesitate to contact me. You should then fork the repo, build feature branches and pull request. That would be much appreciated!
-* Acknowledgments
+* Acknowledgment
 I am developing this tool as part of my PhD project, which is funded by the Swiss National Science Foundation (grant no. 211542, Project CHARIBDIS)
 Any data used through this database should be cited at source. For this, use the DOI provided in the metadata.
 If you used this tool for your work and this was useful, please cite this repo, so other people get to know that it exists.
