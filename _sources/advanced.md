@@ -30,7 +30,7 @@ indexing.index_database()
 
 You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset. For this, make sure to follow the structure: 
 
-```{seealso}
+```
 AntADatabase/
 ├── AntADatabase.db
 ├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi

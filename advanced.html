@@ -405,16 +405,15 @@ document.write(`
 <section id="re-compile-the-database">
 <h2>(Re)compile the database<a class="headerlink" href="#re-compile-the-database" title="Link to this heading">#</a></h2>
 <p>You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset. For this, make sure to follow the structure:</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p>AntADatabase/
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>AntADatabase/
 ├── AntADatabase.db
 ├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi
 ├── Author_YYYY
-├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
-├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
-├── raw/
-└── pkl/</p>
+    ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
+    ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
+    ├── raw/
+    └── pkl/
+</pre></div>
 </div>
 <p>Then use the CompileDatabase class to compile the database:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompileDatabase</span>
