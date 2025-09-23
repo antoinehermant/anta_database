@@ -1,11 +1,36 @@
 # Welcome to the AntADatabase
 
-This is a small sample book to give you a feel for how book content is
-structured.
-It shows off a few of the major file types, as well as some sample content.
-It does not go in-depth into any particular topic - check out [the Jupyter Book documentation](https://jupyterbook.org) for more information.
+This Python module provides an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
 
-Check out the content pages bundled with this sample book to see more.
+## SQLite Database
+
+
+The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
+- Browsing by author (region), layer age, or trace ID.
+- Memory efficiency: Only relevant data is read when needed.
+- Fast read performance: Lightweight and optimized for speed.
+
+### Datasets currently included:
+- Winter et al. 2018, (https://doi.org/10.1594/PANGAEA.895528)
+- Cavitte et al. 2020, (https://doi.org/10.15784/601411)
+- Beem et al. 2021, (https://doi.org/10.15784/601437)
+- Wang et al. 2023, (https://doi.org/10.1594/PANGAEA.958462)
+- Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
+- Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
+
+## Key Features
+- Efficient SQLite indexing
+- Quick visualization on Antarctica map
+- Generate lazy data for later use
+
+## Installation
+
+The Python module is available on PyPI (https://pypi.org/project/anta-database/). You can install it using pip:
+
+    pip install anta_database
+
+This Python module is designed to query and visualized data in a AntADatabase folder. This folder has to be downloaded, contact me for access.
+You can already have a look at the guide to have an idea of this tool features.
 
 ```{tableofcontents}
 ```

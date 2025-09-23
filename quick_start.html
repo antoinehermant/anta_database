@@ -1,0 +1,1368 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quick start &#8212; My sample book</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'quick_start';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Advanced: Managing the database" href="advanced.html" />
+    <link rel="prev" title="Welcome to the AntADatabase" href="intro.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="intro.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo.png" class="logo__image only-light" alt="My sample book - Home"/>
+    <script>document.write(`<img src="_static/logo.png" class="logo__image only-dark" alt="My sample book - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="intro.html">
+                    Welcome to the AntADatabase
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/antoinehermant/anta_database" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/antoinehermant/anta_database/issues/new?title=Issue%20on%20page%20%2Fquick_start.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/quick_start.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Quick start</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#browsing-the-database">Browsing the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#downscale-the-data">Downscale the data</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="quick-start">
+<h1>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h1>
+<section id="browsing-the-database">
+<h2>Browsing the database<a class="headerlink" href="#browsing-the-database" title="Link to this heading">#</a></h2>
+<p>First, initialize the Database class by providing the full path to the AntADatabase:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
+
+<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Use the query() function to browse the database. ‘query()’ without argument will return all metadata contained in the database:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;author&#39;: [&#39;Franke_2025&#39;,
+  &#39;Beem_2021&#39;,
+  &#39;Cavitte_2020&#39;,
+  &#39;Wang_2023&#39;,
+  &#39;Sanderson_2024&#39;,
+  &#39;Winter_2018&#39;],
+ &#39;age&#39;: [&#39;4700&#39;,
+  &#39;4800&#39;,
+  &#39;7200&#39;,
+  &#39;10000&#39;,
+  &#39;10700&#39;,
+  &#39;11100&#39;,
+  &#39;15400&#39;,
+  &#39;16800&#39;,
+  &#39;25600&#39;,
+  &#39;29100&#39;,
+  &#39;29300&#39;,
+  &#39;31400&#39;,
+  &#39;36300&#39;,
+  &#39;37600&#39;,
+  &#39;38000&#39;,
+  &#39;38100&#39;,
+  &#39;46600&#39;,
+  &#39;48000&#39;,
+  &#39;51400&#39;,
+  &#39;52200&#39;,
+  &#39;72500&#39;,
+  &#39;73100&#39;,
+  &#39;73400&#39;,
+  &#39;74000&#39;,
+  &#39;75300&#39;,
+  &#39;81900&#39;,
+  &#39;90000&#39;,
+  &#39;91000&#39;,
+  &#39;93900&#39;,
+  &#39;95500&#39;,
+  &#39;97400&#39;,
+  &#39;108600&#39;,
+  &#39;122800&#39;,
+  &#39;128800&#39;,
+  &#39;135600&#39;,
+  &#39;159600&#39;,
+  &#39;161000&#39;,
+  &#39;162000&#39;,
+  &#39;165200&#39;,
+  &#39;169100&#39;,
+  &#39;199700&#39;,
+  &#39;219500&#39;,
+  &#39;253400&#39;,
+  &#39;278000&#39;,
+  &#39;326800&#39;,
+  &#39;340400&#39;,
+  &#39;367800&#39;,
+  &#39;400000&#39;,
+  &#39;420000&#39;,
+  &#39;483000&#39;,
+  &#39;516000&#39;,
+  &#39;559000&#39;,
+  &#39;610000&#39;,
+  &#39;705000&#39;],
+ &#39;var&#39;: [&#39;BedElev&#39;, &#39;IceThk&#39;, &#39;SurfElev&#39;],
+ &#39;reference&#39;: [&#39;Franke et al. (2025)&#39;,
+  &#39;Beem et al. (2021)&#39;,
+  &#39;Cavitte et al. (2020)&#39;,
+  &#39;Wang et al. (2023)&#39;,
+  &#39;Sanderson et al. (2024)&#39;,
+  &#39;Winter et al. (2018)&#39;],
+ &#39;doi&#39;: [&#39;doi.org/10.1594/PANGAEA.973266&#39;,
+  &#39;doi.org/10.15784/601437&#39;,
+  &#39;doi.org/10.15784/601411&#39;,
+  &#39;doi.org/10.1594/PANGAEA.958462&#39;,
+  &#39;doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316&#39;,
+  &#39;doi.org/10.1594/PANGAEA.895528&#39;],
+ &#39;trace_id&#39;: [&#39;20231211_01_019&#39;,
+  &#39;ASB_JKB1a_R08Ec&#39;,
+  &#39;OIA_JKB2n_Y79a&#39;,
+  &#39;DMC_JKB1a_ATAL01e&#39;,
+  &#39;20231211_02_015&#39;,
+  &#39;EPICA_III_18&#39;,
+  &#39;ASB_JKB2e_LKC01a&#39;,
+  &#39;EPICA_IV_11&#39;,
+  &#39;EPICA_IV_24&#39;,
+  &#39;20023148&#39;,
+  &#39;IRH_20172040&#39;,
+  &#39;IRH_20172031&#39;,
+  &#39;19993112&#39;,
+  &#39;20181222_01_005&#39;,
+  &#39;19993118&#39;,
+  &#39;20173004&#39;,
+  &#39;A63_DLRSAR_9MI&#39;,
+  &#39;P09A_PPVV_L4_NS1536_SKIP78_DBS5HZ&#39;,
+  &#39;20022112&#39;,
+  &#39;19993110&#39;,
+  &#39;19983416&#39;,
+  &#39;20033139&#39;,
+  &#39;20181226_01_011&#39;,
+  &#39;20231211_01_012&#39;,
+  &#39;20181226_01_002&#39;,
+  &#39;20181227_02_006&#39;,
+  &#39;20023119&#39;,
+  &#39;20231129_01_016&#39;,
+  &#39;IRH_20172032&#39;,
+  &#39;20181226_02_002&#39;,
+  &#39;20231211_02_010&#39;,
+  &#39;EPICA_IV_21&#39;,
+  &#39;A64B_DLRSAR_9MI&#39;,
+  &#39;20013123&#39;,
+  &#39;20181226_03_001&#39;,
+  &#39;20231211_02_004&#39;,
+  &#39;A65B_DLRSAR_9MI&#39;,
+  &#39;20231129_01_017&#39;,
+  &#39;IRH_20172049&#39;,
+  &#39;20231211_02_012&#39;,
+  &#39;OIA_JKB2n_Y82a&#39;,
+  &#39;19993134&#39;,
+  &#39;WSB_JKB2h_R40b&#39;,
+  &#39;20181226_02_006&#39;,
+  &#39;20013010&#39;,
+  &#39;20231129_01_009&#39;,
+  &#39;20231211_02_019&#39;,
+  &#39;20181227_02_011&#39;,
+  &#39;A68B_DLRSAR_9MI&#39;,
+  &#39;A67_DLRSAR_9MI&#39;,
+  &#39;EPICA_II_04&#39;,
+  &#39;DoCo_2007_08_12&#39;,
+  &#39;19993104&#39;,
+  &#39;19993109&#39;,
+  &#39;A64_DLRSAR_9MI&#39;,
+  &#39;20013011&#39;,
+  &#39;20181222_01_006&#39;,
+  &#39;A07B_DLRSAR_9MI&#39;,
+  &#39;19972409&#39;,
+  &#39;20181226_02_010&#39;,
+  &#39;19983401&#39;,
+  &#39;19972313&#39;,
+  &#39;OIA_JKB2n_Y15a&#39;,
+  &#39;EPICA_IV_10&#39;,
+  &#39;20231211_02_020&#39;,
+  &#39;VCD_JKB2g_X11a&#39;,
+  &#39;20181227_02_007&#39;,
+  &#39;20231211_02_018&#39;,
+  &#39;20181227_02_012&#39;,
+  &#39;IRH_20172030&#39;,
+  &#39;2V10E-2V11B&#39;,
+  &#39;20231211_01_009&#39;,
+  &#39;20022104&#39;,
+  &#39;EPICA_IV_12&#39;,
+  &#39;EPICA_VI_34&#39;,
+  &#39;19983204&#39;,
+  &#39;19973210&#39;,
+  &#39;MCM_JKB1a_EDMC01a&#39;,
+  &#39;20023102&#39;,
+  &#39;OIA_JKB2n_Y88a&#39;,
+  &#39;IRH_20172029&#39;,
+  &#39;EPICA_VIII_22&#39;,
+  &#39;SPC_GCX0d_Y75a&#39;,
+  &#39;ASB_JKB1a_R11Ta&#39;,
+  &#39;20023110&#39;,
+  &#39;19993115&#39;,
+  &#39;19993106&#39;,
+  &#39;19972405&#39;,
+  &#39;20023109&#39;,
+  &#39;20022116&#39;,
+  &#39;20231129_01_007&#39;,
+  &#39;19983206&#39;,
+  &#39;20231211_01_017&#39;,
+  &#39;19983402&#39;,
+  &#39;HRB7-HRB8&#39;,
+  &#39;20181226_02_009&#39;,
+  &#39;OIA_JKB2n_X48a&#39;,
+  &#39;EPICA_II_10&#39;,
+  &#39;V18B-V18E&#39;,
+  &#39;ASB_JKB1a_Y38a&#39;,
+  &#39;20181226_01_005&#39;,
+  &#39;19983201&#39;,
+  &#39;OIA_JKB2n_X54a&#39;,
+  &#39;20173003&#39;,
+  &#39;19993113&#39;,
+  &#39;VCD_JKB2g_X08b&#39;,
+  &#39;19983207&#39;,
+  &#39;20231211_02_001&#39;,
+  &#39;20181226_01_001&#39;,
+  &#39;IRH_20172041&#39;,
+  &#39;OIA_JKB2n_Y72a&#39;,
+  &#39;A08DLRSAR_9MI_3&#39;,
+  &#39;20033141&#39;,
+  &#39;19972309&#39;,
+  &#39;DoCo_2007_08_13&#39;,
+  &#39;IRH_20172043&#39;,
+  &#39;EPICA_IV_15&#39;,
+  &#39;ICP7_JKB2n_RIDGE1a&#39;,
+  &#39;IRH_20172045&#39;,
+  &#39;19973310&#39;,
+  &#39;20231211_02_007&#39;,
+  &#39;19972406&#39;,
+  &#39;20231211_01_024&#39;,
+  &#39;SPC_GCX0e_Y85a&#39;,
+  &#39;20231211_02_003&#39;,
+  &#39;19983408&#39;,
+  &#39;20181227_03_003&#39;,
+  &#39;19972304&#39;,
+  &#39;19993107&#39;,
+  &#39;20181226_02_004&#39;,
+  &#39;20231211_02_011&#39;,
+  &#39;20181227_02_008&#39;,
+  &#39;20033143&#39;,
+  &#39;OIA_JKB2n_X57a&#39;,
+  &#39;20181227_02_014&#39;,
+  &#39;20023152&#39;,
+  &#39;20231211_01_021&#39;,
+  &#39;20231211_02_021&#39;,
+  &#39;19983202&#39;,
+  &#39;19983457&#39;,
+  &#39;20231211_01_007&#39;,
+  &#39;OIA_JKB2n_X45a&#39;,
+  &#39;20033138&#39;,
+  &#39;20013121&#39;,
+  &#39;EPICA_II_08&#39;,
+  &#39;SPC_GCX0e_Y93a&#39;,
+  &#39;19993127&#39;,
+  &#39;SPC_GCX0d_X115a&#39;,
+  &#39;19993105&#39;,
+  &#39;10BDLRSAR_9MI_10&#39;,
+  &#39;OIA_JKB2n_Y76a&#39;,
+  &#39;20181222_01_002&#39;,
+  &#39;ICP7_JKB2n_EDMC02a&#39;,
+  &#39;19983418&#39;,
+  &#39;SPC_GCX0e_SPICE1a&#39;,
+  &#39;HRB1-HRB2&#39;,
+  &#39;19972206&#39;,
+  &#39;20231211_02_002&#39;,
+  &#39;19983406&#39;,
+  &#39;20181227_02_015&#39;,
+  &#39;20231211_01_023&#39;,
+  &#39;20173002&#39;,
+  &#39;20231129_01_013&#39;,
+  &#39;OIA_JKB2n_X39a&#39;,
+  &#39;20053107&#39;,
+  &#39;RSAR_9MI_clipped&#39;,
+  &#39;19972308&#39;,
+  &#39;20022115&#39;,
+  &#39;20181226_01_010&#39;,
+  &#39;SPC_GCX0d_X112a&#39;,
+  &#39;SPC_GCX0e_Y89a&#39;,
+  &#39;20231129_01_020&#39;,
+  &#39;IRH_20172046&#39;,
+  &#39;20231211_02_017&#39;,
+  &#39;20181227_03_007&#39;,
+  &#39;DoCo_2007_08_08&#39;,
+  &#39;20181227_01_001&#39;,
+  &#39;20231211_02_005&#39;,
+  &#39;ASB_JKB1a_R11Ea&#39;,
+  &#39;OIA_JKB2n_Y81a&#39;,
+  &#39;20181226_03_003&#39;,
+  &#39;19993122&#39;,
+  &#39;SPC_GCX0d_Y87a&#39;,
+  &#39;ICP7_JKB2n_F16T04a&#39;,
+  &#39;20181226_03_002&#39;,
+  &#39;19993137&#39;,
+  &#39;19983254&#39;,
+  &#39;EPICA_VII_26&#39;,
+  &#39;OIA_JKB2n_X72a&#39;,
+  &#39;20231129_01_011&#39;,
+  &#39;20022107&#39;,
+  &#39;20181227_02_004&#39;,
+  &#39;19993132&#39;,
+  &#39;IRH_20172028&#39;,
+  &#39;OIA_JKB2n_Y64a&#39;,
+  &#39;19983256&#39;,
+  &#39;OIA_JKB2n_Y77a&#39;,
+  &#39;OIA_JKB2n_Y70b&#39;,
+  &#39;20023149&#39;,
+  &#39;AGAP_South_track&#39;,
+  &#39;OIA_JKB2n_Y74a&#39;,
+  &#39;19983208&#39;,
+  &#39;19972303&#39;,
+  &#39;V03E-2V03B&#39;,
+  &#39;20181227_02_001&#39;,
+  &#39;HRB8-RAID2&#39;,
+  &#39;OIA_JKB2n_Y90a&#39;,
+  &#39;19972415&#39;,
+  &#39;19993131&#39;,
+  &#39;20181226_01_007&#39;,
+  &#39;MCM_JKB1a_WLKX01a&#39;,
+  &#39;OIA_JKB2n_Y86a&#39;,
+  &#39;ASB_JKB1a_R11Wa&#39;,
+  &#39;P26A_PS2_L4_NS1536_SKIP78_DBS5HZ&#39;,
+  &#39;OIA_JKB2n_Y52a&#39;,
+  &#39;20231211_01_010&#39;,
+  &#39;IRH_20172044&#39;,
+  &#39;20083126&#39;,
+  &#39;20181226_01_012&#39;,
+  &#39;VCD_JKB1a_X09a&#39;,
+  &#39;2V23B-2V23E&#39;,
+  &#39;ASB_JKB1a_R10Wa&#39;,
+  &#39;20231203_04_006&#39;,
+  &#39;20231211_01_011&#39;,
+  &#39;ICP7_JKB2n_F12T01b&#39;,
+  &#39;20181227_03_008&#39;,
+  &#39;20181227_02_005&#39;,
+  &#39;20181226_01_004&#39;,
+  &#39;IRH_20172051&#39;,
+  &#39;WSB_JKB1a_R38a&#39;,
+  &#39;2H25E-H25B&#39;,
+  &#39;20181227_02_002&#39;,
+  &#39;20053109&#39;,
+  &#39;20231211_01_013&#39;,
+  &#39;20181227_03_002&#39;,
+  &#39;19983404&#39;,
+  &#39;20231211_02_013&#39;,
+  &#39;20023151&#39;,
+  &#39;20231211_01_015&#39;,
+  &#39;IRH_20172048&#39;,
+  &#39;A07C_DLRSAR_9MI&#39;,
+  &#39;20231211_02_006&#39;,
+  &#39;20231129_01_005&#39;,
+  &#39;DoCo_2007_08_10&#39;,
+  &#39;36_SKIP78_DBS5HZ&#39;,
+  &#39;19993116&#39;,
+  &#39;A65D_DLRSAR_9MI&#39;,
+  &#39;A11ADLRSAR_9MI_11&#39;,
+  &#39;19972402&#39;,
+  &#39;VCD_JKB2g_DVD01a&#39;,
+  &#39;20013012&#39;,
+  &#39;20013124&#39;,
+  &#39;20231129_01_004&#39;,
+  &#39;ICP4_JKB2g_F19T03a&#39;,
+  &#39;A66_DLRSAR_9MI&#39;,
+  &#39;SPC_GCX0e_X120a&#39;,
+  &#39;19993135&#39;,
+  &#39;19983101&#39;,
+  &#39;SPC_GCX0e_X114a&#39;,
+  &#39;20231129_01_018&#39;,
+  &#39;EPICA_IV_23&#39;,
+  &#39;IRH_20172027&#39;,
+  &#39;20231129_01_014&#39;,
+  &#39;20023154&#39;,
+  &#39;ICP7_JKB2n_F17T01a&#39;,
+  &#39;EPICA_IV_22&#39;,
+  &#39;20231211_01_008&#39;,
+  &#39;20022106&#39;,
+  &#39;IRH_20172025&#39;,
+  &#39;OIA_JKB2n_X66a&#39;,
+  &#39;19993136&#39;,
+  &#39;ASB_JKB1a_R09Wa&#39;,
+  &#39;20181227_03_005&#39;,
+  &#39;20181227_02_009&#39;,
+  &#39;19983205&#39;,
+  &#39;EPICA_III_07&#39;,
+  &#39;20181226_01_013&#39;,
+  &#39;19983253&#39;,
+  &#39;EPICA_VII_25&#39;,
+  &#39;19993026&#39;,
+  &#39;20023120&#39;,
+  &#39;P34A_PS2_L4_NS1536_SKIP78_DBS5HZ_04&#39;,
+  &#39;19983407&#39;,
+  &#39;IRH_20172047&#39;,
+  &#39;HRA1-HRA2&#39;,
+  &#39;19983102&#39;,
+  &#39;20231211_01_022&#39;,
+  &#39;SPC_GCX0d_Y83a&#39;,
+  &#39;BH39B-BH39E&#39;,
+  &#39;EPICA_VII_27&#39;,
+  &#39;20013122&#39;,
+  &#39;DC_LDC_DIVIDE&#39;,
+  &#39;OIA_JKB2n_Y80a&#39;,
+  &#39;ASB_JKB1a_R09Ea&#39;,
+  &#39;20023111&#39;,
+  &#39;ASB_JKB1a_R09Ta&#39;,
+  &#39;20181222_01_001&#39;,
+  &#39;ASB_JKB2h_GL0249a&#39;,
+  &#39;OIA_JKB2n_X69a&#39;,
+  &#39;WEGAS_2010_11_33&#39;,
+  &#39;SPC_GCX0e_X122a&#39;,
+  &#39;WSB_JKB2g_R35c&#39;,
+  &#39;20231129_01_012&#39;,
+  &#39;A06CDLRSAR_9MI_clipped&#39;,
+  &#39;IRH_20172026&#39;,
+  &#39;20181227_02_010&#39;,
+  &#39;VCD_JKB1a_X08a&#39;,
+  &#39;SPC_GCX0e_X125a&#39;,
+  &#39;20231129_01_010&#39;,
+  &#39;20181226_01_003&#39;,
+  &#39;20231211_01_020&#39;,
+  &#39;OIA_JKB2n_Y25a&#39;,
+  &#39;19972307&#39;,
+  &#39;19972404&#39;,
+  &#39;20231211_01_014&#39;,
+  &#39;EPICA_VI_35&#39;,
+  &#39;OIA_JKB2n_Y78a&#39;,
+  &#39;A64E_DLRSAR_9MI&#39;,
+  &#39;20231129_01_008&#39;,
+  &#39;WSB_JKB2g_R34a&#39;,
+  &#39;20231129_01_006&#39;,
+  &#39;20023150&#39;,
+  &#39;11ADLRSAR_9MI_11&#39;,
+  &#39;WSB_JKB1a_R36a&#39;,
+  &#39;20181227_03_004&#39;,
+  &#39;DoCo_2007_08_07&#39;,
+  &#39;19983417&#39;,
+  &#39;20231211_02_008&#39;,
+  &#39;19983403&#39;,
+  &#39;19972408&#39;,
+  &#39;20023105&#39;,
+  &#39;P24A_PS2_L4_NS1536_SKIP78_DBS5HZ&#39;,
+  &#39;OIA_JKB2n_Y84a&#39;,
+  &#39;19993033&#39;,
+  &#39;IRH_20172039&#39;,
+  &#39;19993120&#39;,
+  &#39;VCD_JKB2g_X13a&#39;,
+  &#39;OIA_JKB2n_X60a&#39;,
+  &#39;20113119&#39;,
+  &#39;20181226_02_008&#39;,
+  &#39;20032137&#39;,
+  &#39;EPICA_VIII_23&#39;,
+  &#39;20181226_01_008&#39;,
+  &#39;IRH_20172050&#39;,
+  &#39;20181226_03_004&#39;,
+  &#39;RAID-2V11E&#39;,
+  &#39;20023153&#39;,
+  &#39;IRH_20172038&#39;,
+  &#39;A10BDLRSAR_9MI_10&#39;,
+  &#39;OIA_JKB2n_X63a&#39;,
+  &#39;H42B-2H42E&#39;,
+  &#39;SPC_GCX0e_Y98a&#39;,
+  &#39;20231211_02_016&#39;,
+  &#39;A09A_DLRSAR_9MI&#39;,
+  &#39;OIA_JKB2n_Y75a&#39;,
+  &#39;20231211_02_009&#39;,
+  &#39;20181222_01_004&#39;,
+  &#39;IRH_20172052&#39;,
+  &#39;20181226_01_009&#39;,
+  &#39;20231129_01_015&#39;,
+  &#39;20023115&#39;,
+  &#39;20181226_01_006&#39;,
+  &#39;20231211_01_016&#39;,
+  &#39;20231204_01_010&#39;,
+  &#39;20131127_01&#39;,
+  &#39;OIA_JKB2n_Y68a&#39;,
+  &#39;2H30E-H30B&#39;,
+  &#39;20231211_01_018&#39;,
+  &#39;SPC_GCX0d_Y79a&#39;,
+  &#39;20231211_01_006&#39;,
+  &#39;20231211_02_014&#39;,
+  &#39;20181227_03_001&#39;,
+  &#39;OIA_JKB2n_Y60a&#39;],
+ &#39;_query_params&#39;: {&#39;age&#39;: None, &#39;var&#39;: None, &#39;author&#39;: None, &#39;trace_id&#39;: None},
+ &#39;database_path&#39;: &#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;,
+ &#39;file_db&#39;: &#39;AntADatabase.db&#39;}
+</pre></div>
+</div>
+</div>
+</div>
+<p>The query() function takes as argument:</p>
+<ul class="simple">
+<li><p>author: author(s) of the datasets of interest</p></li>
+<li><p>age: age(s) in yrs before present of the layer(s) of interest</p></li>
+<li><p>var: variables(s) other than age depth such as ‘IceThk’, ‘SurfElev’ or ‘BedElev’</p></li>
+<li><p>trace_id: ID of a particular trace. This is useful for explicit trace IDs such as ‘DC_LDC_DIVIDE’</p></li>
+</ul>
+<p>One can also combine field queries as well as providing lists. Here are a few examples:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">#Examples of queries:</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">author</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">)</span> <span class="c1"># all data from Cavitte et al. 2020</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span> <span class="c1"># all datasets with the 38.1ka isochrone</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;IceThk&#39;</span><span class="p">)</span> <span class="c1"># all datasets with IceThk variable</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">trace_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span> <span class="c1"># all layers with the trace ID DC_LDC_DIVIDE</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">author</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Franke_2025&#39;</span><span class="p">,</span> <span class="s1">&#39;Winter_2018&#39;</span><span class="p">],</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span> <span class="c1"># example of multiple criteria</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;author&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;],
+ &#39;age&#39;: [&#39;38100&#39;],
+ &#39;var&#39;: [],
+ &#39;reference&#39;: [&#39;Franke et al. (2025)&#39;, &#39;Winter et al. (2018)&#39;],
+ &#39;doi&#39;: [&#39;doi.org/10.1594/PANGAEA.973266&#39;, &#39;doi.org/10.1594/PANGAEA.895528&#39;],
+ &#39;trace_id&#39;: [&#39;20231211_01_019&#39;,
+  &#39;EPICA_VII_27&#39;,
+  &#39;20013122&#39;,
+  &#39;EPICA_II_10&#39;,
+  &#39;20181226_01_005&#39;,
+  &#39;20023111&#39;,
+  &#39;20231211_02_015&#39;,
+  &#39;20023149&#39;,
+  &#39;19983201&#39;,
+  &#39;20181222_01_001&#39;,
+  &#39;AGAP_South_track&#39;,
+  &#39;EPICA_III_18&#39;,
+  &#39;EPICA_IV_11&#39;,
+  &#39;EPICA_IV_24&#39;,
+  &#39;20173003&#39;,
+  &#39;19993113&#39;,
+  &#39;19972303&#39;,
+  &#39;20181227_02_001&#39;,
+  &#39;WEGAS_2010_11_33&#39;,
+  &#39;20023148&#39;,
+  &#39;20231129_01_012&#39;,
+  &#39;19983207&#39;,
+  &#39;19972415&#39;,
+  &#39;20231211_02_001&#39;,
+  &#39;20181226_01_001&#39;,
+  &#39;19993131&#39;,
+  &#39;20181226_01_007&#39;,
+  &#39;19993112&#39;,
+  &#39;20181227_02_010&#39;,
+  &#39;20181222_01_005&#39;,
+  &#39;20033141&#39;,
+  &#39;19972309&#39;,
+  &#39;20231129_01_010&#39;,
+  &#39;19993118&#39;,
+  &#39;DoCo_2007_08_13&#39;,
+  &#39;20173004&#39;,
+  &#39;20231211_01_010&#39;,
+  &#39;EPICA_IV_15&#39;,
+  &#39;20181226_01_003&#39;,
+  &#39;20083126&#39;,
+  &#39;19973310&#39;,
+  &#39;20231211_02_007&#39;,
+  &#39;19972406&#39;,
+  &#39;20181226_01_012&#39;,
+  &#39;20022112&#39;,
+  &#39;20231211_01_024&#39;,
+  &#39;19993110&#39;,
+  &#39;20231211_01_020&#39;,
+  &#39;19983416&#39;,
+  &#39;20181226_01_011&#39;,
+  &#39;20231211_01_012&#39;,
+  &#39;20231203_04_006&#39;,
+  &#39;20231211_01_011&#39;,
+  &#39;19972307&#39;,
+  &#39;20231211_02_003&#39;,
+  &#39;19972404&#39;,
+  &#39;19983408&#39;,
+  &#39;20181226_01_002&#39;,
+  &#39;20181227_02_006&#39;,
+  &#39;20023119&#39;,
+  &#39;20181227_03_003&#39;,
+  &#39;20181227_03_008&#39;,
+  &#39;20181227_02_005&#39;,
+  &#39;20231129_01_016&#39;,
+  &#39;20181226_01_004&#39;,
+  &#39;19972304&#39;,
+  &#39;19993107&#39;,
+  &#39;20181226_02_004&#39;,
+  &#39;20231211_01_014&#39;,
+  &#39;EPICA_VI_35&#39;,
+  &#39;20181226_02_002&#39;,
+  &#39;20231211_02_011&#39;,
+  &#39;20181227_02_008&#39;,
+  &#39;20033143&#39;,
+  &#39;20231211_02_010&#39;,
+  &#39;20181227_02_002&#39;,
+  &#39;20181227_02_014&#39;,
+  &#39;20023152&#39;,
+  &#39;20231129_01_008&#39;,
+  &#39;20053109&#39;,
+  &#39;20231129_01_006&#39;,
+  &#39;EPICA_IV_21&#39;,
+  &#39;20023150&#39;,
+  &#39;20013123&#39;,
+  &#39;20231211_01_021&#39;,
+  &#39;20231211_02_004&#39;,
+  &#39;20181227_03_004&#39;,
+  &#39;20231211_02_021&#39;,
+  &#39;20181226_03_001&#39;,
+  &#39;20231211_01_013&#39;,
+  &#39;DoCo_2007_08_07&#39;,
+  &#39;20231129_01_017&#39;,
+  &#39;20181227_03_002&#39;,
+  &#39;20231211_02_008&#39;,
+  &#39;19983202&#39;,
+  &#39;20231211_02_012&#39;,
+  &#39;19983404&#39;,
+  &#39;19983403&#39;,
+  &#39;20231211_02_013&#39;,
+  &#39;20023151&#39;,
+  &#39;19972408&#39;,
+  &#39;20231211_01_015&#39;,
+  &#39;19993134&#39;,
+  &#39;20023105&#39;,
+  &#39;20231211_01_007&#39;,
+  &#39;20033138&#39;,
+  &#39;20181226_02_006&#39;,
+  &#39;20013010&#39;,
+  &#39;20013121&#39;,
+  &#39;20231129_01_009&#39;,
+  &#39;20231211_02_019&#39;,
+  &#39;20231211_02_006&#39;,
+  &#39;20181227_02_011&#39;,
+  &#39;19993033&#39;,
+  &#39;EPICA_II_08&#39;,
+  &#39;20231129_01_005&#39;,
+  &#39;19993120&#39;,
+  &#39;19993127&#39;,
+  &#39;DoCo_2007_08_10&#39;,
+  &#39;19993105&#39;,
+  &#39;19993116&#39;,
+  &#39;20113119&#39;,
+  &#39;EPICA_II_04&#39;,
+  &#39;19972402&#39;,
+  &#39;20181222_01_002&#39;,
+  &#39;20181226_02_008&#39;,
+  &#39;20013012&#39;,
+  &#39;20032137&#39;,
+  &#39;DoCo_2007_08_12&#39;,
+  &#39;20013124&#39;,
+  &#39;19993104&#39;,
+  &#39;20231129_01_004&#39;,
+  &#39;19993109&#39;,
+  &#39;EPICA_VIII_23&#39;,
+  &#39;19993135&#39;,
+  &#39;19983101&#39;,
+  &#39;20181226_01_008&#39;,
+  &#39;20231129_01_018&#39;,
+  &#39;20181226_03_004&#39;,
+  &#39;20013011&#39;,
+  &#39;20023153&#39;,
+  &#39;EPICA_IV_23&#39;,
+  &#39;19972206&#39;,
+  &#39;20231129_01_014&#39;,
+  &#39;20231211_02_002&#39;,
+  &#39;20181222_01_006&#39;,
+  &#39;19983406&#39;,
+  &#39;20181227_02_015&#39;,
+  &#39;20231211_01_023&#39;,
+  &#39;19972409&#39;,
+  &#39;20231129_01_013&#39;,
+  &#39;20181226_02_010&#39;,
+  &#39;19972308&#39;,
+  &#39;19983402&#39;,
+  &#39;20023154&#39;,
+  &#39;EPICA_IV_22&#39;,
+  &#39;20231211_02_016&#39;,
+  &#39;19983401&#39;,
+  &#39;19972313&#39;,
+  &#39;20022115&#39;,
+  &#39;20181226_01_010&#39;,
+  &#39;20231211_01_008&#39;,
+  &#39;20022106&#39;,
+  &#39;EPICA_IV_10&#39;,
+  &#39;20231211_02_009&#39;,
+  &#39;20181222_01_004&#39;,
+  &#39;20231211_02_020&#39;,
+  &#39;20231211_02_017&#39;,
+  &#39;19993136&#39;,
+  &#39;20181227_03_007&#39;,
+  &#39;20181226_01_009&#39;,
+  &#39;DoCo_2007_08_08&#39;,
+  &#39;20181227_02_007&#39;,
+  &#39;20231211_02_018&#39;,
+  &#39;20181227_03_005&#39;,
+  &#39;20181227_02_012&#39;,
+  &#39;20231129_01_015&#39;,
+  &#39;20231211_01_009&#39;,
+  &#39;20181227_02_009&#39;,
+  &#39;20231211_02_005&#39;,
+  &#39;20022104&#39;,
+  &#39;EPICA_IV_12&#39;,
+  &#39;EPICA_VI_34&#39;,
+  &#39;19983204&#39;,
+  &#39;19983205&#39;,
+  &#39;20023115&#39;,
+  &#39;20181226_01_006&#39;,
+  &#39;20181226_03_003&#39;,
+  &#39;EPICA_III_07&#39;,
+  &#39;20231211_01_016&#39;,
+  &#39;20181226_01_013&#39;,
+  &#39;20181226_02_009&#39;,
+  &#39;EPICA_VII_25&#39;,
+  &#39;20231204_01_010&#39;,
+  &#39;EPICA_VIII_22&#39;,
+  &#39;19993026&#39;,
+  &#39;19993122&#39;,
+  &#39;20023120&#39;,
+  &#39;20231211_02_014&#39;,
+  &#39;19983407&#39;,
+  &#39;20181226_03_002&#39;,
+  &#39;19993137&#39;,
+  &#39;20023110&#39;,
+  &#39;19993115&#39;,
+  &#39;19993106&#39;,
+  &#39;19972405&#39;,
+  &#39;20023109&#39;,
+  &#39;20022116&#39;,
+  &#39;EPICA_VII_26&#39;,
+  &#39;20231129_01_007&#39;,
+  &#39;19983206&#39;,
+  &#39;20231211_01_018&#39;,
+  &#39;20022107&#39;,
+  &#39;20181227_02_004&#39;,
+  &#39;20231211_01_006&#39;,
+  &#39;19983102&#39;,
+  &#39;20231211_01_017&#39;,
+  &#39;20231129_01_011&#39;,
+  &#39;20231211_01_022&#39;,
+  &#39;19993132&#39;,
+  &#39;20181227_03_001&#39;],
+ &#39;_query_params&#39;: {&#39;age&#39;: &#39;38100&#39;,
+  &#39;var&#39;: None,
+  &#39;author&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;],
+  &#39;trace_id&#39;: None},
+ &#39;database_path&#39;: &#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;,
+ &#39;file_db&#39;: &#39;AntADatabase.db&#39;}
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="visualization">
+<h2>Visualization<a class="headerlink" href="#visualization" title="Link to this heading">#</a></h2>
+<p>Use the results of the query in the plotting functions:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;38100&#39;</span><span class="p">,</span><span class="s1">&#39;38000&#39;</span><span class="p">])</span>
+<span class="n">db</span><span class="o">.</span><span class="n">plotXY</span><span class="p">(</span><span class="n">results</span><span class="p">,</span>
+                <span class="n">downscale_factor</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="c1"># downscale the datasets n times, which makes no visual difference but it is much lighter</span>
+                <span class="n">title</span><span class="o">=</span><span class="s1">&#39;AntArchitecture 38(.1)ka layer&#39;</span><span class="p">,</span>
+                <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">2400</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2200</span><span class="p">,</span> <span class="mi">2200</span><span class="p">),</span> <span class="c1"># set the plot extent in km</span>
+                <span class="n">scale_factor</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="c1"># adjust the size of the plot</span>
+                <span class="n">latex</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># use latex compilers for plotting if you have them installed on your system</span>
+                <span class="c1"># save=&#39;AntA_38ka.pdf&#39;, # Uncomment to save the figure, otherwise it we visualize with pyplot</span>
+                <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/bc45e5e141b7026377a6ff08ee17cd3eafdc339a2204d9a9f36f1708b42b5677.png" src="_images/bc45e5e141b7026377a6ff08ee17cd3eafdc339a2204d9a9f36f1708b42b5677.png" />
+</div>
+</div>
+</section>
+<section id="generate-data-from-the-database">
+<h2>Generate data from the database<a class="headerlink" href="#generate-data-from-the-database" title="Link to this heading">#</a></h2>
+<p>Note: This part could be developed further in the future if there is the need. But for now, I am designing a separate Python module for constraining my ice sheet model of use, which is tailored to this database and other parallel processing libraries.</p>
+<p>The data_generator() function reads the query and ‘yield’ the dataframes for later use.
+Here is a quick example of how this can be used for computing the mean layer depth:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;38100&#39;</span><span class="p">])</span>
+<span class="n">lazy_dfs</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="n">mean_depth_trs</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">lazy_dfs</span><span class="p">:</span>
+    <span class="n">mean_depth_trs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;38100&#39;</span><span class="p">]))</span>
+
+<span class="n">mean_depth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mean_depth_trs</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;The mean depth of the 38.1ka isochrone across East Antarctica is&#39;</span><span class="p">,</span> <span class="n">mean_depth</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>The mean depth of the 38.1ka isochrone across East Antarctica is 1127.8887185238113 m
+</pre></div>
+</div>
+</div>
+</div>
+<p>In the for loop, ‘df’ is an individual dataframe from the database, corresponding to a single layer of a single trace from a single dataset. The ‘md’ stores the unique metadata from the current ‘df’. One can then associate the metadata with the current df, for example:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">author</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">trace_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<span class="n">lazy_dfs</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="c1"># from matplotlib import rc</span>
+<span class="c1"># rc(&#39;font&#39;, **{&#39;family&#39;: &#39;serif&#39;, &#39;serif&#39;: [&#39;Computer Modern&#39;]})</span>
+<span class="c1"># rc(&#39;text&#39;, usetex=True) # Do you use latex?</span>
+
+<span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">lazy_dfs</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]],</span> <span class="n">label</span><span class="o">=</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;IceThk&#39;</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;IceThk&#39;</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bedrock&#39;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance (km)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Depth (m)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">4000</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Isochronal structure along DC_LDC_DIVIDE transect&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/5387d774d3401051795c71e62b7fbeffb3355d388ab5bd125d4045e48cdf2d33.png" src="_images/5387d774d3401051795c71e62b7fbeffb3355d388ab5bd125d4045e48cdf2d33.png" />
+</div>
+</div>
+<section id="downscale-the-data">
+<h3>Downscale the data<a class="headerlink" href="#downscale-the-data" title="Link to this heading">#</a></h3>
+<p>The downscale_factor argument in the data_generator reduces the size of the generated data by n times. This is useful when dealing with large data where the downscaling has a neglectable influence on the results.
+Another solution, probably more straightforward, is the downsample_distance option, which allows to provide a distance in meters by which the data should be average along the transects:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">author</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;278000&#39;</span><span class="p">,</span> <span class="n">trace_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<span class="n">original</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+<span class="n">downscale_10</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">downscale_factor</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">downsampled_by_distance</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">downsample_distance</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+
+<span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="n">original</span><span class="p">,</span> <span class="n">downscale_10</span><span class="p">,</span> <span class="n">downsampled_by_distance</span><span class="p">]</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;original&#39;</span><span class="p">,</span> <span class="s1">&#39;downscale 100&#39;</span><span class="p">,</span> <span class="s1">&#39;downsample 5km&#39;</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lazy_dfs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">lazy_dfs</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">distance</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;278000&#39;</span><span class="p">],</span><span class="n">label</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">3000</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance along DC_LDC_DIVIDE (km)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Depth (m)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Different downscaling methods for Cavitte 2020 278ka along DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/26589442dd5a73c0251e80f725a8a636b059c0e6f545c8776f937d518cd25979.png" src="_images/26589442dd5a73c0251e80f725a8a636b059c0e6f545c8776f937d518cd25979.png" />
+</div>
+</div>
+</section>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="intro.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Welcome to the AntADatabase</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="advanced.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Advanced: Managing the database</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#browsing-the-database">Browsing the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#downscale-the-data">Downscale the data</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Antoine Hermant
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
