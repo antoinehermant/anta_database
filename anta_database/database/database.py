@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-import seaborn as sns
+import colormaps as cmaps
 from typing import Union, List, Dict, Tuple
 
 class Database:
@@ -208,14 +208,14 @@ class Database:
 
     def custom_cmap(self):
 
-        flare = plt.colormaps['magma_r']  # Sequential (yellow/orange/red)
-        crest = plt.colormaps['mako']  # Diverging (blue/white/red)
+        cm1 = cmaps.torch_r
+        cm2 = cmaps.deep_r
 
-        flare_colors = flare(np.linspace(0, 0.8, 256))  # Shape: (256, 4) RGBA
-        crest_colors = crest(np.linspace(0.2, 1, 256))  # Shape: (256, 4) RGBA
-        combined_colors = np.vstack((flare_colors, crest_colors))
+        cm1_colors = cm1(np.linspace(0.05, 0.8, 256))  # Shape: (256, 4) RGBA
+        cm2_colors = cm2(np.linspace(0.1, 1, 256))  # Shape: (256, 4) RGBA
+        combined_colors = np.vstack((cm1_colors, cm2_colors))
         custom_cmap = LinearSegmentedColormap.from_list(
-            'flare_crest',  # Name your colormap
+            'custom_cmap',  # Name your colormap
             combined_colors,
             N=512  # Double the resolution (256 + 256)
         )
