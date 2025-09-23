@@ -24,5 +24,9 @@ jobs:
           jupyter-book build book/
 
       - name: Deploy to GitHub Pages
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          ghp-import -n -p -f book/_build/html
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          ghp-import -n -p -f -m "Deploy Jupyter Book" --push --no-jekyll book/_build/html
