@@ -2,24 +2,26 @@ name: Deploy Jupyter Book to GitHub Pages
 
 on:
   push:
-    branches: [ main ] # or your default branch
+    branches:
+      - main
     paths:
       - 'book/**' # Only trigger if changes are in the book/ folder
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
       pages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -29,8 +31,13 @@ jobs:
         run: |
           jupyter-book build book/
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      # Upload the book's HTML as an artifact
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: book/_build/html # or your output directory
+          path: "book/_build/html"
+
+      # Deploy the book's HTML to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
