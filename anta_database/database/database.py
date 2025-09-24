@@ -93,41 +93,6 @@ class Database:
         }
         return metadata
 
-    def __repr__(self):
-        """Return a pretty-printed string representation of the metadata."""
-        md = self.md
-        output = []
-        output.append("Metadata from query:")
-
-        output.append("\n  - author:")
-        for author in md['author']:
-            output.append(f"    {author}")
-
-        output.append("\n  - age:")
-        ages = " ".join(md['age'])
-        output.append(f"    {ages}")
-
-        output.append("\n  - var:")
-        for var in md['var']:
-            output.append(f"    {var}")
-
-        output.append("\n  - trace_id:")
-        trace_ids = " ".join(md['trace_id'])
-        output.append(f"    {trace_ids}")
-
-        output.append("\n  - reference:")
-        for ref in md['reference']:
-            output.append(f"    {ref}")
-
-        output.append("\n  - DOIs:")
-        for doi in md['doi']:
-            output.append(f"    {doi}")
-
-        output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
-        output.append(f"  - query params: {md['_query_params']}")
-
-        return "\n".join(output)
-
     def query(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None,author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> 'MetadataResult':
         select_clause = 'a.name, a.citation, a.doi, d.age, d.var, d.trace_id'
         query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
@@ -189,7 +154,7 @@ class Database:
 
         return file_paths
 
-    def data_generator(self, metadata: Union[None, Dict] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None, downsample_distance: Union[None, float, int] = None):
+    def data_generator(self, metadata: Union[None, Dict, 'MetadataResult'] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None, downsample_distance: Union[None, float, int] = None):
         """
         Generates DataFrames and their associated author names from the database based on the provided metadata.
 
@@ -334,23 +299,13 @@ class MetadataResult:
         md = self._metadata
         output = []
         output.append("Metadata from query:")
-        output.append(f"\n  - author:")
-        for author in md['author']:
-            output.append(f"    {author}")
-        output.append(f"\n  - age:")
-        output.append(f"    {' '.join(md['age'])}")
-        output.append(f"\n  - var:")
-        for var in md['var']:
-            output.append(f"    {var}")
-        output.append(f"\n  - trace_id:")
-        output.append(f"    {' '.join(md['trace_id'])}")
-        output.append(f"\n  - reference:")
-        for ref in md['reference']:
-            output.append(f"    {ref}")
-        output.append(f"\n  - DOIs:")
-        for doi in md['doi']:
-            output.append(f"    {doi}")
-        output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
+        output.append(f"\n  - author: {', '.join(md['author'])}")
+        output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
+        output.append(f"\n  - var: {', '.join(md['var'])}")
+        output.append(f"\n  - trace_id: {', '.join(md['trace_id'])}")
+        output.append(f"\n  - reference: {', '.join(md['reference'])}")
+        output.append(f"  - DOIs: {', '.join(md['doi'])}")
+        output.append(f"  - database: {md['database_path']}/{md['file_db']}")
         output.append(f"  - query params: {md['_query_params']}")
         return "\n".join(output)
 
