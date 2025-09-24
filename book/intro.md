@@ -19,7 +19,7 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 
 ![alt text](figures/all_data.png)
-**Figure** Figure created with a plotting function from this module
+**Figure** created with a plotting function from this module
 
 ## Key Features
 - Efficient SQLite indexing
