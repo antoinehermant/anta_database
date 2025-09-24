@@ -4,7 +4,6 @@ This Python module provides an efficient SQLite database for browsing, visualizi
 
 ## SQLite Database
 
-
 The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
 - Browsing by author (region), layer age, or trace ID.
 - Memory efficiency: Only relevant data is read when needed.
@@ -15,6 +14,7 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Cavitte et al. 2020, (https://doi.org/10.15784/601411)
 - Beem et al. 2021, (https://doi.org/10.15784/601437)
 - Wang et al. 2023, (https://doi.org/10.1594/PANGAEA.958462)
+- Mulvaney et al. 2023, (https://doi.pangaea.de/10.1594/PANGAEA.963470)
 - Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
 - Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 
