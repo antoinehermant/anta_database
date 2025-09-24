@@ -258,7 +258,7 @@ class Database:
 
 
     def plotXY(self,
-               metadata: Union[None, Dict] = None,
+               metadata: Union[None, Dict, 'MetadataResult'] = None,
                downscale_factor: Union[None, int] = None,
                title: str = '',
                xlim: tuple = (None, None),
@@ -298,7 +298,7 @@ class Database:
         for author in authors:
             citation = self.query(author=author)['reference']
             plt.plot([], [], color=colors[author], label=citation)
-        plt.legend(loc='lower left')
+        plt.legend(loc='lower left', fontsize=8)
 
         x_extent = x1 - x0
         y_extent = y1 - y0

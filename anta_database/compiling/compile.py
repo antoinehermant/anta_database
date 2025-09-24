@@ -121,7 +121,11 @@ class CompileDatabase:
                         cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
                         ds_trace['distance'] = cumulative_distance
 
-                    ds_trace_file = f'{dir_path}/pkl/{trace_id}/{file_name_}.pkl'
+                    if age in ['IceThk', 'BedElev', 'SurfElev']:
+                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
+                    else:
+                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{file_name_}.pkl' # else use the same file name.pkl
+
                     os.makedirs(f'{dir_path}/pkl/{trace_id}' , exist_ok=True)
                     ds_trace.to_pickle(ds_trace_file)
                     print(ds_trace_file)
@@ -186,7 +190,10 @@ class CompileDatabase:
                         if var in ds.columns:
                             ds_IRH[var] = ds[var]
 
-                    ds_trace_file = f'{dir_path}/pkl/{trace_id}/{IRH}.pkl'
+                    if age in ['IceThk', 'BedElev', 'SurfElev']:
+                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
+                    else:
+                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{IRH}.pkl' # else use IRH.pkl
 
                     ds_IRH.to_pickle(ds_trace_file)
                     print(ds_trace_file)
