@@ -1,4 +1,4 @@
-# Welcome to the AntADatabase
+# AntADatabase
 
 This Python module provides an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
 
@@ -19,7 +19,7 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 
 ![alt text](figures/all_data.png)
-**Figure** Figure created with a plotting function from this module
+**Figure** created using a plotting function from this module
 
 ## Key Features
 - Efficient SQLite indexing
