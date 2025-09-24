@@ -20,11 +20,11 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Quick visualization on Antarctica map
 - Generate lazy data for later use
 * Installation
-The Python module can be directly installed from [PyPI](https://pypi.org/project/anta-database/) with:
+The Python module can be directly installed from [[https://pypi.org/project/anta-database/][PyPI]] with:
 #+begin_src bash
 pip install anta_database
 #+end_src
-Note that this module is new and under development, so that the PyPI package may not contain the latest features. For the latest version and development, see the instruction below.
+Note that this module is new and under development, so that the [[https://pypi.org/project/anta-database/][PyPI]] package may not contain the latest features. For the latest version and development, see the instruction below.
 To get started with the anta_database module, see the [[https://antoinehermant.github.io/anta_database][Documentation]].
 Also, you need the actual data to use this module. It is currently not available on any public repository, so please contact me.
 
