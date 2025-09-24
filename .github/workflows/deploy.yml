@@ -1,32 +1,36 @@
-name: Deploy Jupyter Book
+name: Deploy Jupyter Book to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # or your default branch
+    paths:
+      - 'book/**' # Only trigger if changes are in the book/ folder
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           pip install jupyter-book ghp-import
 
-      - name: Build the book
+      - name: Build Jupyter Book
         run: |
           jupyter-book build book/
 
       - name: Deploy to GitHub Pages
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          ghp-import -n -p -f -m "Deploy Jupyter Book" --push --no-jekyll book/_build/html
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: book/_build/html # or your output directory
