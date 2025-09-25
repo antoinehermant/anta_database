@@ -1,5 +1,5 @@
 <h1 align="center">
-<img src="https://github.com/antoinehermant/anta_database/blob/main/book/logo.png" width="300">
+<img src="https://raw.githubusercontent.com/antoinehermant/anta_database/main/book/logo.png" width="200">
 </h1><br>
 
 [![PyPi](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
