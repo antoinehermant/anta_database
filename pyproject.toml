@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "setuptools_scm>=9"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anta_database"
+dynamic = ["version"]
+description= "SQLite database for the AntArchitecture Community Data"
+authors = [
+    {name = "Antoine Hermant"},
+    {email = "antoine.hermant@etik.com"},
+]
+readme = "README.md"
+license = "MIT"
+
+dependencies = [
+  "pandas",
+  "pyproj",
+  "matplotlib",
+  "colormaps",
+]
+
+keywords = ["isochrones", "database", "IRH", "radar"]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Physics",
+
+  "Programming Language :: Python",
+]
+
+[project.urls]
+Homepage = "https://antoinehermant.github.io/anta_database/intro"
+Documentation = "https://antoinehermant.github.io/anta_database/quick_start"
+Repository = "https://github.com/antoinehermant/anta_database.git"
+Issues = "https://github.com/antoinehermant/anta_database/issues"
+
+[tool.setuptools.packages.find]
+exclude = ["book*"]
+
+[tool.setuptools.package-data]
+anta_database = ["database/plotting/*.pkl"]
+
+[tool.setuptools_scm]
