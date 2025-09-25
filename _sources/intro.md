@@ -18,8 +18,16 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
 - Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 
-![alt text](figures/all_data.png)
-**Figure** created using a plotting function from this module
+<!-- ![alt text](figures/all_data.png) -->
+<!-- <div style="display: flex; justify-content: space-around;"> -->
+<!--   <img src="figures/all_data.png" width="45%" /> -->
+<!--   <img src="figures/AntA_38ka_depth.png" width="45%" /> -->
+<!-- ![First Figure](figures/all_data.png){ width=45% } ![Second Figure](figures/AntA_38ka_depth.png){ width=45% } -->
+| | |
+|:---:|:---:|
+| ![First Figure](figures/all_data.png) | ![Second Figure](figures/AntA_38ka_depth.png) |
+
+**Figures** created using plotting functions from this module
 
 ## Key Features
 - Efficient SQLite indexing
