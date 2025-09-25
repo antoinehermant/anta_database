@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import colormaps as cmaps
+from contextlib import contextmanager
 from typing import Union, List, Dict, Tuple
 
 class Database:
@@ -221,6 +222,28 @@ class Database:
         )
         return custom_cmap
 
+    def is_notebook(self) -> bool:
+        from IPython import get_ipython
+        try:
+            shell = get_ipython().__class__.__name__
+            if shell == 'ZMQInteractiveShell':
+                return True   # Jupyter notebook or qtconsole
+            elif shell == 'TerminalInteractiveShell':
+                return False  # Terminal running IPython
+            else:
+                return False  # Other type (?)
+        except NameError:
+            return False      # Probably standard Python interpreter
+
+    @contextmanager
+    def plot_context(self, close=None):
+        if close is None:
+            close = not self.is_notebook()
+        try:
+            yield
+        finally:
+            if close:
+                plt.close()
 
     def plotXY(self,
                metadata: Union[None, Dict, 'MetadataResult'] = None,
@@ -231,6 +254,7 @@ class Database:
                scale_factor: float = 1.0,
                latex:bool = False,
                save: Union[str, None] = None) -> None:
+
 
         if metadata:
             metadata = metadata
@@ -263,7 +287,7 @@ class Database:
         for author in authors:
             citation = self.query(author=author)['reference']
             plt.plot([], [], color=colors[author], label=citation)
-        plt.legend(loc='lower left', fontsize=8)
+        plt.legend(loc='lower left', fontsize=16*scale_factor)
 
         x_extent = x1 - x0
         y_extent = y1 - y0
@@ -279,13 +303,83 @@ class Database:
         # self.scale_axes(ax, factor=1000)
         plt.title(title, fontsize=30*scale_factor)
         plt.tight_layout()
-        if save:
-            plt.savefig(save, dpi=200)
-            plt.close()
-            print('Figure saved as', save)
+
+        with self.plot_context():
+
+            if save:
+                plt.savefig(save, dpi=200)
+                print('Figure saved as', save)
+            else:
+                plt.show()
+
+    def plotXYDepth(self,
+                    metadata: Union[None, Dict, 'MetadataResult'] = None,
+                    downscale_factor: Union[None, int] = None,
+                    title: str = '',
+                    xlim: tuple = (None, None),
+                    ylim: tuple = (None, None),
+                    scale_factor: float = 1.0,
+                    latex:bool = False,
+                    cmaps = cmaps.torch_r,
+                    save: Union[str, None] = None) -> None:
+
+        if metadata:
+            metadata = metadata
+        elif self.md:
+            metadata = self.md
         else:
-            plt.show()
-            plt.close()
+            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
+            sys.exit()
+
+        if latex:
+            from matplotlib import rc
+            rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+            rc('text', usetex=True)
+
+        fig, ax = plt.subplots(figsize=(10,6))
+        plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
+        for df, md in self.data_generator(metadata, downscale_factor=downscale_factor):
+            if md['age']:
+                var = md['age']
+                label = f'{var} isochrone depth [m]'
+            elif md['var']:
+                var = md['var']
+                label = f'{var} [m]'
+            if 'var' in locals():
+                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmaps, s=1)
+
+        x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
+        y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
+
+
+        x_extent = x1 - x0
+        y_extent = y1 - y0
+
+        aspect_ratio = y_extent / x_extent
+
+        # Set the figure size based on the aspect ratio and a scale factor
+        plt.gcf().set_size_inches(8 * scale_factor, 8 * aspect_ratio * scale_factor)
+        ax.set_xlabel('x [km]')
+        ax.set_ylabel('y [km]')
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        # self.scale_axes(ax, factor=1000)
+        plt.title(title, fontsize=30*scale_factor)
+
+        if 'scatter' in locals():
+            cbar = fig.colorbar(scatter, ax=ax, orientation='horizontal', pad=0.05, fraction=0.05)
+            cbar.ax.xaxis.set_ticks_position('bottom')
+            if 'label' in locals():
+                cbar.set_label(label)
+
+        plt.tight_layout()
+
+        with self.plot_context():
+            if save:
+                plt.savefig(save, dpi=200)
+                print('Figure saved as', save)
+            else:
+                plt.show()
 
 class MetadataResult:
     def __init__(self, metadata):
