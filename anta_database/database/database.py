@@ -171,7 +171,7 @@ class Database:
             md = self.md
         else:
             print('Please provide metadata of the files you want to generate the data from. Exiting ...')
-            sys.exit()
+            return
 
         query_params = md['_query_params']
         age = query_params.get('age')
@@ -193,8 +193,8 @@ class Database:
         elif self.db_dir:
             data_dir = self.db_dir
         else:
-            print('No data dir provided, do not know where to look for data, exiting ...')
-            sys.exit()
+            print('No data dir provided, do not know where to look for data ...')
+            return
 
         for file_path, age in results:
             df = pd.read_pickle(os.path.join(data_dir, file_path))
@@ -261,8 +261,8 @@ class Database:
         elif self.md:
             metadata = self.md
         else:
-            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
-            sys.exit()
+            print('Please provide metadata of the files you want to generate the data from...')
+            return
 
         cmaps = self.custom_cmap()
         authors = list(metadata['author'])
@@ -328,8 +328,8 @@ class Database:
         elif self.md:
             metadata = self.md
         else:
-            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
-            sys.exit()
+            print('Please provide metadata of the files you want to generate the data from...')
+            return
 
         if latex:
             from matplotlib import rc

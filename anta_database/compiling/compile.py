@@ -49,8 +49,8 @@ class CompileDatabase:
         elif ext == '.csv':
             sep=','
         else:
-            print('File type not supported, exiting ...')
-            sys.exit()
+            print(f"{ext}: File type not supported...")
+            return
 
         for i, file in enumerate(raw_files):
             print('Processing', file, f'({i}/{len(raw_files)})')
@@ -96,8 +96,8 @@ class CompileDatabase:
             elif 'lon' in ds.columns and 'lat' in ds.columns and 'x' in ds.columns and 'y' in ds.columns:
                 pass
             else:
-                print('No coordinates found in the dataset, exiting ....')
-                sys.exit()
+                print('No coordinates found in the dataset')
+                return
 
             if self.file_type == 'layer':
                 age = str(ages[file_name_])
