@@ -6,3 +6,5 @@ root: intro
 chapters:
 - file: quick_start
 - file: advanced
+- file: contact
+- file: contribute

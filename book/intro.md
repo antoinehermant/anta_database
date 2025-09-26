@@ -15,14 +15,10 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Beem et al. 2021, (https://doi.org/10.15784/601437)
 - Wang et al. 2023, (https://doi.org/10.1594/PANGAEA.958462)
 - Mulvaney et al. 2023, (https://doi.pangaea.de/10.1594/PANGAEA.963470)
+- Chung et al. 2023 (https://doi.pangaea.de/10.1594/PANGAEA.957176)
 - Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
 - Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
 
-<!-- ![alt text](figures/all_data.png) -->
-<!-- <div style="display: flex; justify-content: space-around;"> -->
-<!--   <img src="figures/all_data.png" width="45%" /> -->
-<!--   <img src="figures/AntA_38ka_depth.png" width="45%" /> -->
-<!-- ![First Figure](figures/all_data.png){ width=45% } ![Second Figure](figures/AntA_38ka_depth.png){ width=45% } -->
 | | |
 |:---:|:---:|
 | ![First Figure](figures/all_data.png) | ![Second Figure](figures/AntA_38ka_depth.png) |
@@ -33,6 +29,16 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Efficient SQLite indexing
 - Quick visualization on Antarctica map
 - Generate lazy data for later use
+
+## Acknowledgments
+
+I am developing this tool as part of my PhD project, which is funded by the Swiss National Science Foundation (grant no. 211542, Project CHARIBDIS)
+Any data used through this database should be cited at source. For this, use the DOI provided in the metadata.
+If you used this tool for your work and this was useful, please cite this module, so other people get to know that it exists.
+
+## Tutorial
+
+To get started with this module and get an overview of the features and capabilities, visit:
 
 ```{tableofcontents}
 ```
