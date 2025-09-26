@@ -37,6 +37,10 @@ class CompileDatabase:
                 self._compile(dir_path=dir_path)
 
     def _compile(self, dir_path: str) -> None:
+        if not os.path.exists(f'{dir_path}/raw/'):
+            print(f"{dir_path}/raw/ does not exists")
+            return
+
         raw_files = glob.glob(f'{dir_path}/raw/*.*')
 
         _, ext = os.path.splitext(raw_files[0])
@@ -120,29 +124,32 @@ class CompileDatabase:
                         distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
                         cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
                         ds_trace['distance'] = cumulative_distance
+                    elif 'Distance [km]' in original_new_columns.columns:
+                        ds_trace['distance'] *= 1000 # if distance in km, convert to meters
 
-                    if age in ['IceThk', 'BedElev', 'SurfElev']:
+                    if age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                         ds_trace_file = f'{dir_path}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     else:
                         ds_trace_file = f'{dir_path}/pkl/{trace_id}/{file_name_}.pkl' # else use the same file name.pkl
+
+                        for var in ['IceThk', 'BedElev', 'SurfElev']:
+                            if var in ds.columns:
+                                ds_var = ds_trace[['x', 'y', 'distance', var]]
+                                ds_var_file = f'{dir_path}/pkl/{trace_id}/{var}.pkl'
+                                if os.path.exists(ds_var_file):
+                                    var_data = pd.read_pickle(ds_var_file)
+                                    merged_data = pd.concat([var_data, ds_var]).drop_duplicates(subset=['x', 'y'])
+
+                                    merged_data.to_pickle(ds_var_file)
+                                    print(ds_var_file)
+                                else:
+                                    ds_var.to_pickle(ds_var_file)
+                                    print(ds_var_file)
 
                     os.makedirs(f'{dir_path}/pkl/{trace_id}' , exist_ok=True)
                     ds_trace.to_pickle(ds_trace_file)
                     print(ds_trace_file)
 
-                    for var in ['IceThk', 'BedElev', 'SurfElev']:
-                        if var in ds.columns:
-                            ds_var = ds_trace[['x', 'y', 'distance', var]]
-                            ds_var_file = f'{dir_path}/pkl/{trace_id}/{var}.pkl'
-                            if os.path.exists(ds_var_file):
-                                var_data = pd.read_pickle(ds_var_file)
-                                merged_data = pd.concat([var_data, ds_var]).drop_duplicates(subset=['x', 'y'])
-
-                                merged_data.to_pickle(ds_var_file)
-                                print(ds_var_file)
-                            else:
-                                ds_var.to_pickle(ds_var_file)
-                                print(ds_var_file)
 
             elif self.file_type == 'trace':
                 if 'distance' not in ds.columns:
@@ -150,11 +157,13 @@ class CompileDatabase:
                     distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
                     cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
                     ds['distance'] = cumulative_distance
+                elif 'Distance [km]' in original_new_columns.columns:
+                    ds['distance'] *= 1000 # if distance in km, convert to meters
 
                 trace_id = file_name_
                 os.makedirs(f'{dir_path}/pkl/{trace_id}' , exist_ok=True)
 
-                for var in ['IceThk', 'BedElev', 'SurfElev']:
+                for var in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                     if var in ds.columns:
                         ds_var = ds[['x', 'y', 'distance', var]]
                         ds_var_file = f'{dir_path}/pkl/{trace_id}/{var}.pkl'
@@ -186,14 +195,10 @@ class CompileDatabase:
                     if self.firn_correction:
                         ds_IRH += self.firn_correction
 
-                    for var in ['IceThk', 'BedElev', 'SurfElev']:
+                    for var in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                         if var in ds.columns:
                             ds_IRH[var] = ds[var]
 
-                    if age in ['IceThk', 'BedElev', 'SurfElev']:
-                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
-                    else:
-                        ds_trace_file = f'{dir_path}/pkl/{trace_id}/{IRH}.pkl' # else use IRH.pkl
-
+                    ds_trace_file = f'{dir_path}/pkl/{trace_id}/{IRH}.pkl'
                     ds_IRH.to_pickle(ds_trace_file)
                     print(ds_trace_file)
