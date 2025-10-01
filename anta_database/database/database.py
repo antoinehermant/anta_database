@@ -1,21 +1,18 @@
-import os, sys
+import os
 import sqlite3
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, BoundaryNorm, ListedColormap
-import colormaps as cmaps
-from contextlib import contextmanager
 from typing import Union, List, Dict, Tuple
 
+from anta_database.plotting.plotting import Plotting
+
 class Database:
-    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db'):
-        module_dir = os.path.dirname(os.path.abspath(__file__))
-        self.gl = pd.read_pickle(os.path.join(module_dir, 'plotting', 'GL.pkl'))
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db') -> None:
         self.db_dir = database_dir
         self.file_db = file_db
         self.file_db_path = os.path.join(self.db_dir, file_db)
         self.md = None
+        self._plotting = None
 
     def _build_query_and_params(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
         """
@@ -29,7 +26,6 @@ class Database:
         '''
         conditions = []
         params = []
-
         for field, column in [
             (age, 'd.age'),
             (var, 'd.var'),
@@ -221,270 +217,13 @@ class Database:
             metadata = self._get_file_metadata(file_path)
             yield df, metadata
 
-    def custom_cmap(self):
-
-        cm1 = cmaps.torch_r
-        cm2 = cmaps.deep_r
-
-        cm1_colors = cm1(np.linspace(0.05, 0.8, 256))  # Shape: (256, 4) RGBA
-        cm2_colors = cm2(np.linspace(0.1, 1, 256))  # Shape: (256, 4) RGBA
-        combined_colors = np.vstack((cm1_colors, cm2_colors))
-        custom_cmap = LinearSegmentedColormap.from_list(
-            'custom_cmap',  # Name your colormap
-            combined_colors,
-            N=512  # Double the resolution (256 + 256)
-        )
-        return custom_cmap
-
-    def custom_cmap_density(self):
-
-        cm1 = cmaps.torch_r
-        cm2 = cmaps.deep_r
-
-        cm1_colors = cm1(np.linspace(0.2, 0.8, 256))  # Shape: (256, 4) RGBA
-        cm2_colors = cm2(np.linspace(0.2, 0.8, 256))  # Shape: (256, 4) RGBA
-        combined_colors = np.vstack((cm1_colors, cm2_colors))
-        custom_cmap = LinearSegmentedColormap.from_list(
-            'custom_cmap',  # Name your colormap
-            combined_colors,
-            N=512  # Double the resolution (256 + 256)
-        )
-        return custom_cmap.reversed()
-
-    def is_notebook(self) -> bool:
-        from IPython import get_ipython
-        try:
-            shell = get_ipython().__class__.__name__
-            if shell == 'ZMQInteractiveShell':
-                return True   # Jupyter notebook or qtconsole
-            elif shell == 'TerminalInteractiveShell':
-                return False  # Terminal running IPython
-            else:
-                return False  # Other type (?)
-        except NameError:
-            return False      # Probably standard Python interpreter
-
-    @contextmanager
-    def plot_context(self, close=None):
-        if close is None:
-            close = not self.is_notebook()
-        try:
-            yield
-        finally:
-            if close:
-                plt.close()
-
-    def plotXY(self,
-               metadata: Union[None, Dict, 'MetadataResult'] = None,
-               downscale_factor: Union[None, int] = None,
-               title: str = '',
-               xlim: tuple = (None, None),
-               ylim: tuple = (None, None),
-               scale_factor: float = 1.0,
-               latex:bool = False,
-               save: Union[str, None] = None) -> None:
+    @property
+    def plot(self):
+        if self._plotting is None:
+            self._plotting = Plotting(self)
+        return self._plotting
 
 
-        if metadata:
-            metadata = metadata
-        elif self.md:
-            metadata = self.md
-        else:
-            print('Please provide metadata of the files you want to generate the data from...')
-            return
-
-        cmaps = self.custom_cmap()
-        authors = list(metadata['author'])
-        color_indices = np.linspace(0.1, 0.9, len(authors))
-        colors = {author: cmaps(i) for i, author in zip(color_indices, authors)}
-
-        if latex:
-            from matplotlib import rc
-            rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-            rc('text', usetex=True)
-
-        plt.figure()
-        plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
-        for df, md in self.data_generator(metadata, downscale_factor=downscale_factor):
-            author = md['author']
-            plt.scatter(df.x/1000, df.y/1000, linewidth=0.8, color=colors[author], s=1)
-
-        ax = plt.gca()
-        x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
-        y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
-
-        for author in authors:
-            citation = self.query(author=author)['reference']
-            plt.plot([], [], color=colors[author], label=citation)
-        plt.legend(loc='lower left', fontsize=16*scale_factor)
-
-        x_extent = x1 - x0
-        y_extent = y1 - y0
-
-        aspect_ratio = y_extent / x_extent
-
-        # Set the figure size based on the aspect ratio and a scale factor
-        plt.gcf().set_size_inches(8 * scale_factor, 8 * aspect_ratio * scale_factor)
-        ax.set_xlabel('x [km]')
-        ax.set_ylabel('y [km]')
-        ax.set_xlim(*xlim)
-        ax.set_ylim(*ylim)
-        # self.scale_axes(ax, factor=1000)
-        plt.title(title, fontsize=30*scale_factor)
-        plt.tight_layout()
-
-        with self.plot_context():
-
-            if save:
-                plt.savefig(save, dpi=200)
-                print('Figure saved as', save)
-            else:
-                plt.show()
-
-    def plotXYDepth(self,
-                    metadata: Union[None, Dict, 'MetadataResult'] = None,
-                    downscale_factor: Union[None, int] = None,
-                    title: str = '',
-                    xlim: tuple = (None, None),
-                    ylim: tuple = (None, None),
-                    scale_factor: float = 1.0,
-                    latex:bool = False,
-                    cmaps = cmaps.torch_r,
-                    save: Union[str, None] = None) -> None:
-
-        if metadata:
-            metadata = metadata
-        elif self.md:
-            metadata = self.md
-        else:
-            print('Please provide metadata of the files you want to generate the data from...')
-            return
-
-        if latex:
-            from matplotlib import rc
-            rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-            rc('text', usetex=True)
-
-        fig, ax = plt.subplots(figsize=(10,6))
-        plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
-        for df, md in self.data_generator(metadata, downscale_factor=downscale_factor):
-            if md['age']:
-                var = md['age']
-                label = f'{var} isochrone depth [m]'
-            elif md['var']:
-                var = md['var']
-                label = f'{var} [m]'
-            if 'var' in locals():
-                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['IRHDepth'], cmap=cmaps, s=1)
-
-        x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
-        y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
-
-
-        x_extent = x1 - x0
-        y_extent = y1 - y0
-
-        aspect_ratio = y_extent / x_extent
-
-        # Set the figure size based on the aspect ratio and a scale factor
-        plt.gcf().set_size_inches(8 * scale_factor, 8 * aspect_ratio * scale_factor)
-        ax.set_xlabel('x [km]')
-        ax.set_ylabel('y [km]')
-        ax.set_xlim(*xlim)
-        ax.set_ylim(*ylim)
-        # self.scale_axes(ax, factor=1000)
-        plt.title(title, fontsize=30*scale_factor)
-
-        if 'scatter' in locals():
-            cbar = fig.colorbar(scatter, ax=ax, orientation='horizontal', pad=0.05, fraction=0.05)
-            cbar.ax.xaxis.set_ticks_position('bottom')
-            if 'label' in locals():
-                cbar.set_label(label)
-
-        plt.tight_layout()
-
-        with self.plot_context():
-            if save:
-                plt.savefig(save, dpi=200)
-                print('Figure saved as', save)
-            else:
-                plt.show()
-
-    def plotXYDensity(self,
-                    metadata: Union[None, Dict, 'MetadataResult'] = None,
-                    downscale_factor: Union[None, int] = None,
-                    title: str = '',
-                    xlim: tuple = (None, None),
-                    ylim: tuple = (None, None),
-                    scale_factor: float = 1.0,
-                    latex:bool = False,
-                    save: Union[str, None] = None) -> None:
-
-        if metadata:
-            metadata = metadata
-        elif self.md:
-            metadata = self.md
-        else:
-            print('Please provide metadata of the files you want to generate the data from...')
-            return
-
-        if latex:
-            from matplotlib import rc
-            rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-            rc('text', usetex=True)
-
-        fig, ax = plt.subplots(figsize=(10,6))
-        plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
-        levels = np.linspace(1, 20, 20)
-        norm = BoundaryNorm(levels, ncolors=256)
-        cmaps = self.custom_cmap_density()
-        norm = BoundaryNorm(levels, ncolors=cmaps.N)
-        values = np.arange(1, 21)  # Your discrete levels (1, 2, 3, ...)
-        colors = cmaps(np.linspace(0, 1, len(values)))  # Sample your colormap
-        discrete_cmap = ListedColormap(colors)
-        bounds = np.arange(0.5, 21)  # Bounds between values (0.5, 1.5, 2.5, ...)
-        norm = BoundaryNorm(bounds, ncolors=discrete_cmap.N)
-        for df, md in self.data_generator(metadata, downscale_factor=downscale_factor):
-            if md['age']:
-                var = md['age']
-                label = f'{var} isochrone depth [m]'
-            elif md['var']:
-                var = md['var']
-                label = f'{var} [N]'
-            if 'var' in locals():
-                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=discrete_cmap, s=1, norm=norm)
-
-        x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
-        y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
-
-        x_extent = x1 - x0
-        y_extent = y1 - y0
-
-        aspect_ratio = y_extent / x_extent
-
-        # Set the figure size based on the aspect ratio and a scale factor
-        plt.gcf().set_size_inches(8 * scale_factor, 8 * aspect_ratio * scale_factor)
-        ax.set_xlabel('x [km]')
-        ax.set_ylabel('y [km]')
-        ax.set_xlim(*xlim)
-        ax.set_ylim(*ylim)
-        # self.scale_axes(ax, factor=1000)
-        plt.title(title, fontsize=30*scale_factor)
-
-        if 'scatter' in locals():
-            cbar = fig.colorbar(scatter, ax=ax, ticks=values, orientation='horizontal', pad=0.05, fraction=0.05)
-            cbar.ax.xaxis.set_ticks_position('bottom')
-            if 'label' in locals():
-                cbar.set_label(label)
-
-        plt.tight_layout()
-
-        with self.plot_context():
-            if save:
-                plt.savefig(save, dpi=200)
-                print('Figure saved as', save)
-            else:
-                plt.show()
 class MetadataResult:
     def __init__(self, metadata):
         self._metadata = metadata
