@@ -43,6 +43,6 @@ Issues = "https://github.com/antoinehermant/anta_database/issues"
 exclude = ["book*"]
 
 [tool.setuptools.package-data]
-anta_database = ["database/plotting/*.pkl"]
+anta_database = ["plotting/*.pkl"]
 
 [tool.setuptools_scm]
