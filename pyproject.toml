@@ -19,6 +19,7 @@ dependencies = [
   "pyproj",
   "matplotlib",
   "colormaps",
+  "tqdm",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
