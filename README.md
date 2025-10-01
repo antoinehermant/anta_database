@@ -3,6 +3,7 @@
 </h1><br>
 
 [![PyPi](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/anta_database)](https://anaconda.org/conda-forge/anta_database)
 [![Downloads](https://img.shields.io/pypi/dm/anta_database)](https://pypi.org/project/anta_database)
 
 [![GitHub issues](https://img.shields.io/badge/issue_tracking-github-blue.svg)](https://github.com/antoinehermant/anta_database/issues)

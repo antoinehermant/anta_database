@@ -9,21 +9,24 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Memory efficiency: Only relevant data is read when needed.
 - Fast read performance: Lightweight and optimized for speed.
 
-### Datasets currently included:
-- Winter et al. 2018, (https://doi.org/10.1594/PANGAEA.895528)
-- Cavitte et al. 2020, (https://doi.org/10.15784/601411)
-- Beem et al. 2021, (https://doi.org/10.15784/601437)
-- Wang et al. 2023, (https://doi.org/10.1594/PANGAEA.958462)
-- Mulvaney et al. 2023, (https://doi.pangaea.de/10.1594/PANGAEA.963470)
-- Chung et al. 2023 (https://doi.pangaea.de/10.1594/PANGAEA.957176)
-- Sanderson et al. 2024, (https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316)
-- Franke et al. 2025, (https://doi.org/10.1594/PANGAEA.973266)
-
-| | |
-|:---:|:---:|
-| ![First Figure](figures/all_data.png) | ![Second Figure](figures/AntA_38ka_depth.png) |
-
+### Overview
+![Figure](figures/Overview_all.png) 
 **Figures** created using plotting functions from this module
+
+### Datasets currently included:
+- Franke et al. 2025, https://doi.org/10.1594/PANGAEA.973266
+- Sanderson et al. 2024, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316
+- Chung et al. 2023 https://doi.pangaea.de/10.1594/PANGAEA.957176
+- Muldoon et al. 2023, https://doi.org/10.15784/601673
+- Mulvaney et al. 2023, https://doi.pangaea.de/10.1594/PANGAEA.963470
+- Wang et al. 2023, https://doi.org/10.1594/PANGAEA.958462
+- Bodart et al. 2021, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB
+- Beem et al. 2021, https://doi.org/10.15784/601437
+- Ashmore et al. 2020, https://doi.org/10.1029/2019GL086663
+- Cavitte et al. 2020, https://doi.org/10.15784/601411
+- Winter et al. 2018, https://doi.org/10.1594/PANGAEA.895528
+- Leysinger et al. 2011, https://doi.org/10.1029/2010JF001785
+- Jacobel et al 2005, https://doi.org/10.7265/N5R20Z9T
 
 ## Key Features
 - Efficient SQLite indexing
