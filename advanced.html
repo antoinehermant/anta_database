@@ -181,6 +181,7 @@
         </ul>
         <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
+
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Advanced: Managing the database</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contributing</a></li>
@@ -381,6 +382,11 @@ document.write(`
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -414,8 +420,8 @@ document.write(`
 ├── Author_YYYY
     ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
     ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
-    ├── raw/
-    └── pkl/
+    ├── raw/ #Directory with the original files to process
+    └── pkl/ #Directory were the processed files will be written (it will be created in the process)
 </pre></div>
 </div>
 <p>Then use the CompileDatabase class to compile the database:</p>
@@ -427,6 +433,9 @@ document.write(`
     <span class="s1">&#39;./Franke_2025&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Cavitte_2020&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Beem_2021&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Bodart_2021/&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Muldoon_2023/&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Ashmore_2020/&#39;</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path_list</span><span class="p">)</span>
@@ -439,6 +448,30 @@ document.write(`
 <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">#</a></h2>
+<section id="multiprocessing">
+<h3>Multiprocessing<a class="headerlink" href="#multiprocessing" title="Link to this heading">#</a></h3>
+<p>The compilation uses multiprocessing tools for parallel processing. It first finds all the raw files to process and then distribute the processes on multiple processors. By default, it uses all available cpus on the machine minus 1 (to not completely freeze the machine). However, if there are fewer tasks than cpus (fewer files to process), it will use only as many cpus as there are tasks.
+To manually fix the number of cpus used during the compilation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cpus</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="c1"># Or any integer of choice</span>
+</pre></div>
+</div>
+</section>
+<section id="compilation-process">
+<h3>Compilation process<a class="headerlink" href="#compilation-process" title="Link to this heading">#</a></h3>
+<p>The compilation is divided into 2 processes. First it compiles the database by ordering the data in individual trace and individual age. Then a post compilation process loop through all the new pickle files and currently performs the following:</p>
+<ul class="simple">
+<li><p>If variables such as IceThk, SurfElev and BedElev were not given in a distinct file in the raw directory but are present along the IRH, extract them from the IRH files and save it as a separate file. This allows to treat those variables as layers (convenient for visualization, interpolation etc.)</p></li>
+<li><p>Compute the IRH density (IRHDensity) and save it per trace</p></li>
+</ul>
+<p>This structure makes it easy to add post compilation operations on the database, if one wants to add features to the data. One can then perform the post compilation only without having to recompile the database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">comp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">post</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># They are both True by default</span>
+<span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 
@@ -508,6 +541,11 @@ document.write(`
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
