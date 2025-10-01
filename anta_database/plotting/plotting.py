@@ -15,6 +15,7 @@ class Plotting:
         self._db = database_instance
         module_dir = os.path.dirname(os.path.abspath(__file__))
         self.gl = pd.read_pickle(os.path.join(module_dir, 'GL.pkl'))
+        self.site_coords = pd.read_pickle(os.path.join(module_dir, 'site-coords.pkl'))
 
 
     def _pre_plot_check(self,
@@ -353,6 +354,10 @@ class Plotting:
 
         plt.tight_layout()
 
+        # --- Plot ice core sites ---
+        for i in self.site_coords.index:
+            site = self.site_coords.loc[i]
+            ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5)
         # --- Save/Show ---
         with self._plot_context():
             if save:
