@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 import glob
 import pandas as pd
 import sqlite3
@@ -14,20 +15,13 @@ class IndexDatabase:
         ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age'])
         return dict(zip(ages['file'], ages['age']))
 
-    def get_dict_vars(self, tab_file) -> dict:
-        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'var'])
-        return dict(zip(ages['file'], ages['var']))
-
     def index_database(self):
         Authors_ages = {}
         for _, row in self.index.iterrows():
             ages = self.get_dict_ages(f"{self.db_dir}/{row.directory}/IRH_ages.tab")
             Authors_ages.update({f"{row.directory}": ages})
 
-        Extra_vars = {}
-        for _, row in self.index.iterrows():
-            vars = self.get_dict_ages(f"{self.db_dir}/{row.directory}/vars.tab")
-            Extra_vars.update({f"{row.directory}": vars})
+        var_list = pd.read_csv(f"{self.db_dir}/vars.csv").columns
 
         if os.path.exists(self.file_db):
             os.remove(self.file_db)
@@ -67,8 +61,8 @@ class IndexDatabase:
             )
         ''')
 
-        # Insert the metadata for each dataset into the table
-        for file in glob.glob(f'{self.db_dir}/**/**/*.pkl', recursive=True):
+        pkl_files = list(glob.glob(f'{self.db_dir}/**/**/*.pkl', recursive=True))
+        for file in tqdm(pkl_files, desc="Processing files"):
             dir_name, file_name = os.path.split(file)
             pkl_dir, trace_id = os.path.split(dir_name)
             author_dir, _ = os.path.split(pkl_dir)
@@ -76,7 +70,6 @@ class IndexDatabase:
             author = os.path.basename(author_dir)
             file_name_, ext = os.path.splitext(file_name)
             relative_file_path = f'{author}/pkl/{trace_id}/{file_name}'
-            print(relative_file_path)
 
             # Get the author's ID from the authors table
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
@@ -87,8 +80,8 @@ class IndexDatabase:
             else:
                 age = None
 
-            if file_name_ in Extra_vars[author]:
-                var = Extra_vars[author][file_name_]
+            if file_name_ in var_list:
+                var = file_name_
             else:
                 var = None
 
