@@ -38,17 +38,31 @@ class Database:
         ]:
             if field is not None:
                 if isinstance(field, list):
-                    placeholders = ','.join(['?'] * len(field))
-                    conditions.append(f'{column} IN ({placeholders})')
-                    params.extend(field)
+                    # For lists, use IN for exact matches, or LIKE for wildcards
+                    like_conditions = []
+                    in_values = []
+                    for item in field:
+                        if '%' in item:
+                            like_conditions.append(f"{column} LIKE ?")
+                            params.append(item)
+                        else:
+                            in_values.append(item)
+                    if like_conditions:
+                        conditions.append('(' + ' OR '.join(like_conditions) + ')')
+                    if in_values:
+                        placeholders = ','.join(['?'] * len(in_values))
+                        conditions.append(f"{column} IN ({placeholders})")
+                        params.extend(in_values)
                 else:
-                    conditions.append(f'{column} = ?')
+                    # For single values, use = or LIKE
+                    if '%' in field:
+                        conditions.append(f"{column} LIKE ?")
+                    else:
+                        conditions.append(f"{column} = ?")
                     params.append(field)
-
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
-
-        query += 'ORDER BY CAST(d.age AS INTEGER) ASC'
+        query += ' ORDER BY CAST(d.age AS INTEGER) ASC'
         return query, params
 
     def _get_file_metadata(self, file_path) -> Dict:
