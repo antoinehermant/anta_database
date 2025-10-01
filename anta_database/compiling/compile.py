@@ -38,7 +38,7 @@ class CompileDatabase:
         if not self._pre_compile_checks(self.dir_list):
             return
 
-        if self.comp:
+        if self.comp is True:
             all_files_list = []
             for dir_ in self.dir_list:
                 files = glob.glob(f"{dir_}/raw/*.*")
@@ -64,7 +64,7 @@ class CompileDatabase:
                 for file_dict in tqdm(all_files_list, desc="Processing"):
                     self._compile(file_dict=file_dict)
 
-        if self.post:
+        if self.post is True:
             all_dirs = []
             for dir_ in self.dir_list:
                 dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
@@ -149,7 +149,6 @@ class CompileDatabase:
 
         if self.file_type == 'layer':
             age = str(ages[file_name_])
-            ds = ds.rename(columns={'IRHdepth': 'IRHDepth'})
             if self.wave_speed:
                 ds['IRHDepth'] *= self.wave_speed
             if self.firn_correction:
@@ -163,6 +162,7 @@ class CompileDatabase:
 
             for trace_id in np.unique(ds.index):
                 ds_trace = ds.loc[trace_id].copy()
+                ds_trace = ds_trace.drop_duplicates(subset=['x', 'y']) # Some datasets showed duplicated data
                 if 'distance' not in ds_trace.columns:
                     x = ds_trace[['x', 'y']]
                     distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
@@ -172,6 +172,7 @@ class CompileDatabase:
                     ds_trace['distance'] *= 1000 # if distance in km, convert to meters
 
                 if age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
+                    ds_trace = ds_trace.rename(columns={'IRHDepth': age})
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                 else:
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{file_name_}.pkl' # else use the same file name.pkl
@@ -223,12 +224,13 @@ class CompileDatabase:
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
             dfs = [pd.read_pickle(f) for f in files]
-            dfs = pd.concat(dfs).drop_duplicates(subset=['x', 'y'])
+            dfs = pd.concat(dfs)
         elif len(files) == 1:
             dfs = pd.read_pickle(files[0])
         else:
             return
 
+        dfs = dfs[['x','y','IRHDepth']]
         valid = dfs.dropna(subset=['IRHDepth'])
         density = valid.groupby(['x', 'y']).size().reset_index(name='IRHDensity')
 
