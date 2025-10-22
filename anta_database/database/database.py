@@ -66,7 +66,7 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.age, d.var, d.trace_id, d.file_path'
+        select_clause = 'a.name, d.age, d.age_unc, d.var, d.trace_id, d.file_path'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -96,16 +96,17 @@ class Database:
         metadata = {
             'author': results[0][0],
             'age': results[0][1],
-            'var': results[0][2],
-            'trace_id': results[0][3],
-            'file_path': results[0][4],
+            'age_unc': results[0][2],
+            'var': results[0][3],
+            'trace_id': results[0][4],
+            'file_path': results[0][5],
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
         return metadata
 
     def query(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None,author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> 'MetadataResult':
-        select_clause = 'a.name, a.citation, a.doi, d.age, d.var, d.trace_id'
+        select_clause = 'a.name, a.citation, a.doi, d.age, d.age_unc, d.var, d.trace_id'
         query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
@@ -117,6 +118,7 @@ class Database:
         metadata = {
             'author': [],
             'age': [],
+            'age_unc': [],
             'var': [],
             'reference': [],
             'doi': [],
@@ -126,8 +128,9 @@ class Database:
             'file_db': self.file_db,
         }
         ages_list = []
+        ages_unc_list = []
         vars_list = []
-        for author_name, citations, doi, ages, vars, trace_id in results:
+        for author_name, citations, doi, ages, ages_unc, vars, trace_id in results:
             metadata['author'].append(author_name)
             metadata['reference'].append(citations)
             metadata['doi'].append(doi)
@@ -135,9 +138,26 @@ class Database:
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
                 ages_list.append(int(ages))
+                if ages_unc is not None and ages_unc.isdigit():
+                    ages_unc_list.append(int(ages_unc))
+                else:
+                    ages_unc_list.append('-')
             if vars is not None:
                 vars_list.append(vars)
-        metadata['age'] = sorted({str(age) for age in set(ages_list)}, key=int)
+
+
+        paired = sorted(zip(ages_list, ages_unc_list), key=lambda x: x[0])
+
+        unique_pairs = []
+        seen = set()
+        for age, unc in paired:
+            if age not in seen:
+                seen.add(age)
+                unique_pairs.append((age, unc))
+
+        sorted_ages, sorted_age_unc = zip(*unique_pairs) if unique_pairs else ([], [])
+        metadata['age'] = [str(age) for age in sorted_ages]
+        metadata['age_unc'] = [str(age_unc) for age_unc in sorted_age_unc]
         metadata['var'] = sorted(set(vars_list))
         metadata['author'] = list(dict.fromkeys(metadata['author']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
@@ -238,6 +258,7 @@ class MetadataResult:
         output.append("Metadata from query:")
         output.append(f"\n  - author: {', '.join(md['author'])}")
         output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
+        output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
         output.append(f"\n  - var: {', '.join(md['var'])}")
         output.append(f"\n  - trace_id: {', '.join(md['trace_id'])}")
         output.append(f"\n  - reference: {', '.join(md['reference'])}")

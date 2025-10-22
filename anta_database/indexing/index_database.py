@@ -11,9 +11,10 @@ class IndexDatabase:
         self.file_index = index
         self.index = pd.read_csv(f'{self.db_dir}/{self.file_index}', header=0)
 
-    def get_dict_ages(self, tab_file) -> dict:
-        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age'])
-        return dict(zip(ages['file'], ages['age']))
+    def get_dict_ages(self, tab_file) -> pd.DataFrame:
+        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age', 'age_unc'])
+        ages.set_index('file', inplace=True)
+        return ages
 
     def index_database(self):
         Authors_ages = {}
@@ -55,6 +56,7 @@ class IndexDatabase:
                 file_path TEXT,
                 author TEXT,
                 age TEXT,
+                age_unc TEXT,
                 var TEXT,
                 trace_id TEXT,
                 FOREIGN KEY (author) REFERENCES authors (id)
@@ -75,10 +77,18 @@ class IndexDatabase:
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
             author_id = cursor.fetchone()[0]
 
-            if file_name_ in Authors_ages[author]:
-                age = Authors_ages[author][file_name_]
+            ages = Authors_ages[author]
+
+            if file_name_ in ages.index:
+                age = int(ages.loc[file_name_]['age'])
+                age_unc = ages.loc[file_name_]['age_unc']
+                if not pd.isna(age_unc):
+                    age_unc = int(age_unc)
+                else:
+                    age_unc = None
             else:
                 age = None
+                age_unc = None
 
             if file_name_ in var_list:
                 var = file_name_
@@ -86,9 +96,9 @@ class IndexDatabase:
                 var = None
 
             cursor.execute('''
-                INSERT INTO datasets (file_path, author, age, var, trace_id)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (relative_file_path, author_id, age, var, trace_id))
+                INSERT INTO datasets (file_path, author, age, age_unc, var, trace_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (relative_file_path, author_id, age, age_unc, var, trace_id))
 
         conn.commit()
         conn.close()

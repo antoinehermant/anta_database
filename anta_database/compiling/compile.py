@@ -17,9 +17,10 @@ class CompileDatabase:
         self.comp = comp
         self.post = post
 
-    def get_dict_ages(self, tab_file) -> dict:
-        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age'])
-        return dict(zip(ages['file'], ages['age']))
+    def get_dict_ages(self, tab_file) -> pd.DataFrame:
+        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age', 'age_unc'])
+        ages.set_index('file', inplace=True)
+        return ages
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -98,11 +99,13 @@ class CompileDatabase:
             sep='\t'
         elif ext == '.csv':
             sep=','
+        elif ext == '.txt':
+            sep=' '
         else:
             print(f"{ext}: File type not supported...")
             return
 
-        ds = pd.read_csv(file_dict['file_path'], comment="#", header=0, sep=sep, na_values=['-9999', 'NaN', ''])
+        ds = pd.read_csv(file_dict['file_path'], comment="#", header=0, sep=sep, na_values=['-9999', 'NaN', 'nan', ''])
         _, file_name = os.path.split(file_dict['file_path'])
         file_name_, ext = os.path.splitext(file_name)
 
@@ -148,7 +151,7 @@ class CompileDatabase:
             return
 
         if self.file_type == 'layer':
-            age = str(ages[file_name_])
+            age = int(ages.loc[file_name_]['age'])
             if self.wave_speed:
                 ds['IRHDepth'] *= self.wave_speed
             if self.firn_correction:
@@ -191,8 +194,7 @@ class CompileDatabase:
 
             trace_id = file_name_
             os.makedirs(f'{file_dict['dir_path']}/pkl/{trace_id}' , exist_ok=True)
-
-            ages = {key: ages[key] for key in ds.columns if key in ages}
+            ages = {key: int(ages.loc[key]['age']) for key in ds.columns if key in ages.index}
 
             for IRH in ages:
                 age = str(ages.get(IRH))
@@ -217,9 +219,7 @@ class CompileDatabase:
                 ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{IRH}.pkl'
                 ds_IRH.to_pickle(ds_trace_file)
 
-    def compute_irh_density(self, trace_dir) -> None:
-        files = glob.glob(f"{trace_dir}/*.pkl")
-
+    def compute_irh_density(self, trace_dir: str) -> None:
         unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
