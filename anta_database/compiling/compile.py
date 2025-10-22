@@ -237,9 +237,17 @@ class CompileDatabase:
         density_file = f'{trace_dir}/IRHDensity.pkl'
         density.to_pickle(density_file)
 
-    def extract_vars(self, trace_dir: str) -> None:
-        files = glob.glob(f"{trace_dir}/*.pkl")
+    def compute_fractional_depth(self, trace_dir: str) -> None:
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
 
+        for f in files:
+            df = pd.read_pickle(f)
+            if 'IceThk' in df.columns:
+                df['FracDepth'] = df['IRHDepth'] / df['IceThk'] * 100
+                df.to_pickle(f)
+
+    def extract_vars(self, trace_dir: str) -> None:
         unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
@@ -256,7 +264,18 @@ class CompileDatabase:
                 var_file = f'{trace_dir}/{var}.pkl'
                 ds_var.to_pickle(var_file)
 
+    def clean_IRH_arrays(self, trace_dir: str) -> None:
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
+        for f in files:
+            df = pd.read_pickle(f)
+            cols = ['x', 'y', 'distance', 'IRHDepth', 'FracDepth']
+            df = df[[col for col in cols if col in df.columns]]
+            df.reset_index(drop=True, inplace=True)
+            df.to_pickle(f)
+
     def _post_compilation(self, trace_dir: str) -> None:
         self.extract_vars(trace_dir)
         self.compute_irh_density(trace_dir)
-
+        self.compute_fractional_depth(trace_dir)
+        self.clean_IRH_arrays(trace_dir)

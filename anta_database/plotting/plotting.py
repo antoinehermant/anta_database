@@ -141,6 +141,36 @@ class Plotting:
             save=save,
         )
 
+    def frac_depth(
+            self,
+            metadata: Union[None, Dict, 'MetadataResult'] = None,
+            downscale_factor: Optional[int] = None,
+            title: str = '',
+            xlim: tuple = (None, None),
+            ylim: tuple = (None, None),
+            scale_factor: float = 1.0,
+            marker_size: Optional[float] = None,
+            latex: bool = False,
+            cmap: Optional['LinearSegmentedColormap'] = None,
+            save: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the color-coded layer depth on Antarctic map
+        """
+        self._base_plot(
+            color_by='frac_depth',
+            metadata=metadata,
+            downscale_factor=downscale_factor,
+            title=title,
+            xlim=xlim,
+            ylim=ylim,
+            scale_factor=scale_factor,
+            marker_size=marker_size,
+            latex=latex,
+            cmap=cmap,
+            save=save,
+        )
+
     def var(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
@@ -321,6 +351,25 @@ class Plotting:
                     continue
                 scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['IRHDepth'], cmap=cmap, s=marker_size)
 
+        elif color_by == 'frac_depth':
+            if marker_size == None:
+                marker_size = 1.
+            if cmap == None:
+                cmap = cmaps.torch_r
+            age = list(metadata['age'])
+            if len(age) > 1:
+                print('WARNING: Multiple layers provided: ', age,
+                      '\nSelect a unique age for better results')
+            elif len(age) == 0:
+                print('No layer provided, please provide a valid age.')
+                return
+            age = age[0]
+            label = 'Fractional Depth [\%]'
+            for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+                if not md.get('age'):
+                    continue
+                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['FracDepth'], cmap=cmap, s=marker_size)
+
         # --- Format Figure ---
         x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
         y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
@@ -343,7 +392,7 @@ class Plotting:
         elif color_by == 'trace_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
             plt.gcf().set_size_inches(10 * scale_factor * ncol/1.15, 10 * aspect_ratio * scale_factor)
-        elif color_by in ('depth', 'var') and scatter is not None:
+        elif color_by in ('depth', 'var', 'frac_depth') and scatter is not None:
             if color_by == 'var' and values is not None:
                 cbar = fig.colorbar(scatter, ax=ax, ticks=values, orientation='horizontal', pad=0.1, fraction=0.04)
             else:
