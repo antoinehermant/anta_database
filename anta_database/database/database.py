@@ -2,7 +2,7 @@ import os
 import sqlite3
 import pandas as pd
 import numpy as np
-from typing import Union, List, Dict, Tuple
+from typing import Union, List, Dict, Tuple, Optional
 
 from anta_database.plotting.plotting import Plotting
 
@@ -13,8 +13,25 @@ class Database:
         self.file_db_path = os.path.join(self.db_dir, file_db)
         self.md = None
         self._plotting = None
+        self.excluded = {
+            'author': [],
+            'institute': [],
+            'project': [],
+            'acq_year': [],
+            'age': [],
+            'var': [],
+            'trace_id': [],
+        }
 
-    def _build_query_and_params(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None, author: Union[None, str, List[str]]=None, line: Union[None, str, List[str]]=None, select_clause='') -> Tuple[str, List[Union[str, int]]]:
+    def _build_query_and_params(self,
+                                age: Optional[Union[str, List[str]]] = None,
+                                var: Optional[Union[str, List[str]]] = None,
+                                author: Optional[Union[str, List[str]]] = None,
+                                institute: Optional[Union[str, List[str]]] = None,
+                                project: Optional[Union[str, List[str]]] = None,
+                                acq_year: Optional[Union[str, List[str]]] = None,
+                                line: Optional[Union[str, List[str]]] = None,
+                                select_clause='') -> Tuple[str, List[Union[str, int]]]:
         """
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
@@ -30,6 +47,9 @@ class Database:
             (age, 'd.age'),
             (var, 'd.var'),
             (author, 'a.name'),
+            (institute, 'd.institute'),
+            (project, 'd.project'),
+            (acq_year, 'd.acq_year'),
             (line, 'd.trace_id')
         ]:
             if field is not None:
@@ -37,10 +57,15 @@ class Database:
                     # For lists, use IN for exact matches, or LIKE for wildcards
                     like_conditions = []
                     in_values = []
+                    range_conditions = []
                     for item in field:
                         if '%' in item:
                             like_conditions.append(f"{column} LIKE ?")
                             params.append(item)
+                        elif self._is_range_query(item):
+                            op, val = self._parse_range_query(item)
+                            range_conditions.append(f"{column} {op} ?")
+                            params.append(val)
                         else:
                             in_values.append(item)
                     if like_conditions:
@@ -49,24 +74,127 @@ class Database:
                         placeholders = ','.join(['?'] * len(in_values))
                         conditions.append(f"{column} IN ({placeholders})")
                         params.extend(in_values)
+                    if range_conditions:
+                        conditions.append('(' + ' OR '.join(range_conditions) + ')')
                 else:
-                    # For single values, use = or LIKE
                     if '%' in field:
                         conditions.append(f"{column} LIKE ?")
+                        params.append(field)
+                    elif self._is_range_query(field):
+                        op, val = self._parse_range_query(field)
+                        conditions.append(f"{column} {op} ?")
+                        params.append(val)
                     else:
                         conditions.append(f"{column} = ?")
-                    params.append(field)
+                        params.append(field)
+
+        for field, column in [
+            ('age', 'd.age'),
+            ('var', 'd.var'),
+            ('author', 'a.name'),
+            ('institute', 'd.institute'),
+            ('project', 'd.project'),
+            ('acq_year', 'd.acq_year'),
+            ('trace_id', 'd.trace_id')
+        ]:
+            if self.excluded[field]:
+                not_like_conditions = []
+                not_in_values = []
+                not_range_conditions = []
+                for item in self.excluded[field]:
+                    if '%' in item:
+                        not_like_conditions.append(f"{column} NOT LIKE ?")
+                        params.append(item)
+                    elif self._is_range_query(item):
+                            op, val = self._parse_range_query(item)
+                            inverted_op = self._invert_range_operator(op)
+                            not_range_conditions.append(f"{column} {inverted_op} ?")
+                            params.append(val)
+                    else:
+                        not_in_values.append(item)
+                if not_like_conditions:
+                    conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
+                if not_in_values:
+                    if len(not_in_values) == 1:
+                        conditions.append(f"{column} != ?")
+                        params.append(not_in_values[0])
+                    else:
+                        placeholders = ','.join(['?'] * len(not_in_values))
+                        conditions.append(f"{column} NOT IN ({placeholders})")
+                        params.extend(not_in_values)
+                if not_range_conditions:
+                    conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
+
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
         query += ' ORDER BY CAST(d.age AS INTEGER) ASC'
         return query, params
+
+    def _is_range_query(self, s: str) -> bool:
+        """Check if the string is a range query (e.g., '>2000', '<=2010')."""
+        return s.startswith(('>', '<', '=')) and any(c.isdigit() for c in s)
+
+    def _parse_range_query(self, s: str) -> Tuple[str, Union[str, int]]:
+        """Parse a range query string into operator and value."""
+        op = ''.join(c for c in s if c in ('>', '<', '='))
+        val = s[len(op):]
+        try:
+            val = int(val)
+        except ValueError:
+            pass
+        return op, val
+
+    def _invert_range_operator(self, op: str) -> str:
+        """Invert the range operator for NOT conditions."""
+        invert_map = {
+            '>': '<=',
+            '<': '>=',
+            '>=': '<',
+            '<=': '>',
+            '=': '!=',
+        }
+        return invert_map.get(op, op)
+
+    def filter_out(
+        self,
+        age: Optional[Union[str, List[str]]] = None,
+        var: Optional[Union[str, List[str]]] = None,
+        author: Optional[Union[str, List[str]]] = None,
+        institute: Optional[Union[str, List[str]]] = None,
+        project: Optional[Union[str, List[str]]] = None,
+        acq_year: Optional[Union[str, List[str]]] = None,
+        trace_id: Optional[Union[str, List[str]]] = None,
+    ) -> None:
+        """
+        Add values to exclude from the query results.
+        Example: filter_out(author='Cavitte', project='OldProject')
+        """
+        # Map arguments to their corresponding fields
+        field_mapping = {
+            'age': age,
+            'var': var,
+            'author': author,
+            'institute': institute,
+            'project': project,
+            'acq_year': acq_year,
+            'trace_id': trace_id,
+        }
+
+        for field, value in field_mapping.items():
+            if value is not None:
+                if isinstance(value, list):
+                    self.excluded[field] = value
+                else:
+                    self.excluded[field] = [value]
+            else:
+                self.excluded[field] = []
 
     def _get_file_metadata(self, file_path) -> Dict:
         """
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.age, d.age_unc, d.var, d.trace_id, d.file_path'
+        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.trace_id, d.file_path'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -95,19 +223,29 @@ class Database:
 
         metadata = {
             'author': results[0][0],
-            'age': results[0][1],
-            'age_unc': results[0][2],
-            'var': results[0][3],
-            'trace_id': results[0][4],
-            'file_path': results[0][5],
+            'institute': results[0][1],
+            'project': results[0][2],
+            'acq_year': results[0][3],
+            'age': results[0][4],
+            'age_unc': results[0][5],
+            'var': results[0][6],
+            'trace_id': results[0][7],
+            'file_path': results[0][8],
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
         return metadata
 
-    def query(self, age: Union[None, str, List[str]]=None, var: Union[None, str, List[str]]=None,author: Union[None, str, List[str]]=None, trace_id: Union[None, str, List[str]]=None) -> 'MetadataResult':
-        select_clause = 'a.name, a.citation, a.doi, d.age, d.age_unc, d.var, d.trace_id'
-        query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
+    def query(self,
+              age: Optional[Union[str, List[str]]] = None,
+              var: Optional[Union[str, List[str]]] = None,
+              author: Optional[Union[str, List[str]]] = None,
+              institute: Optional[Union[str, List[str]]] = None,
+              project: Optional[Union[str, List[str]]] = None,
+              acq_year: Optional[Union[str, List[str]]] = None,
+              trace_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
+        select_clause = 'a.name, a.citation, a.doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.trace_id'
+        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, trace_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -117,20 +255,27 @@ class Database:
 
         metadata = {
             'author': [],
+            'institute': [],
+            'project': [],
+            'acq_year': [],
             'age': [],
             'age_unc': [],
             'var': [],
             'reference': [],
             'doi': [],
             'trace_id': [],
-            '_query_params': {'age': age, 'var': var, 'author': author, 'trace_id': trace_id},
+            '_query_params': {'author': author, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'trace_id': trace_id},
+            '_filter_params': {'author': self.excluded['author'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'trace_id': self.excluded['trace_id']},
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
         ages_list = []
         ages_unc_list = []
         vars_list = []
-        for author_name, citations, doi, ages, ages_unc, vars, trace_id in results:
+        institutes_list = []
+        projects_list = []
+        acq_years_list = []
+        for author_name, citations, doi, institutes, projects, acq_years, ages, ages_unc, vars, trace_id in results:
             metadata['author'].append(author_name)
             metadata['reference'].append(citations)
             metadata['doi'].append(doi)
@@ -144,6 +289,18 @@ class Database:
                     ages_unc_list.append('-')
             if vars is not None:
                 vars_list.append(vars)
+            if institutes is not None:
+                institutes_list.append(institutes)
+            else:
+                institutes_list.append('-')
+            if projects is not None:
+                projects_list.append(projects)
+            else:
+                projects_list.append('-')
+            if acq_years is not None:
+                acq_years_list.append(acq_years)
+            else:
+                acq_years_list.append('-')
 
 
         paired = sorted(zip(ages_list, ages_unc_list), key=lambda x: x[0])
@@ -159,6 +316,9 @@ class Database:
         metadata['age'] = [str(age) for age in sorted_ages]
         metadata['age_unc'] = [str(age_unc) for age_unc in sorted_age_unc]
         metadata['var'] = sorted(set(vars_list))
+        metadata['institute'] = sorted(set(institutes_list))
+        metadata['project'] = sorted(set(projects_list))
+        metadata['acq_year'] = sorted(set(acq_years_list))
         metadata['author'] = list(dict.fromkeys(metadata['author']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
         metadata['doi'] = list(dict.fromkeys(metadata['doi']))
@@ -172,10 +332,13 @@ class Database:
         age = query_params.get('age')
         var = query_params.get('var')
         author = query_params.get('author')
+        institute = query_params.get('institute')
+        project = query_params.get('project')
+        acq_year = query_params.get('acq_year')
         line = query_params.get('trace_id')
 
         select_clause = 'd.file_path'
-        query, params = self._build_query_and_params(age, var, author, line, select_clause)
+        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -207,10 +370,13 @@ class Database:
         age = query_params.get('age')
         var = query_params.get('var')
         author = query_params.get('author')
-        trace_id = query_params.get('trace_id')
+        institute = query_params.get('institute')
+        project = query_params.get('project')
+        acq_year = query_params.get('acq_year')
+        line = query_params.get('trace_id')
 
         select_clause = 'DISTINCT d.file_path, d.age'
-        query, params = self._build_query_and_params(age, var, author, trace_id, select_clause)
+        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -257,6 +423,9 @@ class MetadataResult:
         output = []
         output.append("Metadata from query:")
         output.append(f"\n  - author: {', '.join(md['author'])}")
+        output.append(f"\n  - institute: {', '.join(md['institute'])}")
+        output.append(f"\n  - project: {', '.join(md['project'])}")
+        output.append(f"\n  - acq_year: {', '.join(md['acq_year'])}")
         output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
         output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
         output.append(f"\n  - var: {', '.join(md['var'])}")
@@ -265,6 +434,7 @@ class MetadataResult:
         output.append(f"  - DOIs: {', '.join(md['doi'])}")
         output.append(f"  - database: {md['database_path']}/{md['file_db']}")
         output.append(f"  - query params: {md['_query_params']}")
+        output.append(f"  - filter params: {md['_filter_params']}")
         return "\n".join(output)
 
     def to_dict(self):

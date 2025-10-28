@@ -3,6 +3,7 @@ from tqdm import tqdm
 import glob
 import pandas as pd
 import sqlite3
+import sys
 
 class IndexDatabase:
     def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index: str = 'database_index.csv'):
@@ -11,16 +12,19 @@ class IndexDatabase:
         self.file_index = index
         self.index = pd.read_csv(f'{self.db_dir}/{self.file_index}', header=0)
 
-    def get_dict_ages(self, tab_file) -> pd.DataFrame:
-        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age', 'age_unc'])
-        ages.set_index('file', inplace=True)
-        return ages
+    def file_metadata(self, file_path) -> pd.DataFrame:
+        table = pd.read_csv(file_path, header=0, sep=',')
+        table.set_index('raw_file', inplace=True)
+        return table
 
     def index_database(self):
         Authors_ages = {}
+        pkl_files = []
         for _, row in self.index.iterrows():
-            ages = self.get_dict_ages(f"{self.db_dir}/{row.directory}/IRH_ages.tab")
-            Authors_ages.update({f"{row.directory}": ages})
+            table = self.file_metadata(f"{self.db_dir}/{row.directory}/raw_files_md.csv")
+            Authors_ages.update({f"{row.directory}": table})
+
+            pkl_files.extend(list(glob.glob(f'{self.db_dir}/{row.directory}/pkl/**/*.pkl', recursive=False)))
 
         var_list = pd.read_csv(f"{self.db_dir}/vars.csv").columns
 
@@ -55,6 +59,9 @@ class IndexDatabase:
                 id INTEGER PRIMARY KEY,
                 file_path TEXT,
                 author TEXT,
+                institute TEXT,
+                project TEXT,
+                acq_year TEXT,
                 age TEXT,
                 age_unc TEXT,
                 var TEXT,
@@ -63,11 +70,13 @@ class IndexDatabase:
             )
         ''')
 
-        pkl_files = list(glob.glob(f'{self.db_dir}/**/**/*.pkl', recursive=True))
-        for file in tqdm(pkl_files, desc="Processing files"):
+        for file in tqdm(pkl_files, desc="Indexing files"):
             dir_name, file_name = os.path.split(file)
             pkl_dir, trace_id = os.path.split(dir_name)
             author_dir, _ = os.path.split(pkl_dir)
+            trace_md = pd.read_csv(f'{dir_name}/trace_md.csv')
+            trace_md['trace_id'] = trace_md['trace_id'].astype(str)
+            trace_md.set_index('trace_id', inplace=True)
 
             author = os.path.basename(author_dir)
             file_name_, ext = os.path.splitext(file_name)
@@ -77,11 +86,11 @@ class IndexDatabase:
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
             author_id = cursor.fetchone()[0]
 
-            ages = Authors_ages[author]
+            metadata = Authors_ages[author]
 
-            if file_name_ in ages.index:
-                age = int(ages.loc[file_name_]['age'])
-                age_unc = ages.loc[file_name_]['age_unc']
+            if file_name_ in metadata.index:
+                age = int(metadata.loc[file_name_]['age'])
+                age_unc = metadata.loc[file_name_]['age_unc']
                 if not pd.isna(age_unc):
                     age_unc = int(age_unc)
                 else:
@@ -95,10 +104,27 @@ class IndexDatabase:
             else:
                 var = None
 
+            institute = trace_md.loc[trace_id]['institute']
+            project = trace_md.loc[trace_id]['project']
+            acq_year = trace_md.loc[trace_id]['acq_year']
+
+            if not pd.isna(institute):
+                institute = str(institute)
+            else:
+                institute = None
+            if not pd.isna(project):
+                project = str(project)
+            else:
+                project = None
+            if not pd.isna(acq_year):
+                acq_year = str(acq_year)
+            else:
+                acq_year = None
+
             cursor.execute('''
-                INSERT INTO datasets (file_path, author, age, age_unc, var, trace_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (relative_file_path, author_id, age, age_unc, var, trace_id))
+                INSERT INTO datasets (file_path, author, institute, project, acq_year, age, age_unc, var, trace_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (relative_file_path, author_id, institute, project, acq_year, age, age_unc, var, trace_id))
 
         conn.commit()
         conn.close()

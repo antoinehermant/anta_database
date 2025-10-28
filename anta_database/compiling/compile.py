@@ -1,3 +1,4 @@
+import warnings
 import os
 import time
 import pandas as pd
@@ -17,10 +18,10 @@ class CompileDatabase:
         self.comp = comp
         self.post = post
 
-    def get_dict_ages(self, tab_file) -> pd.DataFrame:
-        ages = pd.read_csv(tab_file, header=None, sep='\t', names=['file', 'age', 'age_unc'])
-        ages.set_index('file', inplace=True)
-        return ages
+    def file_metadata(self, file_path) -> pd.DataFrame:
+        table = pd.read_csv(file_path, header=0, sep=',')
+        table.set_index('raw_file', inplace=True)
+        return table
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -59,7 +60,7 @@ class CompileDatabase:
 
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(pool.imap_unordered(self._compile, all_files_list), total=num_tasks):
+                    for _ in tqdm(pool.imap_unordered(self._compile, all_files_list), total=num_tasks, desc="Processing"):
                         pass
             else:
                 for file_dict in tqdm(all_files_list, desc="Processing"):
@@ -92,7 +93,7 @@ class CompileDatabase:
     def _compile(self, file_dict) -> None:
 
         _, ext = os.path.splitext(file_dict['file'])
-        ages = self.get_dict_ages(f'{file_dict['dir_path']}/IRH_ages.tab')
+        table = self.file_metadata(f'{file_dict['dir_path']}/raw_files_md.csv')
         original_new_columns = pd.read_csv(f'{file_dict['dir_path']}/original_new_column_names.csv')
 
         if ext == '.tab':
@@ -105,12 +106,34 @@ class CompileDatabase:
             print(f"{ext}: File type not supported...")
             return
 
-        ds = pd.read_csv(file_dict['file_path'], comment="#", header=0, sep=sep, na_values=['-9999', 'NaN', 'nan', ''])
+        def warn_with_file_path(message, category, filename, lineno, file=None, line=None):
+                print(f"Warning in file: {file_dict['file_path']}")
+                print(f"Warning message: {message}")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.showwarning = warn_with_file_path
+
+            ds = pd.read_csv(file_dict['file_path'],
+                            comment="#",
+                            header=0,
+                            sep=sep,
+                            # usecols=original_new_columns.columns,
+                            na_values=['-9999', '-9999.0', 'NaN', 'nan', ''],
+                            )
+
         _, file_name = os.path.split(file_dict['file_path'])
         file_name_, ext = os.path.splitext(file_name)
 
         ds = ds[ds.columns.intersection(original_new_columns.columns)]
         ds.columns = original_new_columns[ds.columns].iloc[0].values  # renaming the columns
+
+        pattern_values = original_new_columns[1:]
+        pattern_header = original_new_columns.iloc[0]
+        pattern_values.columns = pattern_header
+
+        if self.file_type == 'layer':
+            ds = ds.astype({'Trace_ID': str})
 
         if 'IceThk' in ds.columns and 'SurfElev' in ds.columns and not 'BedElev' in ds.columns:
             ds['BedElev'] = ds['SurfElev'] - ds['IceThk']
@@ -150,22 +173,87 @@ class CompileDatabase:
             print('No coordinates found in the dataset')
             return
 
+
         if self.file_type == 'layer':
-            age = int(ages.loc[file_name_]['age'])
+            if 'age' in table.columns:
+                age = table.loc[file_name_]['age']
+            else:
+                age = 'None'
             if self.wave_speed:
                 ds['IRHDepth'] *= self.wave_speed
             if self.firn_correction:
                 ds['IRHDepth'] += self.firn_correction
 
-            ds['Trace_ID'] = ds['Trace_ID'].astype(str)
             ds['Trace_ID'] = ds['Trace_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
             ds['Trace_ID'] = ds['Trace_ID'].str.replace('/', '_')
-
             ds.set_index('Trace_ID', inplace=True)
 
-            for trace_id in np.unique(ds.index):
-                ds_trace = ds.loc[trace_id].copy()
+            unique_trace_ids = np.unique(ds.index)
+            converted = pd.to_numeric(unique_trace_ids, errors='coerce')
+            converted = pd.Series(converted)
+            trace_id = []
+
+            if 'trace_id' in table.columns:
+                if not pd.isna(table.loc[file_name_]['trace_id']):
+                    trace_id = table.loc[file_name_]['trace_id']
+                    trace_id_flag = 'not_provided'
+
+            if 'trace_id_prefix' in table.columns:
+                if not pd.isna(table.loc[file_name_]['trace_id_prefix']):
+                    ds.index = [f"{table.loc[file_name_]['trace_id_prefix']}_{x}" for x in ds.index]
+                    trace_id_flag = 'project_acq-year_number'
+
+            # # If trace id is actually point number, treat it as single trace named project_acq_year
+            # if len(unique_trace_ids) == len(ds.index):
+            #     ds.index = [f"{project}_{acq_year}" for _ in ds.index]
+            #     trace_id_flag = 'not_provided'
+
+            # # If trace ids are like 1, 2, 3, 4 ... rename it as project_acq_year_1 etc..
+            # elif converted.isna().any() is np.False_:
+            #     if len(unique_trace_ids) == int(converted.max() - converted.min() + 1):
+            #         ds.index = [f"{project}_{acq_year}_{x}" for x in ds.index]
+            #         trace_id_flag = 'project_acq-year_number'
+            #         ]]
+
+            institute = table.loc[file_name_]['institute']
+            institute_flag = 'original'
+            project = table.loc[file_name_]['project']
+            project_flag = 'original'
+            acq_year = table.loc[file_name_]['acquisition_year']
+            acq_year_flag = 'original'
+            trace_id_flag = 'original'
+
+            trace_ids = np.unique(ds.index)
+            if trace_id_flag == 'not_provided':
+                trace_ids = [trace_id]
+
+            def extract_year(time: str, pattern: str):
+                position = pattern.find('YYYY')
+                return time[position:position+4]
+
+            for trace_id in trace_ids:
+                if trace_id_flag == 'not_provided':
+                    ds_trace = ds.copy()
+                else:
+                    ds_trace = ds.loc[trace_id].copy()
+
+                if 'acq_year' in pattern_values.columns:
+                    pattern = pattern_values.iloc[0]['acq_year']
+                    if not pd.isna(pattern):
+                        ds_trace['acq_year'] = ds_trace['acq_year'].apply(lambda x: extract_year(x, pattern))
+                        unique_time = np.unique(ds_trace['acq_year'])
+                        if len(unique_time) > 1:
+                            raise ValueError(f'trace {trace_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this')
+                        else:
+                            position = pattern.find('YYYY')
+                            acq_year = unique_time[0][position:position+4]
+
                 ds_trace = ds_trace.drop_duplicates(subset=['x', 'y']) # Some datasets showed duplicated data
+
+                if trace_id == 'nan':
+                    trace_id = f'{project}_{acq_year}'
+                    trace_id_flag = 'not_provided'
+
                 if 'distance' not in ds_trace.columns:
                     x = ds_trace[['x', 'y']]
                     distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
@@ -177,11 +265,28 @@ class CompileDatabase:
                 if age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                     ds_trace = ds_trace.rename(columns={'IRHDepth': age})
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
+                    if ds_trace[age].isna().all(): # If trace contains only nan, skip it
+                        continue
                 else:
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{file_name_}.pkl' # else use the same file name.pkl
 
+                if 'IRHDepth' in ds_trace.columns:
+                    if ds_trace['IRHDepth'].isna().all(): # If trace contains only nan, skip it
+                        continue
+
                 os.makedirs(f'{file_dict['dir_path']}/pkl/{trace_id}' , exist_ok=True)
                 ds_trace.to_pickle(ds_trace_file)
+
+                trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
+                if not os.path.exists(trace_metadata):
+                    trace_md = pd.DataFrame({
+                        'trace_id': [trace_id, trace_id_flag],
+                        'institute': [institute, institute_flag],
+                        'project': [project, project_flag],
+                        'acq_year': [acq_year, acq_year_flag]
+                    })
+                    trace_md.set_index('trace_id', inplace=True)
+                    trace_md.to_csv(trace_metadata)
 
         elif self.file_type == 'trace':
             if 'distance' not in ds.columns:
@@ -194,7 +299,7 @@ class CompileDatabase:
 
             trace_id = file_name_
             os.makedirs(f'{file_dict['dir_path']}/pkl/{trace_id}' , exist_ok=True)
-            ages = {key: int(ages.loc[key]['age']) for key in ds.columns if key in ages.index}
+            ages = {key: int(table.loc[key]['age']) for key in ds.columns if key in table.index}
 
             for IRH in ages:
                 age = str(ages.get(IRH))
@@ -219,6 +324,25 @@ class CompileDatabase:
                 ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{IRH}.pkl'
                 ds_IRH.to_pickle(ds_trace_file)
 
+                institute = table.loc[IRH]['institute']
+                institute_flag = 'original'
+                project = table.loc[IRH]['project']
+                project_flag = 'original'
+                acq_year = table.loc[IRH]['acquisition_year']
+                acq_year_flag = 'original'
+                trace_id_flag = 'original'
+
+                trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
+                if not os.path.exists(trace_metadata):
+                    trace_md = pd.DataFrame({
+                        'trace_id': [trace_id, trace_id_flag],
+                        'institute': [institute, institute_flag],
+                        'project': [project, project_flag],
+                        'acq_year': [acq_year, acq_year_flag]
+                    })
+                    trace_md.set_index('trace_id', inplace=True)
+                    trace_md.to_csv(trace_metadata)
+
     def compute_irh_density(self, trace_dir: str) -> None:
         unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
@@ -230,12 +354,13 @@ class CompileDatabase:
         else:
             return
 
-        dfs = dfs[['x','y','IRHDepth']]
-        valid = dfs.dropna(subset=['IRHDepth'])
-        density = valid.groupby(['x', 'y']).size().reset_index(name='IRHDensity')
+        if 'IRHDepth' in dfs.columns:
+            dfs = dfs[['x','y','IRHDepth']]
+            valid = dfs.dropna(subset=['IRHDepth'])
+            density = valid.groupby(['x', 'y']).size().reset_index(name='IRHDensity')
 
-        density_file = f'{trace_dir}/IRHDensity.pkl'
-        density.to_pickle(density_file)
+            density_file = f'{trace_dir}/IRHDensity.pkl'
+            density.to_pickle(density_file)
 
     def compute_fractional_depth(self, trace_dir: str) -> None:
         unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
@@ -243,7 +368,7 @@ class CompileDatabase:
 
         for f in files:
             df = pd.read_pickle(f)
-            if 'IceThk' in df.columns:
+            if 'IceThk' in df.columns and 'IRHDepth' in df.columns:
                 df['FracDepth'] = df['IRHDepth'] / df['IceThk'] * 100
                 df.to_pickle(f)
 
@@ -261,6 +386,8 @@ class CompileDatabase:
         for var in ['IceThk', 'BedElev', 'SurfElev']:
             if var in dfs.columns:
                 ds_var = dfs[['x', 'y', 'distance', var]]
+                if ds_var[var].isna().all(): # If trace contains only nan, skip it
+                    continue
                 var_file = f'{trace_dir}/{var}.pkl'
                 ds_var.to_pickle(var_file)
 
@@ -269,10 +396,13 @@ class CompileDatabase:
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         for f in files:
             df = pd.read_pickle(f)
-            cols = ['x', 'y', 'distance', 'IRHDepth', 'FracDepth']
-            df = df[[col for col in cols if col in df.columns]]
-            df.reset_index(drop=True, inplace=True)
-            df.to_pickle(f)
+            if 'IRHDepth' not in df.columns:
+                os.remove(f)
+            else:
+                cols = ['x', 'y', 'distance', 'IRHDepth', 'FracDepth']
+                df = df[[col for col in cols if col in df.columns]]
+                df.reset_index(drop=True, inplace=True)
+                df.to_pickle(f)
 
     def _post_compilation(self, trace_dir: str) -> None:
         self.extract_vars(trace_dir)

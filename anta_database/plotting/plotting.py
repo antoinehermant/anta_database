@@ -1,11 +1,13 @@
 import os
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
 import colormaps as cmaps
 from contextlib import contextmanager
 from typing import Union, Dict, TYPE_CHECKING, Optional
+from tqdm import tqdm
 
 if TYPE_CHECKING:
     from anta_database.database.database import Database, MetadataResult
@@ -234,6 +236,8 @@ class Plotting:
                 print('Please provide metadata of the files you want to generate the data from...')
                 return
 
+        total_traces = len(metadata['trace_id'])
+
         if latex:
             from matplotlib import rc
             rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -241,6 +245,11 @@ class Plotting:
 
         if not self._pre_plot_check(metadata):
             return
+
+        if save:
+            matplotlib.use('Agg')
+        else:
+            matplotlib.use('TkAgg')
 
         fig, ax = plt.subplots()
 
@@ -253,6 +262,8 @@ class Plotting:
         values = None
         label = None
         extend = None
+        vmin = 0
+        vmax = 10
 
         if color_by == 'author':
             authors = list(metadata['author'])
@@ -262,7 +273,7 @@ class Plotting:
             colors = {author: cmap(i) for i, author in zip(color_indices, authors)}
             if marker_size == None:
                 marker_size = 0.3
-            for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
                 author = md['author']
                 plt.scatter(df.x/1000, df.y/1000, color=colors[author], s=marker_size)
             for author in authors:
@@ -286,35 +297,47 @@ class Plotting:
                 var = var[0]
 
             if var == 'IRHDensity':
-                levels = np.linspace(1, 20, 20)
+                levels = np.linspace(1, 10, 10)
                 if cmap == None:
                     cmap = self._custom_cmap_density()
+
                 norm = BoundaryNorm(levels, ncolors=256)
-                values = np.arange(1, 21)
+                values = np.arange(1, 11)
                 colors = cmap(np.linspace(0, 1, len(values)))
                 discrete_cmap = ListedColormap(colors)
-                bounds = np.arange(0.5, 21)
+                bounds = np.arange(0.5, 11)
                 norm = BoundaryNorm(bounds, ncolors=discrete_cmap.N)
                 label = f'{var} [N]'
+                extend = 'max'
                 if marker_size == None:
                     marker_size = 1.
-                for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+                for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
                     scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
 
             elif var in ['IceThk', 'SurfElev', 'BedElev', 'BasalUnit']:
                 label = f'{var} [m]'
                 if marker_size == None:
                     marker_size = 1.
-                if cmap == None:
-                    if var == 'BedElev':
+                if var == 'BedElev':
+                    if cmap == None:
                         cmap = cmaps.bukavu
-                        extend='both'
-                        for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
-                            scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=-1000, vmax=1000)
-                    else:
+                    extend = 'both'
+                    vmin = -1000
+                    vmax = 1000
+                elif var == 'IceThk' or var == 'SurfElev':
+                    if cmap == None:
                         cmap = cmaps.torch_r
-                        for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
-                            scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmap, s=marker_size)
+                    extend = 'max'
+                    vmin = 0
+                    vmax = 4000
+                elif var == 'BasalUnit':
+                    if cmap == None:
+                        cmap = cmaps.torch_r
+                    extend = 'both'
+                    vmin = 2000
+                    vmax = 4000
+                for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                    scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax)
 
 
         elif color_by == 'trace_id':
@@ -325,7 +348,7 @@ class Plotting:
             colors = {tid: cmap(i) for i, tid in zip(color_indices, trace_ids)}
             if marker_size == None:
                 marker_size = 1.
-            for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
                 trace_id = md['trace_id']
                 plt.scatter(df.x/1000, df.y/1000, linewidth=0.8, color=colors[trace_id], s=marker_size)
             for trace_id in trace_ids:
@@ -346,7 +369,7 @@ class Plotting:
                 return
             age = age[0]
             label = 'Depth [m]'
-            for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
                 if not md.get('age'):
                     continue
                 scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['IRHDepth'], cmap=cmap, s=marker_size)
@@ -364,8 +387,8 @@ class Plotting:
                 print('No layer provided, please provide a valid age.')
                 return
             age = age[0]
-            label = 'Fractional Depth [\%]'
-            for df, md in self._db.data_generator(metadata, downscale_factor=downscale_factor):
+            label = r'Fractional Depth [\%]'
+            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
                 if not md.get('age'):
                     continue
                 scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['FracDepth'], cmap=cmap, s=marker_size)
@@ -394,7 +417,7 @@ class Plotting:
             plt.gcf().set_size_inches(10 * scale_factor * ncol/1.15, 10 * aspect_ratio * scale_factor)
         elif color_by in ('depth', 'var', 'frac_depth') and scatter is not None:
             if color_by == 'var' and values is not None:
-                cbar = fig.colorbar(scatter, ax=ax, ticks=values, orientation='horizontal', pad=0.1, fraction=0.04)
+                cbar = fig.colorbar(scatter, ax=ax, ticks=values, orientation='horizontal', pad=0.1, fraction=0.04, extend=extend)
             else:
                 cbar = fig.colorbar(scatter, ax=ax, orientation='horizontal', pad=0.1, fraction=0.04, extend=extend)
             cbar.ax.xaxis.set_ticks_position('bottom')
