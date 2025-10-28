@@ -159,14 +159,6 @@ class CompileDatabase:
                     always_xy=True
                 )
                 ds['x'], ds['y'] = transformer.transform(ds['lon'].values, ds['lat'].values)
-        elif 'lon' not in ds.columns and 'lat' not in ds.columns:
-            if 'x' in ds.columns and 'y' in ds.columns:
-                inverse_transformer = Transformer.from_proj(
-                    "+proj=stere +lon_0=0 +lat_0=-90 +lat_ts=-71 +datum=WGS84 +units=m +no_defs",  # source: polar
-                    "EPSG:4326",  # target: WGS84 (lon/lat)
-                    always_xy=True
-                )
-                ds['lon'], ds['lat'] = inverse_transformer.transform(ds['x'].values, ds['y'].values)
         elif 'lon' in ds.columns and 'lat' in ds.columns and 'x' in ds.columns and 'y' in ds.columns:
             pass
         else:
