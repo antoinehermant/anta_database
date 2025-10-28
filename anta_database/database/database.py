@@ -328,7 +328,8 @@ class Database:
         return MetadataResult(metadata)
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
-        query_params = metadata.get('_query_params', {})
+
+        query_params = metadata['_query_params']
         age = query_params.get('age')
         var = query_params.get('var')
         author = query_params.get('author')

@@ -266,16 +266,44 @@ class Plotting:
         vmax = 10
 
         if color_by == 'author':
+            if downscale_factor == None:
+                downscale_fator = 1
             authors = list(metadata['author'])
-            color_indices = np.linspace(0.1, 0.9, len(authors))
-            if cmap == None:
+            bedmap_entries = {'BEDMAP1', 'BEDMAP2', 'BEDMAP3'}
+            bedmap_colors = {
+                'BEDMAP1': '#e0e0e0',
+                'BEDMAP2': '#adaaaf',
+                'BEDMAP3': '#828084',
+            }
+            remaining_authors = [author for author in authors if author not in bedmap_entries]
+            color_indices = np.linspace(0.1, 0.9, len(remaining_authors))
+            if cmap is None:
                 cmap = self._custom_cmap()
-            colors = {author: cmap(i) for i, author in zip(color_indices, authors)}
+            colors = {author: cmap(i) for i, author in zip(color_indices, remaining_authors)}
+            colors.update(bedmap_colors)
+
             if marker_size == None:
-                marker_size = 0.3
-            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                author = md['author']
-                plt.scatter(df.x/1000, df.y/1000, color=colors[author], s=marker_size)
+                marker_size = 0.01
+            trace_ids = metadata['trace_id']
+            for trace_id in tqdm(trace_ids, desc="Plotting", total=total_traces, unit='trace'):
+                metadata_impl = self._db.query(trace_id=trace_id)
+                for author_impl in metadata_impl['author']:
+                    if author_impl in authors:
+                        metadata_impl_again = self._db.query(trace_id=trace_id, author=author_impl)
+                        file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
+                        directories = [os.path.dirname(file_path) for file_path in file_paths]
+                        unique_directories = np.unique(directories)
+                        if author_impl in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3']:
+                            zorder = 0
+
+                        else:
+                            zorder = 1
+                        for unique_dir in unique_directories:
+                            total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
+                            total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
+                            author = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/trace_md.csv').iloc[0]['author']
+                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[author], s=marker_size, zorder=zorder)
+
             for author in authors:
                 citation = self._db.query(author=author)['reference']
                 plt.plot([], [], color=colors[author], label=citation, linewidth=3)
@@ -394,6 +422,7 @@ class Plotting:
                 scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['FracDepth'], cmap=cmap, s=marker_size)
 
         # --- Format Figure ---
+        print('Formatting ...')
         x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
         y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
         x_extent = x1 - x0
@@ -411,7 +440,7 @@ class Plotting:
             ncol = 1
         # --- Legend/Colorbar ---
         if color_by == 'author':
-            plt.legend(ncols=ncol, loc='lower left', fontsize=12*scale_factor)
+            plt.legend(ncols=ncol, loc='lower left', fontsize=8)
         elif color_by == 'trace_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
             plt.gcf().set_size_inches(10 * scale_factor * ncol/1.15, 10 * aspect_ratio * scale_factor)

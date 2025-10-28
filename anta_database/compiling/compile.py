@@ -184,6 +184,7 @@ class CompileDatabase:
             converted = pd.to_numeric(unique_trace_ids, errors='coerce')
             converted = pd.Series(converted)
             trace_id = []
+            trace_id_flag = 'original'
 
             if 'trace_id' in table.columns:
                 if not pd.isna(table.loc[file_name_]['trace_id']):
@@ -207,13 +208,13 @@ class CompileDatabase:
             #         trace_id_flag = 'project_acq-year_number'
             #         ]]
 
+            author = table.loc[file_name_]['author']
             institute = table.loc[file_name_]['institute']
             institute_flag = 'original'
             project = table.loc[file_name_]['project']
             project_flag = 'original'
             acq_year = table.loc[file_name_]['acquisition_year']
             acq_year_flag = 'original'
-            trace_id_flag = 'original'
 
             trace_ids = np.unique(ds.index)
             if trace_id_flag == 'not_provided':
@@ -272,6 +273,7 @@ class CompileDatabase:
                 trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
                 if not os.path.exists(trace_metadata):
                     trace_md = pd.DataFrame({
+                        'author': [author, 'original'],
                         'trace_id': [trace_id, trace_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
@@ -316,6 +318,7 @@ class CompileDatabase:
                 ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{IRH}.pkl'
                 ds_IRH.to_pickle(ds_trace_file)
 
+                author = table.loc[IRH]['author']
                 institute = table.loc[IRH]['institute']
                 institute_flag = 'original'
                 project = table.loc[IRH]['project']
@@ -327,6 +330,7 @@ class CompileDatabase:
                 trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
                 if not os.path.exists(trace_metadata):
                     trace_md = pd.DataFrame({
+                        'author': [author, 'original'],
                         'trace_id': [trace_id, trace_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
@@ -364,6 +368,23 @@ class CompileDatabase:
                 df['FracDepth'] = df['IRHDepth'] / df['IceThk'] * 100
                 df.to_pickle(f)
 
+    def compute_total_extend(self, trace_dir: str) -> None:
+        files = glob.glob(f"{trace_dir}/*.pkl")
+
+        if len(files) > 1:
+            dfs = [pd.read_pickle(f) for f in files]
+            dfs = pd.concat(dfs)
+        elif len(files) == 1:
+            dfs = pd.read_pickle(files[0])
+        else:
+            return
+
+        dfs = dfs.drop_duplicates(subset=['x', 'y'])
+        total_x = dfs['x']
+        total_y = dfs['y']
+        total_x.to_pickle(f"{trace_dir}/total_x.pkl")
+        total_y.to_pickle(f"{trace_dir}/total_y.pkl")
+
     def extract_vars(self, trace_dir: str) -> None:
         unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
@@ -384,7 +405,7 @@ class CompileDatabase:
                 ds_var.to_pickle(var_file)
 
     def clean_IRH_arrays(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         for f in files:
             df = pd.read_pickle(f)
@@ -400,4 +421,5 @@ class CompileDatabase:
         self.extract_vars(trace_dir)
         self.compute_irh_density(trace_dir)
         self.compute_fractional_depth(trace_dir)
+        self.compute_total_extend(trace_dir)
         self.clean_IRH_arrays(trace_dir)
