@@ -20,6 +20,20 @@ class CompileDatabase:
 
     def file_metadata(self, file_path) -> pd.DataFrame:
         table = pd.read_csv(file_path, header=0, sep=',')
+        table = table.fillna({
+            'acquisition_year': 0,
+            'age': 0,
+            'age_unc': 0,
+        })
+        table = table.astype({
+            'raw_file': 'str',
+            'author': 'str',
+            'institute': 'str',
+            'project': 'str',
+            # 'acquisition_year': 'int32',
+            # 'age': 'int32',
+            # 'age_unc': 'int32',
+        })
         table.set_index('raw_file', inplace=True)
         return table
 
@@ -90,6 +104,16 @@ class CompileDatabase:
         elapsed = time.time() - start_time
         print(f"\nCompilation completed in {elapsed:.2f} seconds")
 
+    def convert_col_to_Int32(self, df):
+        df = df.fillna(pd.NA)
+        df = df.round(0)
+        df = df.astype('Int32')
+        return df
+
+    def convert_col_to_num(self, df):
+        df = pd.to_numeric(df, errors='coerce')
+        return df
+
     def _compile(self, file_dict) -> None:
 
         _, ext = os.path.splitext(file_dict['file'])
@@ -120,6 +144,7 @@ class CompileDatabase:
                             sep=sep,
                             # usecols=original_new_columns.columns,
                             na_values=['-9999', '-9999.0', 'NaN', 'nan', ''],
+                            dtype=str
                             )
 
         _, file_name = os.path.split(file_dict['file_path'])
@@ -134,6 +159,10 @@ class CompileDatabase:
 
         if self.file_type == 'layer':
             ds = ds.astype({'Trace_ID': str})
+
+        for var in ['IceThk', 'SurfElev', 'BedElev', 'IRHDepth', 'x', 'distance', 'y', 'lat', 'lon']:
+            if var in ds.columns:
+                ds[var] = self.convert_col_to_num(ds[var])
 
         if 'IceThk' in ds.columns and 'SurfElev' in ds.columns and not 'BedElev' in ds.columns:
             ds['BedElev'] = ds['SurfElev'] - ds['IceThk']
@@ -159,18 +188,17 @@ class CompileDatabase:
                     always_xy=True
                 )
                 ds['x'], ds['y'] = transformer.transform(ds['lon'].values, ds['lat'].values)
-        elif 'lon' in ds.columns and 'lat' in ds.columns and 'x' in ds.columns and 'y' in ds.columns:
+        elif 'x' in ds.columns and 'y' in ds.columns:
             pass
         else:
             print('No coordinates found in the dataset')
             return
 
-
         if self.file_type == 'layer':
             if 'age' in table.columns:
                 age = table.loc[file_name_]['age']
             else:
-                age = 'None'
+                age = pd.NA
             if self.wave_speed:
                 ds['IRHDepth'] *= self.wave_speed
             if self.firn_correction:
@@ -195,18 +223,6 @@ class CompileDatabase:
                 if not pd.isna(table.loc[file_name_]['trace_id_prefix']):
                     ds.index = [f"{table.loc[file_name_]['trace_id_prefix']}_{x}" for x in ds.index]
                     trace_id_flag = 'project_acq-year_number'
-
-            # # If trace id is actually point number, treat it as single trace named project_acq_year
-            # if len(unique_trace_ids) == len(ds.index):
-            #     ds.index = [f"{project}_{acq_year}" for _ in ds.index]
-            #     trace_id_flag = 'not_provided'
-
-            # # If trace ids are like 1, 2, 3, 4 ... rename it as project_acq_year_1 etc..
-            # elif converted.isna().any() is np.False_:
-            #     if len(unique_trace_ids) == int(converted.max() - converted.min() + 1):
-            #         ds.index = [f"{project}_{acq_year}_{x}" for x in ds.index]
-            #         trace_id_flag = 'project_acq-year_number'
-            #         ]]
 
             author = table.loc[file_name_]['author']
             institute = table.loc[file_name_]['institute']
@@ -240,6 +256,7 @@ class CompileDatabase:
                         else:
                             position = pattern.find('YYYY')
                             acq_year = unique_time[0][position:position+4]
+                        ds_trace.drop(columns='acq_year', inplace=True)
 
                 ds_trace = ds_trace.drop_duplicates(subset=['x', 'y']) # Some datasets showed duplicated data
 
@@ -247,7 +264,7 @@ class CompileDatabase:
                     trace_id = f'{project}_{acq_year}'
                     trace_id_flag = 'not_provided'
 
-                if 'distance' not in ds_trace.columns:
+                if 'distance' not in ds_trace.columns and author not in ['BEDMAP1', 'BEDMAP2']:
                     x = ds_trace[['x', 'y']]
                     distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
                     cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
@@ -255,7 +272,10 @@ class CompileDatabase:
                 elif 'Distance [km]' in original_new_columns.columns:
                     ds_trace['distance'] *= 1000 # if distance in km, convert to meters
 
-                if age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
+                for col in ds_trace.columns:
+                    ds_trace[col] = self.convert_col_to_Int32(ds_trace[col])
+
+                if age is not pd.NA and age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                     ds_trace = ds_trace.rename(columns={'IRHDepth': age})
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     if ds_trace[age].isna().all(): # If trace contains only nan, skip it
@@ -272,6 +292,8 @@ class CompileDatabase:
 
                 trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
                 if not os.path.exists(trace_metadata):
+                    if not pd.isna(acq_year) and acq_year == 0:
+                        acq_year = pd.NA
                     trace_md = pd.DataFrame({
                         'author': [author, 'original'],
                         'trace_id': [trace_id, trace_id_flag],
@@ -299,13 +321,13 @@ class CompileDatabase:
                 age = str(ages.get(IRH))
                 ds_IRH = ds[IRH]
                 ds_IRH = pd.DataFrame({
-                    'lon': ds['lon'],
-                    'lat': ds['lat'],
                     'x': ds['x'],
                     'y': ds['y'],
                     'distance': ds['distance'],
                     'IRHDepth': ds_IRH,
                 })
+
+                ds_IRH['IRHDepth'] = self.convert_col_to_num(ds_IRH['IRHDepth'])
                 if self.wave_speed:
                     ds_IRH['IRHDepth'] *= self.wave_speed
                 if self.firn_correction:
@@ -314,6 +336,9 @@ class CompileDatabase:
                 for var in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                     if var in ds.columns:
                         ds_IRH[var] = ds[var]
+
+                for col in ds_IRH.columns:
+                    ds_IRH[col] = self.convert_col_to_Int32(ds_IRH[col])
 
                 ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{IRH}.pkl'
                 ds_IRH.to_pickle(ds_trace_file)
@@ -340,7 +365,7 @@ class CompileDatabase:
                     trace_md.to_csv(trace_metadata)
 
     def compute_irh_density(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
             dfs = [pd.read_pickle(f) for f in files]
@@ -359,7 +384,7 @@ class CompileDatabase:
             density.to_pickle(density_file)
 
     def compute_fractional_depth(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
 
         for f in files:
@@ -386,7 +411,7 @@ class CompileDatabase:
         total_y.to_pickle(f"{trace_dir}/total_y.pkl")
 
     def extract_vars(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
             dfs = [pd.read_pickle(f) for f in files]
@@ -398,7 +423,7 @@ class CompileDatabase:
 
         for var in ['IceThk', 'BedElev', 'SurfElev']:
             if var in dfs.columns:
-                ds_var = dfs[['x', 'y', 'distance', var]]
+                ds_var = dfs[dfs.columns.intersection(['x', 'y', 'distance', var])]
                 if ds_var[var].isna().all(): # If trace contains only nan, skip it
                     continue
                 var_file = f'{trace_dir}/{var}.pkl'
@@ -416,6 +441,15 @@ class CompileDatabase:
                 df = df[[col for col in cols if col in df.columns]]
                 df.reset_index(drop=True, inplace=True)
                 df.to_pickle(f)
+
+        wanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) in wanted]
+        for f in files:
+            df = pd.read_pickle(f)
+            cols = ['x', 'y', 'distance', 'IceThk', 'SurfElev', 'BasalUnit', 'BedElev', 'IRHDensity']
+            df = df[[col for col in cols if col in df.columns]]
+            df.reset_index(drop=True, inplace=True)
+            df.to_pickle(f)
 
     def _post_compilation(self, trace_dir: str) -> None:
         self.extract_vars(trace_dir)

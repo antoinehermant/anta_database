@@ -88,12 +88,16 @@ class IndexDatabase:
 
             metadata = Authors_ages[author]
 
-            if file_name_ in metadata.index:
-                age = int(metadata.loc[file_name_]['age'])
-                age_unc = metadata.loc[file_name_]['age_unc']
-                if not pd.isna(age_unc):
-                    age_unc = int(age_unc)
+            if 'age' in metadata.columns:
+                if file_name_ in metadata.index:
+                    age = int(metadata.loc[file_name_]['age'])
+                    age_unc = metadata.loc[file_name_]['age_unc']
+                    if not pd.isna(age_unc):
+                        age_unc = int(age_unc)
+                    else:
+                        age_unc = None
                 else:
+                    age = None
                     age_unc = None
             else:
                 age = None
