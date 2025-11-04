@@ -83,7 +83,7 @@ class Plotting:
             save=save,
         )
 
-    def trace_id(
+    def flight_id(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
@@ -100,7 +100,7 @@ class Plotting:
         Plot the data points on a Antarctic map with color-coded trace IDs
         """
         self._base_plot(
-            color_by='trace_id',
+            color_by='flight_id',
             metadata=metadata,
             downscale_factor=downscale_factor,
             scale_factor=scale_factor,
@@ -224,7 +224,7 @@ class Plotting:
         marker_size: Optional[float] = None,
         latex: bool = False,
         save: Optional[str] = None,
-        color_by: str = 'author',  # 'author', 'trace_id', 'depth', 'density'
+        color_by: str = 'author',  # 'author', 'flight_id', 'depth', 'density'
         cmap: Optional['LinearSegmentedColormap'] = None,
         ncol: Optional[int] = None,
     ) -> None:
@@ -236,7 +236,7 @@ class Plotting:
                 print('Please provide metadata of the files you want to generate the data from...')
                 return
 
-        total_traces = len(metadata['trace_id'])
+        total_traces = len(metadata['flight_id'])
 
         if latex:
             from matplotlib import rc
@@ -284,12 +284,12 @@ class Plotting:
 
             if marker_size == None:
                 marker_size = 0.01
-            trace_ids = metadata['trace_id']
-            for trace_id in tqdm(trace_ids, desc="Plotting", total=total_traces, unit='trace'):
-                metadata_impl = self._db.query(trace_id=trace_id)
+            flight_ids = metadata['flight_id']
+            for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
+                metadata_impl = self._db.query(flight_id=flight_id)
                 for author_impl in metadata_impl['author']:
                     if author_impl in authors:
-                        metadata_impl_again = self._db.query(trace_id=trace_id, author=author_impl)
+                        metadata_impl_again = self._db.query(flight_id=flight_id, author=author_impl)
                         file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
                         directories = [os.path.dirname(file_path) for file_path in file_paths]
                         unique_directories = np.unique(directories)
@@ -301,7 +301,7 @@ class Plotting:
                         for unique_dir in unique_directories:
                             total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
                             total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
-                            author = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/trace_md.csv').iloc[0]['author']
+                            author = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['author']
                             plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[author], s=marker_size, zorder=zorder)
 
             for author in authors:
@@ -352,11 +352,17 @@ class Plotting:
                     extend = 'both'
                     vmin = -1000
                     vmax = 1000
-                elif var == 'IceThk' or var == 'SurfElev':
+                elif var == 'IceThk':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
                     vmin = 0
+                    vmax = 4000
+                elif var == 'SurfElev':
+                    if cmap == None:
+                        cmap = cmaps.torch_r
+                    extend = 'max'
+                    vmin = 2000
                     vmax = 4000
                 elif var == 'BasalUnit':
                     if cmap == None:
@@ -368,20 +374,34 @@ class Plotting:
                     scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax)
 
 
-        elif color_by == 'trace_id':
-            trace_ids = list(metadata['trace_id'])
-            color_indices = np.linspace(0.1, 0.9, len(trace_ids))
+        elif color_by == 'flight_id':
+            flight_ids = list(metadata['flight_id'])
+            color_indices = np.linspace(0.1, 0.9, len(flight_ids))
             if cmap == None:
                 cmap = self._custom_cmap()
-            colors = {tid: cmap(i) for i, tid in zip(color_indices, trace_ids)}
+            colors = {tid: cmap(i) for i, tid in zip(color_indices, flight_ids)}
             if marker_size == None:
                 marker_size = 1.
-            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                trace_id = md['trace_id']
-                plt.scatter(df.x/1000, df.y/1000, linewidth=0.8, color=colors[trace_id], s=marker_size)
-            for trace_id in trace_ids:
-                plt.plot([], [], color=colors[trace_id], label=trace_id, linewidth=3)
-            ncol = 2 if len(trace_ids) > 40 else 1
+
+            authors = list(metadata['author'])
+            flight_ids = metadata['flight_id']
+            for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
+                metadata_impl = self._db.query(flight_id=flight_id)
+                for author_impl in metadata_impl['author']:
+                    if author_impl in authors:
+                        metadata_impl_again = self._db.query(flight_id=flight_id, author=author_impl)
+                        file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
+                        directories = [os.path.dirname(file_path) for file_path in file_paths]
+                        unique_directories = np.unique(directories)
+
+                        for unique_dir in unique_directories:
+                            total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
+                            total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
+                            flight_id = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['flight_id']
+                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
+            for flight_id in flight_ids:
+                plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
+            ncol = 2 if len(flight_ids) > 40 else 1
 
         elif color_by == 'depth':
             if marker_size == None:
@@ -441,7 +461,7 @@ class Plotting:
         # --- Legend/Colorbar ---
         if color_by == 'author':
             plt.legend(ncols=ncol, loc='lower left', fontsize=8)
-        elif color_by == 'trace_id':
+        elif color_by == 'flight_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
             plt.gcf().set_size_inches(10 * scale_factor * ncol/1.15, 10 * aspect_ratio * scale_factor)
         elif color_by in ('depth', 'var', 'frac_depth') and scatter is not None:

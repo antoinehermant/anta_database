@@ -20,7 +20,7 @@ class Database:
             'acq_year': [],
             'age': [],
             'var': [],
-            'trace_id': [],
+            'flight_id': [],
         }
 
     def _build_query_and_params(self,
@@ -50,7 +50,7 @@ class Database:
             (institute, 'd.institute'),
             (project, 'd.project'),
             (acq_year, 'd.acq_year'),
-            (line, 'd.trace_id')
+            (line, 'd.flight_id')
         ]:
             if field is not None:
                 if isinstance(field, list):
@@ -95,7 +95,7 @@ class Database:
             ('institute', 'd.institute'),
             ('project', 'd.project'),
             ('acq_year', 'd.acq_year'),
-            ('trace_id', 'd.trace_id')
+            ('flight_id', 'd.flight_id')
         ]:
             if self.excluded[field]:
                 not_like_conditions = []
@@ -163,7 +163,7 @@ class Database:
         institute: Optional[Union[str, List[str]]] = None,
         project: Optional[Union[str, List[str]]] = None,
         acq_year: Optional[Union[str, List[str]]] = None,
-        trace_id: Optional[Union[str, List[str]]] = None,
+        flight_id: Optional[Union[str, List[str]]] = None,
     ) -> None:
         """
         Add values to exclude from the query results.
@@ -177,7 +177,7 @@ class Database:
             'institute': institute,
             'project': project,
             'acq_year': acq_year,
-            'trace_id': trace_id,
+            'flight_id': flight_id,
         }
 
         for field, value in field_mapping.items():
@@ -194,7 +194,7 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.trace_id, d.file_path'
+        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.file_path'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -229,7 +229,7 @@ class Database:
             'age': results[0][4],
             'age_unc': results[0][5],
             'var': results[0][6],
-            'trace_id': results[0][7],
+            'flight_id': results[0][7],
             'file_path': results[0][8],
             'database_path': self.db_dir,
             'file_db': self.file_db,
@@ -243,9 +243,9 @@ class Database:
               institute: Optional[Union[str, List[str]]] = None,
               project: Optional[Union[str, List[str]]] = None,
               acq_year: Optional[Union[str, List[str]]] = None,
-              trace_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
-        select_clause = 'a.name, a.citation, a.doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.trace_id'
-        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, trace_id, select_clause)
+              flight_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
+        select_clause = 'a.name, a.citation, a.doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id'
+        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, flight_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -263,9 +263,9 @@ class Database:
             'var': [],
             'reference': [],
             'doi': [],
-            'trace_id': [],
-            '_query_params': {'author': author, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'trace_id': trace_id},
-            '_filter_params': {'author': self.excluded['author'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'trace_id': self.excluded['trace_id']},
+            'flight_id': [],
+            '_query_params': {'author': author, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id},
+            '_filter_params': {'author': self.excluded['author'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id']},
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
@@ -275,11 +275,11 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
-        for author_name, citations, doi, institutes, projects, acq_years, ages, ages_unc, vars, trace_id in results:
+        for author_name, citations, doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
             metadata['author'].append(author_name)
             metadata['reference'].append(citations)
             metadata['doi'].append(doi)
-            metadata['trace_id'].append(trace_id)
+            metadata['flight_id'].append(flight_id)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
                 ages_list.append(int(ages))
@@ -322,7 +322,7 @@ class Database:
         metadata['author'] = list(dict.fromkeys(metadata['author']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
         metadata['doi'] = list(dict.fromkeys(metadata['doi']))
-        metadata['trace_id'] = list(set(metadata['trace_id']))
+        metadata['flight_id'] = list(set(metadata['flight_id']))
 
         self.md = metadata
         return MetadataResult(metadata)
@@ -336,7 +336,7 @@ class Database:
         institute = query_params.get('institute')
         project = query_params.get('project')
         acq_year = query_params.get('acq_year')
-        line = query_params.get('trace_id')
+        line = query_params.get('flight_id')
 
         select_clause = 'd.file_path'
         query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
@@ -374,7 +374,7 @@ class Database:
         institute = query_params.get('institute')
         project = query_params.get('project')
         acq_year = query_params.get('acq_year')
-        line = query_params.get('trace_id')
+        line = query_params.get('flight_id')
 
         select_clause = 'DISTINCT d.file_path, d.age'
         query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
@@ -430,7 +430,7 @@ class MetadataResult:
         output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
         output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
         output.append(f"\n  - var: {', '.join(md['var'])}")
-        output.append(f"\n  - trace_id: {', '.join(md['trace_id'])}")
+        output.append(f"\n  - flight_id: {', '.join(md['flight_id'])}")
         output.append(f"\n  - reference: {', '.join(md['reference'])}")
         output.append(f"  - DOIs: {', '.join(md['doi'])}")
         output.append(f"  - database: {md['database_path']}/{md['file_db']}")

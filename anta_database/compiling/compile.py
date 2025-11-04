@@ -158,7 +158,7 @@ class CompileDatabase:
         pattern_values.columns = pattern_header
 
         if self.file_type == 'layer':
-            ds = ds.astype({'Trace_ID': str})
+            ds = ds.astype({'Flight_ID': str})
 
         for var in ['IceThk', 'SurfElev', 'BedElev', 'IRHDepth', 'x', 'distance', 'y', 'lat', 'lon']:
             if var in ds.columns:
@@ -204,25 +204,25 @@ class CompileDatabase:
             if self.firn_correction:
                 ds['IRHDepth'] += self.firn_correction
 
-            ds['Trace_ID'] = ds['Trace_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
-            ds['Trace_ID'] = ds['Trace_ID'].str.replace('/', '_')
-            ds.set_index('Trace_ID', inplace=True)
+            ds['Flight_ID'] = ds['Flight_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
+            ds['Flight_ID'] = ds['Flight_ID'].str.replace('/', '_')
+            ds.set_index('Flight_ID', inplace=True)
 
-            unique_trace_ids = np.unique(ds.index)
-            converted = pd.to_numeric(unique_trace_ids, errors='coerce')
+            unique_flight_ids = np.unique(ds.index)
+            converted = pd.to_numeric(unique_flight_ids, errors='coerce')
             converted = pd.Series(converted)
-            trace_id = []
-            trace_id_flag = 'original'
+            flight_id = []
+            flight_id_flag = 'original'
 
-            if 'trace_id' in table.columns:
-                if not pd.isna(table.loc[file_name_]['trace_id']):
-                    trace_id = table.loc[file_name_]['trace_id']
-                    trace_id_flag = 'not_provided'
+            if 'flight_id' in table.columns:
+                if not pd.isna(table.loc[file_name_]['flight_id']):
+                    flight_id = table.loc[file_name_]['flight_id']
+                    flight_id_flag = 'not_provided'
 
-            if 'trace_id_prefix' in table.columns:
-                if not pd.isna(table.loc[file_name_]['trace_id_prefix']):
-                    ds.index = [f"{table.loc[file_name_]['trace_id_prefix']}_{x}" for x in ds.index]
-                    trace_id_flag = 'project_acq-year_number'
+            if 'flight_id_prefix' in table.columns:
+                if not pd.isna(table.loc[file_name_]['flight_id_prefix']):
+                    ds.index = [f"{table.loc[file_name_]['flight_id_prefix']}_{x}" for x in ds.index]
+                    flight_id_flag = 'project_acq-year_number'
 
             author = table.loc[file_name_]['author']
             institute = table.loc[file_name_]['institute']
@@ -232,19 +232,19 @@ class CompileDatabase:
             acq_year = table.loc[file_name_]['acquisition_year']
             acq_year_flag = 'original'
 
-            trace_ids = np.unique(ds.index)
-            if trace_id_flag == 'not_provided':
-                trace_ids = [trace_id]
+            flight_ids = np.unique(ds.index)
+            if flight_id_flag == 'not_provided':
+                flight_ids = [flight_id]
 
             def extract_year(time: str, pattern: str):
                 position = pattern.find('YYYY')
                 return time[position:position+4]
 
-            for trace_id in trace_ids:
-                if trace_id_flag == 'not_provided':
+            for flight_id in flight_ids:
+                if flight_id_flag == 'not_provided':
                     ds_trace = ds.copy()
                 else:
-                    ds_trace = ds.loc[trace_id].copy()
+                    ds_trace = ds.loc[flight_id].copy()
 
                 if 'acq_year' in pattern_values.columns:
                     pattern = pattern_values.iloc[0]['acq_year']
@@ -252,7 +252,7 @@ class CompileDatabase:
                         ds_trace['acq_year'] = ds_trace['acq_year'].apply(lambda x: extract_year(x, pattern))
                         unique_time = np.unique(ds_trace['acq_year'])
                         if len(unique_time) > 1:
-                            raise ValueError(f'trace {trace_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this')
+                            raise ValueError(f'flight {flight_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this')
                         else:
                             position = pattern.find('YYYY')
                             acq_year = unique_time[0][position:position+4]
@@ -260,9 +260,9 @@ class CompileDatabase:
 
                 ds_trace = ds_trace.drop_duplicates(subset=['x', 'y']) # Some datasets showed duplicated data
 
-                if trace_id == 'nan':
-                    trace_id = f'{project}_{acq_year}'
-                    trace_id_flag = 'not_provided'
+                if flight_id == 'nan':
+                    flight_id = f'{project}_{acq_year}'
+                    flight_id_flag = 'not_provided'
 
                 if 'distance' not in ds_trace.columns and author not in ['BEDMAP1', 'BEDMAP2']:
                     x = ds_trace[['x', 'y']]
@@ -277,34 +277,41 @@ class CompileDatabase:
 
                 if age is not pd.NA and age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
                     ds_trace = ds_trace.rename(columns={'IRHDepth': age})
-                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
+                    if institute:
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
+                    else:
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     if ds_trace[age].isna().all(): # If trace contains only nan, skip it
                         continue
                 else:
-                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{file_name_}.pkl' # else use the same file name.pkl
+                    if institute:
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
+                    else:
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
 
                 if 'IRHDepth' in ds_trace.columns:
                     if ds_trace['IRHDepth'].isna().all(): # If trace contains only nan, skip it
                         continue
 
-                os.makedirs(f'{file_dict['dir_path']}/pkl/{trace_id}' , exist_ok=True)
+                flight_dir, _ = os.path.split(ds_trace_file)
+                os.makedirs(flight_dir, exist_ok=True)
                 ds_trace.to_pickle(ds_trace_file)
 
-                trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
+                trace_metadata = f'{flight_dir}/metadata.csv'
                 if not os.path.exists(trace_metadata):
                     if not pd.isna(acq_year) and acq_year == 0:
                         acq_year = pd.NA
                     trace_md = pd.DataFrame({
                         'author': [author, 'original'],
-                        'trace_id': [trace_id, trace_id_flag],
+                        'flight_id': [flight_id, flight_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
                         'acq_year': [acq_year, acq_year_flag]
                     })
-                    trace_md.set_index('trace_id', inplace=True)
+                    trace_md.set_index('flight_id', inplace=True)
                     trace_md.to_csv(trace_metadata)
 
-        elif self.file_type == 'trace':
+        elif self.file_type == 'flight_line':
             if 'distance' not in ds.columns:
                 x = ds[['x', 'y']]
                 distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
@@ -313,8 +320,8 @@ class CompileDatabase:
             elif 'Distance [km]' in original_new_columns.columns:
                 ds['distance'] *= 1000 # if distance in km, convert to meters
 
-            trace_id = file_name_
-            os.makedirs(f'{file_dict['dir_path']}/pkl/{trace_id}' , exist_ok=True)
+            flight_id = file_name_
+            os.makedirs(f'{file_dict['dir_path']}/pkl/{flight_id}' , exist_ok=True)
             ages = {key: int(table.loc[key]['age']) for key in ds.columns if key in table.index}
 
             for IRH in ages:
@@ -340,8 +347,6 @@ class CompileDatabase:
                 for col in ds_IRH.columns:
                     ds_IRH[col] = self.convert_col_to_Int32(ds_IRH[col])
 
-                ds_trace_file = f'{file_dict['dir_path']}/pkl/{trace_id}/{IRH}.pkl'
-                ds_IRH.to_pickle(ds_trace_file)
 
                 author = table.loc[IRH]['author']
                 institute = table.loc[IRH]['institute']
@@ -350,18 +355,24 @@ class CompileDatabase:
                 project_flag = 'original'
                 acq_year = table.loc[IRH]['acquisition_year']
                 acq_year_flag = 'original'
-                trace_id_flag = 'original'
+                flight_id_flag = 'original'
 
-                trace_metadata = f'{file_dict['dir_path']}/pkl/{trace_id}/trace_md.csv'
+                if institute:
+                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl'
+                else:
+                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl'
+                ds_IRH.to_pickle(ds_trace_file)
+
+                trace_metadata = f'{file_dict['dir_path']}/pkl/{flight_id}/metadata.csv'
                 if not os.path.exists(trace_metadata):
                     trace_md = pd.DataFrame({
                         'author': [author, 'original'],
-                        'trace_id': [trace_id, trace_id_flag],
+                        'flight_id': [flight_id, flight_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
                         'acq_year': [acq_year, acq_year_flag]
                     })
-                    trace_md.set_index('trace_id', inplace=True)
+                    trace_md.set_index('flight_id', inplace=True)
                     trace_md.to_csv(trace_metadata)
 
     def compute_irh_density(self, trace_dir: str) -> None:

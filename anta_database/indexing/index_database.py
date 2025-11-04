@@ -65,22 +65,21 @@ class IndexDatabase:
                 age TEXT,
                 age_unc TEXT,
                 var TEXT,
-                trace_id TEXT,
+                flight_id TEXT,
                 FOREIGN KEY (author) REFERENCES authors (id)
             )
         ''')
 
         for file in tqdm(pkl_files, desc="Indexing files"):
             dir_name, file_name = os.path.split(file)
-            pkl_dir, trace_id = os.path.split(dir_name)
+            pkl_dir, flight_id_dir = os.path.split(dir_name)
             author_dir, _ = os.path.split(pkl_dir)
-            trace_md = pd.read_csv(f'{dir_name}/trace_md.csv')
-            trace_md['trace_id'] = trace_md['trace_id'].astype(str)
-            trace_md.set_index('trace_id', inplace=True)
+            trace_md = pd.read_csv(f'{dir_name}/metadata.csv')
+            trace_md['flight_id'] = trace_md['flight_id'].astype(str)
 
             author = os.path.basename(author_dir)
             file_name_, ext = os.path.splitext(file_name)
-            relative_file_path = f'{author}/pkl/{trace_id}/{file_name}'
+            relative_file_path = f'{author}/pkl/{flight_id_dir}/{file_name}'
 
             # Get the author's ID from the authors table
             cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
@@ -108,9 +107,10 @@ class IndexDatabase:
             else:
                 var = None
 
-            institute = trace_md.loc[trace_id]['institute']
-            project = trace_md.loc[trace_id]['project']
-            acq_year = trace_md.loc[trace_id]['acq_year']
+            flight_id = trace_md.iloc[0]['flight_id']
+            institute = trace_md.iloc[0]['institute']
+            project = trace_md.iloc[0]['project']
+            acq_year = trace_md.iloc[0]['acq_year']
 
             if not pd.isna(institute):
                 institute = str(institute)
@@ -126,9 +126,9 @@ class IndexDatabase:
                 acq_year = None
 
             cursor.execute('''
-                INSERT INTO datasets (file_path, author, institute, project, acq_year, age, age_unc, var, trace_id)
+                INSERT INTO datasets (file_path, author, institute, project, acq_year, age, age_unc, var, flight_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (relative_file_path, author_id, institute, project, acq_year, age, age_unc, var, trace_id))
+            ''', (relative_file_path, author_id, institute, project, acq_year, age, age_unc, var, flight_id))
 
         conn.commit()
         conn.close()
