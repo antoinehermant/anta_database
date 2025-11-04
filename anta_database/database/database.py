@@ -7,12 +7,13 @@ from typing import Union, List, Dict, Tuple, Optional
 from anta_database.plotting.plotting import Plotting
 
 class Database:
-    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db') -> None:
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', max_displayed_flight_ids: Optional[int] = 50) -> None:
         self.db_dir = database_dir
         self.file_db = file_db
         self.file_db_path = os.path.join(self.db_dir, file_db)
         self.md = None
         self._plotting = None
+        self.max_displayed_flight_ids = max_displayed_flight_ids
         self.excluded = {
             'dataset': [],
             'institute': [],
@@ -328,7 +329,7 @@ class Database:
         metadata['flight_id'] = list(set(metadata['flight_id']))
 
         self.md = metadata
-        return MetadataResult(metadata)
+        return MetadataResult(metadata, self.max_displayed_flight_ids)
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
 
@@ -415,17 +416,27 @@ class Database:
 
 
 class MetadataResult:
-    def __init__(self, metadata):
+    def __init__(self, metadata, max_displayed_flight_ids):
         self._metadata = metadata
+        self.max_displayed_flight_ids = max_displayed_flight_ids
 
     def __getitem__(self, key):
         return self._metadata[key]
 
     def __repr__(self):
-        """Pretty-print the metadata."""
+        """Pretty-print the metadata, truncating long flight_id lists."""
         md = self._metadata
         output = []
         output.append("Metadata from query:")
+
+        flight_ids = md['flight_id']
+        if len(flight_ids) > self.max_displayed_flight_ids:
+            first_20 = flight_ids[:self.max_displayed_flight_ids//2]
+            last_20 = flight_ids[-self.max_displayed_flight_ids//2:]
+            flight_id_str = ", ".join(first_20) + f", [ ... ] , " + ", ".join(last_20) + f" (found {len(flight_ids)}, displayed {self.max_displayed_flight_ids})"
+        else:
+            flight_id_str = ", ".join(flight_ids)
+
         output.append(f"\n  - dataset: {', '.join(md['dataset'])}")
         output.append(f"\n  - institute: {', '.join(md['institute'])}")
         output.append(f"\n  - project: {', '.join(md['project'])}")
@@ -433,13 +444,14 @@ class MetadataResult:
         output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
         output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
         output.append(f"\n  - var: {', '.join(md['var'])}")
-        output.append(f"\n  - flight_id: {', '.join(md['flight_id'])}")
+        output.append(f"\n  - flight_id: {flight_id_str}")
         output.append(f"\n  - reference: {', '.join(md['reference'])}")
         output.append(f"  - dataset DOI: {', '.join(md['dataset_doi'])}")
         output.append(f"  - publication DOI: {', '.join(md['publication_doi'])}")
         output.append(f"  - database: {md['database_path']}/{md['file_db']}")
         output.append(f"  - query params: {md['_query_params']}")
         output.append(f"  - filter params: {md['_filter_params']}")
+
         return "\n".join(output)
 
     def to_dict(self):
