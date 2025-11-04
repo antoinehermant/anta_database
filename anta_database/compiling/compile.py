@@ -27,7 +27,7 @@ class CompileDatabase:
         })
         table = table.astype({
             'raw_file': 'str',
-            'author': 'str',
+            'dataset': 'str',
             'institute': 'str',
             'project': 'str',
             # 'acquisition_year': 'int32',
@@ -224,7 +224,7 @@ class CompileDatabase:
                     ds.index = [f"{table.loc[file_name_]['flight_id_prefix']}_{x}" for x in ds.index]
                     flight_id_flag = 'project_acq-year_number'
 
-            author = table.loc[file_name_]['author']
+            dataset = table.loc[file_name_]['dataset']
             institute = table.loc[file_name_]['institute']
             institute_flag = 'original'
             project = table.loc[file_name_]['project']
@@ -264,7 +264,7 @@ class CompileDatabase:
                     flight_id = f'{project}_{acq_year}'
                     flight_id_flag = 'not_provided'
 
-                if 'distance' not in ds_trace.columns and author not in ['BEDMAP1', 'BEDMAP2']:
+                if 'distance' not in ds_trace.columns and dataset not in ['BEDMAP1', 'BEDMAP2']:
                     x = ds_trace[['x', 'y']]
                     distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
                     cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
@@ -302,7 +302,7 @@ class CompileDatabase:
                     if not pd.isna(acq_year) and acq_year == 0:
                         acq_year = pd.NA
                     trace_md = pd.DataFrame({
-                        'author': [author, 'original'],
+                        'dataset': [dataset, 'original'],
                         'flight_id': [flight_id, flight_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
@@ -348,7 +348,7 @@ class CompileDatabase:
                     ds_IRH[col] = self.convert_col_to_Int32(ds_IRH[col])
 
 
-                author = table.loc[IRH]['author']
+                dataset = table.loc[IRH]['dataset']
                 institute = table.loc[IRH]['institute']
                 institute_flag = 'original'
                 project = table.loc[IRH]['project']
@@ -366,7 +366,7 @@ class CompileDatabase:
                 trace_metadata = f'{file_dict['dir_path']}/pkl/{flight_id}/metadata.csv'
                 if not os.path.exists(trace_metadata):
                     trace_md = pd.DataFrame({
-                        'author': [author, 'original'],
+                        'dataset': [dataset, 'original'],
                         'flight_id': [flight_id, flight_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],

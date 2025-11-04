@@ -17,7 +17,7 @@ Visit the [Home Page](https://antoinehermant.github.io/anta_database/intro) for 
 
 The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
 
--   Browsing by author (region), layer age, or trace ID.
+-   Browsing by dataset, layer age, flight ID, institute and/or project.
 -   Memory efficiency: Only relevant data is read when needed.
 -   Fast read performance: Lightweight and optimized for speed.
 

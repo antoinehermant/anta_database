@@ -18,11 +18,11 @@ class IndexDatabase:
         return table
 
     def index_database(self):
-        Authors_ages = {}
+        dataset_ages = {}
         pkl_files = []
         for _, row in self.index.iterrows():
             table = self.file_metadata(f"{self.db_dir}/{row.directory}/raw_files_md.csv")
-            Authors_ages.update({f"{row.directory}": table})
+            dataset_ages.update({f"{row.directory}": table})
 
             pkl_files.extend(list(glob.glob(f'{self.db_dir}/{row.directory}/pkl/**/*.pkl', recursive=False)))
 
@@ -35,7 +35,7 @@ class IndexDatabase:
         cursor = conn.cursor()
         # Create a table for original reference to datasets
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS authors (
+            CREATE TABLE IF NOT EXISTS sources (
                 id INTEGER PRIMARY KEY,
                 name TEXT UNIQUE,
                 citation TEXT,
@@ -47,11 +47,11 @@ class IndexDatabase:
         for _, row in self.index.iterrows():
             try:
                 cursor.execute(
-                    'INSERT INTO authors (name, citation, dataset_doi, publication_doi) VALUES (?, ?, ?, ?)',
+                    'INSERT INTO sources (name, citation, dataset_doi, publication_doi) VALUES (?, ?, ?, ?)',
                     (row.directory, row.citation, row.dataset_doi, row.publication_doi)
                 )
             except sqlite3.IntegrityError:
-                # Author already exists, skip
+                # dataset already exists, skip
                 continue
 
         # Create a table to store the metadata for each dataset
@@ -59,7 +59,7 @@ class IndexDatabase:
             CREATE TABLE IF NOT EXISTS datasets (
                 id INTEGER PRIMARY KEY,
                 file_path TEXT,
-                author TEXT,
+                dataset TEXT,
                 institute TEXT,
                 project TEXT,
                 acq_year TEXT,
@@ -67,26 +67,26 @@ class IndexDatabase:
                 age_unc TEXT,
                 var TEXT,
                 flight_id TEXT,
-                FOREIGN KEY (author) REFERENCES authors (id)
+                FOREIGN KEY (dataset) REFERENCES sources (id)
             )
         ''')
 
         for file in tqdm(pkl_files, desc="Indexing files"):
             dir_name, file_name = os.path.split(file)
             pkl_dir, flight_id_dir = os.path.split(dir_name)
-            author_dir, _ = os.path.split(pkl_dir)
+            dataset_dir, _ = os.path.split(pkl_dir)
             trace_md = pd.read_csv(f'{dir_name}/metadata.csv')
             trace_md['flight_id'] = trace_md['flight_id'].astype(str)
 
-            author = os.path.basename(author_dir)
+            dataset = os.path.basename(dataset_dir)
             file_name_, ext = os.path.splitext(file_name)
-            relative_file_path = f'{author}/pkl/{flight_id_dir}/{file_name}'
+            relative_file_path = f'{dataset}/pkl/{flight_id_dir}/{file_name}'
 
-            # Get the author's ID from the authors table
-            cursor.execute('SELECT id FROM authors WHERE name = ?', (author,))
-            author_id = cursor.fetchone()[0]
+            # Get the dataset's ID from the dataset table
+            cursor.execute('SELECT id FROM sources WHERE name = ?', (dataset,))
+            dataset_id = cursor.fetchone()[0]
 
-            metadata = Authors_ages[author]
+            metadata = dataset_ages[dataset]
 
             if 'age' in metadata.columns:
                 if file_name_ in metadata.index:
@@ -127,9 +127,9 @@ class IndexDatabase:
                 acq_year = None
 
             cursor.execute('''
-                INSERT INTO datasets (file_path, author, institute, project, acq_year, age, age_unc, var, flight_id)
+                INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (relative_file_path, author_id, institute, project, acq_year, age, age_unc, var, flight_id))
+            ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id))
 
         conn.commit()
         conn.close()

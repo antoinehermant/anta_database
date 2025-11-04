@@ -14,7 +14,7 @@ class Database:
         self.md = None
         self._plotting = None
         self.excluded = {
-            'author': [],
+            'dataset': [],
             'institute': [],
             'project': [],
             'acq_year': [],
@@ -26,7 +26,7 @@ class Database:
     def _build_query_and_params(self,
                                 age: Optional[Union[str, List[str]]] = None,
                                 var: Optional[Union[str, List[str]]] = None,
-                                author: Optional[Union[str, List[str]]] = None,
+                                dataset: Optional[Union[str, List[str]]] = None,
                                 institute: Optional[Union[str, List[str]]] = None,
                                 project: Optional[Union[str, List[str]]] = None,
                                 acq_year: Optional[Union[str, List[str]]] = None,
@@ -39,14 +39,14 @@ class Database:
         query = f'''
             SELECT {select_clause}
             FROM datasets d
-            JOIN authors a ON d.author = a.id
+            JOIN sources a ON d.dataset = a.id
         '''
         conditions = []
         params = []
         for field, column in [
             (age, 'd.age'),
             (var, 'd.var'),
-            (author, 'a.name'),
+            (dataset, 'a.name'),
             (institute, 'd.institute'),
             (project, 'd.project'),
             (acq_year, 'd.acq_year'),
@@ -91,7 +91,7 @@ class Database:
         for field, column in [
             ('age', 'd.age'),
             ('var', 'd.var'),
-            ('author', 'a.name'),
+            ('dataset', 'a.name'),
             ('institute', 'd.institute'),
             ('project', 'd.project'),
             ('acq_year', 'd.acq_year'),
@@ -159,7 +159,7 @@ class Database:
         self,
         age: Optional[Union[str, List[str]]] = None,
         var: Optional[Union[str, List[str]]] = None,
-        author: Optional[Union[str, List[str]]] = None,
+        dataset: Optional[Union[str, List[str]]] = None,
         institute: Optional[Union[str, List[str]]] = None,
         project: Optional[Union[str, List[str]]] = None,
         acq_year: Optional[Union[str, List[str]]] = None,
@@ -167,13 +167,13 @@ class Database:
     ) -> None:
         """
         Add values to exclude from the query results.
-        Example: filter_out(author='Cavitte', project='OldProject')
+        Example: filter_out(dataset='Cavitte', project='OldProject')
         """
         # Map arguments to their corresponding fields
         field_mapping = {
             'age': age,
             'var': var,
-            'author': author,
+            'dataset': dataset,
             'institute': institute,
             'project': project,
             'acq_year': acq_year,
@@ -198,7 +198,7 @@ class Database:
         query = f'''
             SELECT {select_clause}
             FROM datasets d
-            JOIN authors a ON d.author = a.id
+            JOIN sources a ON d.dataset = a.id
         '''
         conditions = []
         params = []
@@ -222,7 +222,7 @@ class Database:
         conn.close()
 
         metadata = {
-            'author': results[0][0],
+            'dataset': results[0][0],
             'institute': results[0][1],
             'project': results[0][2],
             'acq_year': results[0][3],
@@ -239,13 +239,13 @@ class Database:
     def query(self,
               age: Optional[Union[str, List[str]]] = None,
               var: Optional[Union[str, List[str]]] = None,
-              author: Optional[Union[str, List[str]]] = None,
+              dataset: Optional[Union[str, List[str]]] = None,
               institute: Optional[Union[str, List[str]]] = None,
               project: Optional[Union[str, List[str]]] = None,
               acq_year: Optional[Union[str, List[str]]] = None,
               flight_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
         select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id'
-        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, flight_id, select_clause)
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -254,7 +254,7 @@ class Database:
         conn.close()
 
         metadata = {
-            'author': [],
+            'dataset': [],
             'institute': [],
             'project': [],
             'acq_year': [],
@@ -265,8 +265,8 @@ class Database:
             'dataset_doi': [],
             'publication_doi': [],
             'flight_id': [],
-            '_query_params': {'author': author, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id},
-            '_filter_params': {'author': self.excluded['author'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id']},
+            '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id},
+            '_filter_params': {'dataset': self.excluded['dataset'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id']},
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
@@ -276,8 +276,8 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
-        for author_name, citations, dataset_doi, publication_doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
-            metadata['author'].append(author_name)
+        for dataset_name, citations, dataset_doi, publication_doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
+            metadata['dataset'].append(dataset_name)
             metadata['reference'].append(citations)
             metadata['dataset_doi'].append(dataset_doi)
             metadata['publication_doi'].append(publication_doi)
@@ -321,7 +321,7 @@ class Database:
         metadata['institute'] = sorted(set(institutes_list))
         metadata['project'] = sorted(set(projects_list))
         metadata['acq_year'] = sorted(set(acq_years_list))
-        metadata['author'] = list(dict.fromkeys(metadata['author']))
+        metadata['dataset'] = list(dict.fromkeys(metadata['dataset']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
         metadata['dataset_doi'] = list(dict.fromkeys(metadata['dataset_doi']))
         metadata['publication_doi'] = list(dict.fromkeys(metadata['publication_doi']))
@@ -335,14 +335,14 @@ class Database:
         query_params = metadata['_query_params']
         age = query_params.get('age')
         var = query_params.get('var')
-        author = query_params.get('author')
+        dataset = query_params.get('dataset')
         institute = query_params.get('institute')
         project = query_params.get('project')
         acq_year = query_params.get('acq_year')
         line = query_params.get('flight_id')
 
         select_clause = 'd.file_path'
-        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -354,10 +354,10 @@ class Database:
 
     def data_generator(self, metadata: Union[None, Dict, 'MetadataResult'] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None, downsample_distance: Union[None, float, int] = None):
         """
-        Generates DataFrames and their associated author names from the database based on the provided metadata.
+        Generates DataFrames and their associated dataset names from the database based on the provided metadata.
 
         This method queries the database using the filter parameters stored in the metadata,
-        retrieves the file paths and author names, and yields each DataFrame along with its author.
+        retrieves the file paths and dataset names, and yields each DataFrame along with its dataset.
 
         Args:
             metadata: the results from the query()
@@ -373,14 +373,14 @@ class Database:
         query_params = md['_query_params']
         age = query_params.get('age')
         var = query_params.get('var')
-        author = query_params.get('author')
+        dataset = query_params.get('dataset')
         institute = query_params.get('institute')
         project = query_params.get('project')
         acq_year = query_params.get('acq_year')
         line = query_params.get('flight_id')
 
         select_clause = 'DISTINCT d.file_path, d.age'
-        query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, line, select_clause)
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -426,7 +426,7 @@ class MetadataResult:
         md = self._metadata
         output = []
         output.append("Metadata from query:")
-        output.append(f"\n  - author: {', '.join(md['author'])}")
+        output.append(f"\n  - dataset: {', '.join(md['dataset'])}")
         output.append(f"\n  - institute: {', '.join(md['institute'])}")
         output.append(f"\n  - project: {', '.join(md['project'])}")
         output.append(f"\n  - acq_year: {', '.join(md['acq_year'])}")

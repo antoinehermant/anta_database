@@ -53,7 +53,7 @@ class Plotting:
     def _custom_cmap_density(self):
         return self._custom_cmap(reversed_=True)
 
-    def author(
+    def dataset(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
@@ -67,10 +67,10 @@ class Plotting:
             save: Optional[str] = None,
     ) -> None:
         """
-        Plot the data points on a Antarctic map with color-coded dataset authors
+        Plot the data points on a Antarctic map with color-coded dataset dataset
         """
         self._base_plot(
-            color_by='author',
+            color_by='dataset',
             metadata=metadata,
             downscale_factor=downscale_factor,
             marker_size=marker_size,
@@ -224,7 +224,7 @@ class Plotting:
         marker_size: Optional[float] = None,
         latex: bool = False,
         save: Optional[str] = None,
-        color_by: str = 'author',  # 'author', 'flight_id', 'depth', 'density'
+        color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
         cmap: Optional['LinearSegmentedColormap'] = None,
         ncol: Optional[int] = None,
     ) -> None:
@@ -265,21 +265,21 @@ class Plotting:
         vmin = 0
         vmax = 10
 
-        if color_by == 'author':
+        if color_by == 'dataset':
             if downscale_factor == None:
                 downscale_fator = 1
-            authors = list(metadata['author'])
+            datasets = list(metadata['dataset'])
             bedmap_entries = {'BEDMAP1', 'BEDMAP2', 'BEDMAP3'}
             bedmap_colors = {
                 'BEDMAP1': '#e0e0e0',
                 'BEDMAP2': '#adaaaf',
                 'BEDMAP3': '#828084',
             }
-            remaining_authors = [author for author in authors if author not in bedmap_entries]
-            color_indices = np.linspace(0.1, 0.9, len(remaining_authors))
+            remaining_dataset = [dataset for dataset in datasets if dataset not in bedmap_entries]
+            color_indices = np.linspace(0.1, 0.9, len(remaining_dataset))
             if cmap is None:
                 cmap = self._custom_cmap()
-            colors = {author: cmap(i) for i, author in zip(color_indices, remaining_authors)}
+            colors = {dataset: cmap(i) for i, dataset in zip(color_indices, remaining_dataset)}
             colors.update(bedmap_colors)
 
             if marker_size == None:
@@ -287,13 +287,13 @@ class Plotting:
             flight_ids = metadata['flight_id']
             for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
                 metadata_impl = self._db.query(flight_id=flight_id)
-                for author_impl in metadata_impl['author']:
-                    if author_impl in authors:
-                        metadata_impl_again = self._db.query(flight_id=flight_id, author=author_impl)
+                for dataset_impl in metadata_impl['dataset']:
+                    if dataset_impl in datasets:
+                        metadata_impl_again = self._db.query(flight_id=flight_id, dataset=dataset_impl)
                         file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
                         directories = [os.path.dirname(file_path) for file_path in file_paths]
                         unique_directories = np.unique(directories)
-                        if author_impl in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3']:
+                        if dataset_impl in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3']:
                             zorder = 0
 
                         else:
@@ -301,16 +301,16 @@ class Plotting:
                         for unique_dir in unique_directories:
                             total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
                             total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
-                            author = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['author']
-                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[author], s=marker_size, zorder=zorder)
+                            dataset = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['dataset']
+                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
 
-            for author in authors:
-                citation = self._db.query(author=author)['reference']
-                plt.plot([], [], color=colors[author], label=citation, linewidth=3)
+            for dataset in datasets:
+                citation = self._db.query(dataset=dataset)['reference']
+                plt.plot([], [], color=colors[dataset], label=citation, linewidth=3)
             if ncol == None:
-                if len(authors) > 7:
+                if len(datasets) > 7:
                     ncol = 2
-                if len(authors) > 15:
+                if len(datasets) > 15:
                     ncol = 3
 
         if color_by == 'var':
@@ -383,13 +383,13 @@ class Plotting:
             if marker_size == None:
                 marker_size = 1.
 
-            authors = list(metadata['author'])
+            dataset = list(metadata['dataset'])
             flight_ids = metadata['flight_id']
             for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
                 metadata_impl = self._db.query(flight_id=flight_id)
-                for author_impl in metadata_impl['author']:
-                    if author_impl in authors:
-                        metadata_impl_again = self._db.query(flight_id=flight_id, author=author_impl)
+                for dataset_impl in metadata_impl['dataset']:
+                    if dataset_impl in dataset:
+                        metadata_impl_again = self._db.query(flight_id=flight_id, dataset=dataset_impl)
                         file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
                         directories = [os.path.dirname(file_path) for file_path in file_paths]
                         unique_directories = np.unique(directories)
@@ -459,7 +459,7 @@ class Plotting:
         if ncol == None:
             ncol = 1
         # --- Legend/Colorbar ---
-        if color_by == 'author':
+        if color_by == 'dataset':
             plt.legend(ncols=ncol, loc='lower left', fontsize=8)
         elif color_by == 'flight_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
