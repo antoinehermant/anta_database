@@ -39,15 +39,16 @@ class IndexDatabase:
                 id INTEGER PRIMARY KEY,
                 name TEXT UNIQUE,
                 citation TEXT,
-                doi TEXT
+                dataset_doi TEXT,
+                publication_doi TEXT
             )
         ''')
 
         for _, row in self.index.iterrows():
             try:
                 cursor.execute(
-                    'INSERT INTO authors (name, citation, doi) VALUES (?, ?, ?)',
-                    (row.directory, row.citation, row.doi)
+                    'INSERT INTO authors (name, citation, dataset_doi, publication_doi) VALUES (?, ?, ?, ?)',
+                    (row.directory, row.citation, row.dataset_doi, row.publication_doi)
                 )
             except sqlite3.IntegrityError:
                 # Author already exists, skip

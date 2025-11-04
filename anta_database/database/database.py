@@ -244,7 +244,7 @@ class Database:
               project: Optional[Union[str, List[str]]] = None,
               acq_year: Optional[Union[str, List[str]]] = None,
               flight_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
-        select_clause = 'a.name, a.citation, a.doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id'
+        select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id'
         query, params = self._build_query_and_params(age, var, author, institute, project, acq_year, flight_id, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
@@ -262,7 +262,8 @@ class Database:
             'age_unc': [],
             'var': [],
             'reference': [],
-            'doi': [],
+            'dataset_doi': [],
+            'publication_doi': [],
             'flight_id': [],
             '_query_params': {'author': author, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id},
             '_filter_params': {'author': self.excluded['author'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id']},
@@ -275,10 +276,11 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
-        for author_name, citations, doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
+        for author_name, citations, dataset_doi, publication_doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
             metadata['author'].append(author_name)
             metadata['reference'].append(citations)
-            metadata['doi'].append(doi)
+            metadata['dataset_doi'].append(dataset_doi)
+            metadata['publication_doi'].append(publication_doi)
             metadata['flight_id'].append(flight_id)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
@@ -321,7 +323,8 @@ class Database:
         metadata['acq_year'] = sorted(set(acq_years_list))
         metadata['author'] = list(dict.fromkeys(metadata['author']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
-        metadata['doi'] = list(dict.fromkeys(metadata['doi']))
+        metadata['dataset_doi'] = list(dict.fromkeys(metadata['dataset_doi']))
+        metadata['publication_doi'] = list(dict.fromkeys(metadata['publication_doi']))
         metadata['flight_id'] = list(set(metadata['flight_id']))
 
         self.md = metadata
@@ -432,7 +435,8 @@ class MetadataResult:
         output.append(f"\n  - var: {', '.join(md['var'])}")
         output.append(f"\n  - flight_id: {', '.join(md['flight_id'])}")
         output.append(f"\n  - reference: {', '.join(md['reference'])}")
-        output.append(f"  - DOIs: {', '.join(md['doi'])}")
+        output.append(f"  - dataset DOI: {', '.join(md['dataset_doi'])}")
+        output.append(f"  - publication DOI: {', '.join(md['publication_doi'])}")
         output.append(f"  - database: {md['database_path']}/{md['file_db']}")
         output.append(f"  - query params: {md['_query_params']}")
         output.append(f"  - filter params: {md['_filter_params']}")
