@@ -22,6 +22,8 @@ class Database:
             'age': [],
             'var': [],
             'flight_id': [],
+            'region': [],
+            'basin': [],
         }
 
     def _build_query_and_params(self,
@@ -32,6 +34,8 @@ class Database:
                                 project: Optional[Union[str, List[str]]] = None,
                                 acq_year: Optional[Union[str, List[str]]] = None,
                                 line: Optional[Union[str, List[str]]] = None,
+                                region: Optional[Union[str, List[str]]] = None,
+                                basin: Optional[Union[str, List[str]]] = None,
                                 select_clause='') -> Tuple[str, List[Union[str, int]]]:
         """
         Helper method to build the SQL query and parameters for filtering.
@@ -51,7 +55,9 @@ class Database:
             (institute, 'd.institute'),
             (project, 'd.project'),
             (acq_year, 'd.acq_year'),
-            (line, 'd.flight_id')
+            (line, 'd.flight_id'),
+            (region, 'd.region'),
+            (basin, 'd.basin')
         ]:
             if field is not None:
                 if isinstance(field, list):
@@ -96,7 +102,9 @@ class Database:
             ('institute', 'd.institute'),
             ('project', 'd.project'),
             ('acq_year', 'd.acq_year'),
-            ('flight_id', 'd.flight_id')
+            ('flight_id', 'd.flight_id'),
+            ('region', 'd.region'),
+            ('basin', 'd.basin')
         ]:
             if self.excluded[field]:
                 not_like_conditions = []
@@ -165,6 +173,8 @@ class Database:
         project: Optional[Union[str, List[str]]] = None,
         acq_year: Optional[Union[str, List[str]]] = None,
         flight_id: Optional[Union[str, List[str]]] = None,
+        region: Optional[Union[str, List[str]]] = None,
+        basin: Optional[Union[str, List[str]]] = None,
     ) -> None:
         """
         Add values to exclude from the query results.
@@ -179,6 +189,8 @@ class Database:
             'project': project,
             'acq_year': acq_year,
             'flight_id': flight_id,
+            'region': region,
+            'basin': basin,
         }
 
         for field, value in field_mapping.items():
@@ -195,7 +207,7 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.file_path'
+        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.region, d.basin, d.file_path'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -231,7 +243,9 @@ class Database:
             'age_unc': results[0][5],
             'var': results[0][6],
             'flight_id': results[0][7],
-            'file_path': results[0][8],
+            'region': results[0][8],
+            'basin': results[0][9],
+            'file_path': results[0][10],
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
@@ -244,9 +258,12 @@ class Database:
               institute: Optional[Union[str, List[str]]] = None,
               project: Optional[Union[str, List[str]]] = None,
               acq_year: Optional[Union[str, List[str]]] = None,
-              flight_id: Optional[Union[str, List[str]]] = None) -> 'MetadataResult':
-        select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id'
-        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, select_clause)
+              flight_id: Optional[Union[str, List[str]]] = None,
+              region: Optional[Union[str, List[str]]] = None,
+              basin: Optional[Union[str, List[str]]] = None,
+              ) -> 'MetadataResult':
+        select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.region, d.basin'
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, basin, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -266,8 +283,10 @@ class Database:
             'dataset_doi': [],
             'publication_doi': [],
             'flight_id': [],
-            '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id},
-            '_filter_params': {'dataset': self.excluded['dataset'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id']},
+            'region': [],
+            'basin': [],
+            '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id, 'region': region, 'basin': basin},
+            '_filter_params': {'dataset': self.excluded['dataset'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id'], 'region': self.excluded['region'], 'basin': self.excluded['basin']},
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
@@ -277,7 +296,9 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
-        for dataset_name, citations, dataset_doi, publication_doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id in results:
+        regions_list = []
+        basins_list = []
+        for dataset_name, citations, dataset_doi, publication_doi, institutes, projects, acq_years, ages, ages_unc, vars, flight_id, regions, basins in results:
             metadata['dataset'].append(dataset_name)
             metadata['reference'].append(citations)
             metadata['dataset_doi'].append(dataset_doi)
@@ -304,7 +325,14 @@ class Database:
                 acq_years_list.append(acq_years)
             else:
                 acq_years_list.append('-')
-
+            if regions is not None:
+                regions_list.append(regions)
+            else:
+                regions_list.append('-')
+            if basins is not None:
+                basins_list.append(basins)
+            else:
+                basins_list.append('-')
 
         paired = sorted(zip(ages_list, ages_unc_list), key=lambda x: x[0])
 
@@ -327,6 +355,8 @@ class Database:
         metadata['dataset_doi'] = list(dict.fromkeys(metadata['dataset_doi']))
         metadata['publication_doi'] = list(dict.fromkeys(metadata['publication_doi']))
         metadata['flight_id'] = list(set(metadata['flight_id']))
+        metadata['region'] = sorted(set(regions_list))
+        metadata['basin'] = sorted(set(basins_list))
 
         self.md = metadata
         return MetadataResult(metadata, self.max_displayed_flight_ids)
@@ -341,9 +371,11 @@ class Database:
         project = query_params.get('project')
         acq_year = query_params.get('acq_year')
         line = query_params.get('flight_id')
+        region = query_params.get('region')
+        basin = query_params.get('basin')
 
         select_clause = 'd.file_path'
-        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, select_clause)
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, region, basin, select_clause)
 
         conn = sqlite3.connect(self.file_db_path)
         cursor = conn.cursor()
@@ -371,23 +403,7 @@ class Database:
             print('Please provide metadata of the files you want to generate the data from. Exiting ...')
             return
 
-        query_params = md['_query_params']
-        age = query_params.get('age')
-        var = query_params.get('var')
-        dataset = query_params.get('dataset')
-        institute = query_params.get('institute')
-        project = query_params.get('project')
-        acq_year = query_params.get('acq_year')
-        line = query_params.get('flight_id')
-
-        select_clause = 'DISTINCT d.file_path, d.age'
-        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, select_clause)
-
-        conn = sqlite3.connect(self.file_db_path)
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        results = cursor.fetchall()
-        conn.close()
+        file_paths = self._get_file_paths_from_metadata(metadata=md)
 
         if data_dir:
             data_dir = data_dir
@@ -397,7 +413,7 @@ class Database:
             print('No data dir provided, do not know where to look for data ...')
             return
 
-        for file_path, age in results:
+        for file_path in file_paths:
             df = pd.read_pickle(os.path.join(data_dir, file_path))
             if downscale_factor:
                 df = df[::downscale_factor]
@@ -444,6 +460,8 @@ class MetadataResult:
         output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
         output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
         output.append(f"\n  - var: {', '.join(md['var'])}")
+        output.append(f"\n  - region: {', '.join(md['region'])}")
+        output.append(f"\n  - basin: {', '.join(md['basin'])}")
         output.append(f"\n  - flight_id: {flight_id_str}")
         output.append(f"\n  - reference: {', '.join(md['reference'])}")
         output.append(f"  - dataset DOI: {', '.join(md['dataset_doi'])}")

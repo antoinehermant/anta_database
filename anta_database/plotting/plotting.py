@@ -1,13 +1,17 @@
 import os
+from pathlib import Path
 import pandas as pd
+import geopandas as gpd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
+from matplotlib import patheffects as path_effects
 import colormaps as cmaps
 from contextlib import contextmanager
 from typing import Union, Dict, TYPE_CHECKING, Optional
 from tqdm import tqdm
+from importlib.resources import files
 
 if TYPE_CHECKING:
     from anta_database.database.database import Database, MetadataResult
@@ -16,9 +20,12 @@ class Plotting:
     def __init__(self, database_instance: 'Database') -> None:
         self._db = database_instance
         module_dir = os.path.dirname(os.path.abspath(__file__))
-        self.gl = pd.read_pickle(os.path.join(module_dir, 'GL.pkl'))
-        self.site_coords = pd.read_pickle(os.path.join(module_dir, 'site-coords.pkl'))
-
+        self.gl_path = files('anta_database.data').joinpath('GL.pkl')
+        self.site_coords_path = files('anta_database.data').joinpath('site-coords.pkl')
+        imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
+        self.basins = gpd.read_file(imbie_path)
+        center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
+        self.center_coords = gpd.read_file(center_coords)
 
     def _pre_plot_check(self,
                         metadata: Union[None, Dict, 'MetadataResult'] = None
@@ -64,6 +71,9 @@ class Plotting:
             marker_size: Optional[float] = None,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
             save: Optional[str] = None,
     ) -> None:
         """
@@ -80,6 +90,9 @@ class Plotting:
             scale_factor=scale_factor,
             latex=latex,
             cmap=cmap,
+            grounding_line=grounding_line,
+            basins=basins,
+            stations=stations,
             save=save,
         )
 
@@ -94,6 +107,9 @@ class Plotting:
             marker_size: Optional[float] = None,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
             save: Optional[str] = None,
     ) -> None:
         """
@@ -110,6 +126,9 @@ class Plotting:
             ylim=ylim,
             latex=latex,
             cmap=cmap,
+            grounding_line=grounding_line,
+            basins=basins,
+            stations=stations,
             save=save,
         )
 
@@ -124,6 +143,9 @@ class Plotting:
             marker_size: Optional[float] = None,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
             save: Optional[str] = None,
     ) -> None:
         """
@@ -140,6 +162,9 @@ class Plotting:
             marker_size=marker_size,
             latex=latex,
             cmap=cmap,
+            grounding_line=grounding_line,
+            basins=basins,
+            stations=stations,
             save=save,
         )
 
@@ -166,6 +191,9 @@ class Plotting:
         save: Optional[str] = None,
         color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
         cmap: Optional['LinearSegmentedColormap'] = None,
+        grounding_line: Optional[bool] = True,
+        basins: Optional[bool] = True,
+        stations: Optional[bool] = True,
         ncol: Optional[int] = None,
     ) -> None:
         # --- Setup ---
@@ -193,8 +221,12 @@ class Plotting:
 
         fig, ax = plt.subplots()
 
+        if basins:
+            grounding_line = False
         # --- Plot Grounding Line ---
-        plt.plot(self.gl.x/1000, self.gl.y/1000, linewidth=1, color='k')
+        if True: # FIXME
+            gl = pd.read_pickle(self.gl_path)
+            ax.plot(gl.x/1000, gl.y/1000, linewidth=1, color='k')
 
         # --- Plot Data ---
         colors = {}
@@ -225,23 +257,19 @@ class Plotting:
             if marker_size == None:
                 marker_size = 0.01
             flight_ids = metadata['flight_id']
-            for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
-                metadata_impl = self._db.query(flight_id=flight_id)
-                for dataset_impl in metadata_impl['dataset']:
-                    if dataset_impl in datasets:
-                        metadata_impl_again = self._db.query(flight_id=flight_id, dataset=dataset_impl)
-                        file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
-                        directories = [os.path.dirname(file_path) for file_path in file_paths]
-                        unique_directories = np.unique(directories)
-                        if dataset_impl in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3']:
-                            zorder = 0
+            for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset'):
+                metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids)
+                file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
+                unique_directories = {Path(fp).parent for fp in file_paths}
+                zorder = 0 if dataset in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3'] else 1
+                files = [
+                    str(self._db.db_dir / unique_dir / "TOTAL_PSXPSY.pkl")
+                    for unique_dir in unique_directories
+                ]
 
-                        else:
-                            zorder = 1
-                        for unique_dir in unique_directories:
-                            TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
-                            dataset = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['dataset']
-                            plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
+                data_frames = (pd.read_pickle(f) for f in files)
+                combined_df = pd.concat(data_frames, ignore_index=True)
+                plt.scatter(combined_df['PSX'][::downscale_factor]/1000, combined_df['PSY'][::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
 
             for dataset in datasets:
                 citation = self._db.query(dataset=dataset)['reference']
@@ -278,8 +306,11 @@ class Plotting:
                 extend = 'max'
                 if marker_size == None:
                     marker_size = 1.
-                for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
+                all_dfs = []
+                for df, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                    all_dfs.append(df)
+                combined_df = pd.concat(all_dfs, ignore_index=True)
+                scatter = plt.scatter(combined_df['PSX']/1000, combined_df['PSY']/1000, c=combined_df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
 
             elif var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
                 label = f'{var} [m]'
@@ -338,9 +369,11 @@ class Plotting:
                     age = age[0]
                     label = r'IRH Fractional Depth [\%]'
 
-                for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax)
-
+                all_dfs = []
+                for df, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                    all_dfs.append(df)
+                combined_df = pd.concat(all_dfs, ignore_index=True)
+                scatter = plt.scatter(combined_df['PSX']/1000, combined_df['PSY']/1000, c=combined_df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, rasterized=True)
 
         elif color_by == 'flight_id':
             flight_ids = list(metadata['flight_id'])
@@ -351,21 +384,21 @@ class Plotting:
             if marker_size == None:
                 marker_size = 1.
 
-            dataset = list(metadata['dataset'])
+            datasets = list(metadata['dataset'])
             flight_ids = metadata['flight_id']
-            for flight_id in tqdm(flight_ids, desc="Plotting", total=total_traces, unit='trace'):
-                metadata_impl = self._db.query(flight_id=flight_id)
-                for dataset_impl in metadata_impl['dataset']:
-                    if dataset_impl in dataset:
-                        metadata_impl_again = self._db.query(flight_id=flight_id, dataset=dataset_impl)
-                        file_paths = self._db._get_file_paths_from_metadata(metadata_impl_again)
-                        directories = [os.path.dirname(file_path) for file_path in file_paths]
-                        unique_directories = np.unique(directories)
+            for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset'):
+                metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids)
+                file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
+                unique_directories = {Path(fp).parent for fp in file_paths}
+                files = [
+                    str(self._db.db_dir / unique_dir / "TOTAL_PSXPSY.pkl")
+                    for unique_dir in unique_directories
+                ]
+                for unique_dir in unique_directories:
+                    TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
+                    flight_id = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['flight_id']
+                    plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
 
-                        for unique_dir in unique_directories:
-                            TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
-                            flight_id = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['flight_id']
-                            plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
             for flight_id in flight_ids:
                 plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
             ncol = 2 if len(flight_ids) > 40 else 1
@@ -404,10 +437,23 @@ class Plotting:
 
         plt.tight_layout()
 
+        # --- Plot IMBIE basins ---
+        if basins:
+            self.basins.geometry = self.basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
+            self.basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
+            self.center_coords.geometry = self.center_coords.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
+            self.center_coords['x'] = self.center_coords['geometry'].x
+            self.center_coords['y'] = self.center_coords['geometry'].y
+            for x, y, sub in zip(self.center_coords['x'], self.center_coords['y'], self.center_coords['Subregion']):
+                ax.text(x, y, sub, fontsize=12, color='k', ha='center',
+                    path_effects=[path_effects.withStroke(linewidth=5, foreground='white')]
+                        )
         # --- Plot ice core sites ---
-        for i in self.site_coords.index:
-            site = self.site_coords.loc[i]
-            ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5)
+        if stations:
+            site_coords = pd.read_pickle(self.site_coords_path)
+            for i in site_coords.index:
+                site = site_coords.loc[i]
+                ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5)
         # --- Save/Show ---
         with self._plot_context():
             if save:

@@ -2,12 +2,15 @@ import warnings
 import os
 import time
 import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 import numpy as np
 import glob
 from pyproj import Transformer
 from typing import Union
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
+from importlib.resources import files
 
 class CompileDatabase:
     def __init__(self, dir_list: Union[str, list[str]], file_type: str = 'layer', wave_speed: Union[None, float] = None, firn_correction: Union[None, float] = None, comp: bool = True, post: bool = True) -> None:
@@ -17,6 +20,8 @@ class CompileDatabase:
         self.file_type = file_type
         self.comp = comp
         self.post = post
+        imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
+        self.basins = gpd.read_file(imbie_path)
 
     def file_metadata(self, file_path) -> pd.DataFrame:
         table = pd.read_csv(file_path, header=0, sep=',')
@@ -28,7 +33,7 @@ class CompileDatabase:
         table = table.astype({
             'raw_file': 'str',
             'dataset': 'str',
-            'institute': 'str',
+            # 'institute': 'str',
             'project': 'str',
             # 'acquisition_year': 'int32',
             # 'age': 'int32',
@@ -269,7 +274,7 @@ class CompileDatabase:
                     DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
                     cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
                     ds_trace['DIST'] = cumulative_DIST
-                elif 'Distance [km]' in original_new_columns.columns:
+                elif 'Distance [km]' in original_new_columns.columns or 'Dist-km' in original_new_columns.columns:
                     ds_trace['DIST'] *= 1000 # if distance in km, convert to meters
 
                 for col in ds_trace.columns:
@@ -317,11 +322,10 @@ class CompileDatabase:
                 DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
                 cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
                 ds['DIST'] = cumulative_DIST
-            elif 'Distance [km]' in original_new_columns.columns:
+            elif 'Distance [km]' in original_new_columns.columns or 'Dist-km' in original_new_columns.columns:
                 ds['DIST'] *= 1000 # if distance in km, convert to meters
 
             flight_id = file_name_
-            os.makedirs(f'{file_dict['dir_path']}/pkl/{flight_id}' , exist_ok=True)
             ages = {key: int(table.loc[key]['age']) for key in ds.columns if key in table.index}
 
             for IRH in ages:
@@ -361,9 +365,12 @@ class CompileDatabase:
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl'
                 else:
                     ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl'
+
+                flight_dir, _ = os.path.split(ds_trace_file)
+                os.makedirs(flight_dir, exist_ok=True)
                 ds_IRH.to_pickle(ds_trace_file)
 
-                trace_metadata = f'{file_dict['dir_path']}/pkl/{flight_id}/metadata.csv'
+                trace_metadata = f'{flight_dir}/metadata.csv'
                 if not os.path.exists(trace_metadata):
                     trace_md = pd.DataFrame({
                         'dataset': [dataset, 'original'],
@@ -404,7 +411,7 @@ class CompileDatabase:
                 df['IRH_FRAC_DEPTH'] = df['IRH_DEPTH'] / df['ICE_THCK'] * 100
                 df.to_pickle(f)
 
-    def compute_total_extend(self, trace_dir: str) -> None:
+    def compute_total_extent(self, trace_dir: str) -> None:
         files = glob.glob(f"{trace_dir}/*.pkl")
 
         if len(files) > 1:
@@ -465,9 +472,25 @@ class CompileDatabase:
                 df.reset_index(drop=True, inplace=True)
                 df.to_pickle(f)
 
+    def get_imbie_basins(self, trace_dir: str):
+        TOTAL_PSXPSY = pd.read_pickle(f'{trace_dir}/TOTAL_PSXPSY.pkl')
+        TOTAL_PSXPSY.dropna(inplace=True)
+        geometry = [Point(xy) for xy in zip(TOTAL_PSXPSY['PSX'], TOTAL_PSXPSY['PSY'])]
+        points = gpd.GeoDataFrame(TOTAL_PSXPSY, geometry=geometry, crs=self.basins.crs)
+        joined = gpd.sjoin(points, self.basins, how="inner", predicate="within")
+        lookup_df = joined[['Subregion', 'Regions']].drop_duplicates()
+        lookup_df.reset_index(drop=True, inplace=True)
+        lookup_df.to_pickle(f'{trace_dir}/IMBIE.pkl')
+        lookup_df.to_csv(f'{trace_dir}/IMBIE.csv')
+
     def _post_compilation(self, trace_dir: str) -> None:
-        self.extract_vars(trace_dir)
-        self.compute_irh_density(trace_dir)
-        self.compute_fractional_depth(trace_dir)
-        self.compute_total_extend(trace_dir)
-        self.clean_IRH_arrays(trace_dir)
+        steps = [
+            self.extract_vars,
+            self.compute_irh_density,
+            self.compute_fractional_depth,
+            self.compute_total_extent,
+            self.clean_IRH_arrays,
+            self.get_imbie_basins,
+        ]
+        for step in steps:
+            step(trace_dir)

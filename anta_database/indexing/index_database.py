@@ -67,6 +67,8 @@ class IndexDatabase:
                 age_unc TEXT,
                 var TEXT,
                 flight_id TEXT,
+                region TEXT,
+                basin TEXT,
                 FOREIGN KEY (dataset) REFERENCES sources (id)
             )
         ''')
@@ -76,6 +78,8 @@ class IndexDatabase:
             pkl_dir, flight_id_dir = os.path.split(dir_name)
             dataset_dir, _ = os.path.split(pkl_dir)
             trace_md = pd.read_csv(f'{dir_name}/metadata.csv')
+            basins_regions = pd.read_pickle(f'{dir_name}/IMBIE.pkl')
+            basins_regions = basins_regions[['Subregion', 'Regions']]
             trace_md['flight_id'] = trace_md['flight_id'].astype(str)
 
             dataset = os.path.basename(dataset_dir)
@@ -90,7 +94,7 @@ class IndexDatabase:
 
             if 'age' in metadata.columns:
                 if file_name_ in metadata.index:
-                    age = int(metadata.loc[file_name_]['age'])
+                    age = str(metadata.loc[file_name_]['age'])
                     age_unc = metadata.loc[file_name_]['age_unc']
                     if not pd.isna(age_unc):
                         age_unc = int(age_unc)
@@ -105,6 +109,8 @@ class IndexDatabase:
 
             if file_name_ in var_list:
                 var = file_name_
+            elif file_name_ in ['TOTAL_PSXPSY', 'IMBIE']:
+                continue
             else:
                 var = 'IRH_DEPTH'
 
@@ -126,17 +132,26 @@ class IndexDatabase:
             else:
                 acq_year = None
 
-            cursor.execute('''
-                INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id))
+            for index, row in basins_regions.iterrows():
+                basin = row['Subregion']
+                region = row['Regions']
 
-            if var == 'IRH_DEPTH' and os.path.exists(f'{dir_name}/ICE_THCK.pkl'):
-                var = 'IRH_FRAC_DEPTH' # If both IRH DEPTH and ICE THK exist, IRH FRAC DEPTH must have been calculated so index for it
+                if pd.isna(basin):
+                    basin = None
+                if pd.isna(region):
+                    region = None
+
                 cursor.execute('''
-                    INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id))
+                    INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id, region, basin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id, region, basin))
+
+                if var == 'IRH_DEPTH' and os.path.exists(f'{dir_name}/ICE_THCK.pkl'):
+                    var = 'IRH_FRAC_DEPTH' # If both IRH DEPTH and ICE THK exist, IRH FRAC DEPTH must have been calculated so index for it
+                    cursor.execute('''
+                        INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id, region, basin)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id, region, basin))
 
         conn.commit()
         conn.close()
