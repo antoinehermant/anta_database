@@ -5,6 +5,7 @@ import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 import numpy as np
+import xarray as xr
 import glob
 from pyproj import Transformer
 from typing import Union
@@ -263,24 +264,11 @@ class CompileDatabase:
                             acq_year = unique_time[0][position:position+4]
                         ds_trace.drop(columns='acq_year', inplace=True)
 
-                ds_trace = ds_trace.drop_duplicates(subset=['PSX', 'PSY']) # Some datasets showed duplicated data
-
                 if flight_id == 'nan':
                     flight_id = f'{project}_{acq_year}'
                     flight_id_flag = 'not_provided'
 
-                if 'DIST' not in ds_trace.columns and dataset not in ['BEDMAP1', 'BEDMAP2']:
-                    PSX = ds_trace[['PSX', 'PSY']]
-                    DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
-                    cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
-                    ds_trace['DIST'] = cumulative_DIST
-                elif 'Distance [km]' in original_new_columns.columns or 'Dist-km' in original_new_columns.columns:
-                    ds_trace['DIST'] *= 1000 # if distance in km, convert to meters
-
-                for col in ds_trace.columns:
-                    ds_trace[col] = self.convert_col_to_Int32(ds_trace[col])
-
-                if age is not pd.NA and age in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']:
+                if age is not pd.NA:
                     ds_trace = ds_trace.rename(columns={'IRH_DEPTH': age})
                     if institute:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
@@ -294,8 +282,8 @@ class CompileDatabase:
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
 
-                if 'IRH_DEPTH' in ds_trace.columns:
-                    if ds_trace['IRH_DEPTH'].isna().all(): # If trace contains only nan, skip it
+                if age in ds_trace.columns:
+                    if ds_trace[age].isna().all(): # If trace contains only nan, skip it
                         continue
 
                 flight_dir, _ = os.path.split(ds_trace_file)
@@ -317,13 +305,6 @@ class CompileDatabase:
                     trace_md.to_csv(trace_metadata)
 
         elif self.file_type == 'flight_line':
-            if 'DIST' not in ds.columns:
-                PSX = ds[['PSX', 'PSY']]
-                DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
-                cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
-                ds['DIST'] = cumulative_DIST
-            elif 'Distance [km]' in original_new_columns.columns or 'Dist-km' in original_new_columns.columns:
-                ds['DIST'] *= 1000 # if distance in km, convert to meters
 
             flight_id = file_name_
             os.makedirs(f'{file_dict['dir_path']}/pkl/{flight_id}' , exist_ok=True)
@@ -335,23 +316,18 @@ class CompileDatabase:
                 ds_IRH = pd.DataFrame({
                     'PSX': ds['PSX'],
                     'PSY': ds['PSY'],
-                    'DIST': ds['DIST'],
-                    'IRH_DEPTH': ds_IRH,
+                    age: ds_IRH,
                 })
 
-                ds_IRH['IRH_DEPTH'] = self.convert_col_to_num(ds_IRH['IRH_DEPTH'])
+                ds_IRH[age] = self.convert_col_to_num(ds_IRH['IRH_DEPTH'])
                 if self.wave_speed:
-                    ds_IRH['IRH_DEPTH'] *= self.wave_speed
+                    ds_IRH[age] *= self.wave_speed
                 if self.firn_correction:
-                    ds_IRH['IRH_DEPTH'] += self.firn_correction
+                    ds_IRH[age] += self.firn_correction
 
                 for var in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']:
                     if var in ds.columns:
                         ds_IRH[var] = ds[var]
-
-                for col in ds_IRH.columns:
-                    ds_IRH[col] = self.convert_col_to_Int32(ds_IRH[col])
-
 
                 dataset = table.loc[IRH]['dataset']
                 institute = table.loc[IRH]['institute']
@@ -443,6 +419,59 @@ class CompileDatabase:
                 var_file = f'{trace_dir}/{var}.pkl'
                 ds_var.to_pickle(var_file)
 
+    def combine_dfs(self, trace_dir: str) -> None:
+        files = glob.glob(f"{trace_dir}/*.pkl")
+        dfs = [pd.read_pickle(f) for f in files]
+
+        dfs_list = []
+        for df in dfs:
+            df = df.set_index(['PSX', 'PSY'])
+            dfs_list.append(df)
+
+        merged_df = pd.concat(dfs, axis=1, join='outer')
+        merged_df = merged_df.reset_index()
+
+        PSX = merged_df[['PSX', 'PSY']].astype(float)
+        DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
+        cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
+        merged_df['DIST'] = cumulative_DIST
+        merged_df = merged_df.reset_index()
+        layers = [col for col in merged_df.columns if str(col).isdigit()]
+        distance = merged_df['DIST']
+        depth_data = merged_df[layers]
+
+        distance = merged_df['DIST'].values
+        x = merged_df['PSX'].values
+        y = merged_df['PSY'].values
+        depth_data = merged_df[layers].values
+
+        data_vars = {
+            'x': (['distance'], x),
+            'y': (['distance'], y),
+            'IRH_DEPTH': (['distance', 'IRH'], depth_data),
+        }
+
+        other_vars = ['BED_ELEV', 'ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT']
+
+        for var in other_vars:
+            if var in merged_df.columns:
+                data_vars[var] = (['distance'], merged_df[var].values)
+
+        ds = xr.Dataset(
+            coords={
+                'distance': distance,
+                'layer': layers,
+            },
+            data_vars=data_vars,
+            attrs={
+                'institute': 'Your Institute',
+                'region': 'West Antarctica',
+                'date': '2025-11-05',
+            }
+        )
+
+        ds.to_netcdf(f'{trace_dir}/NETCDF.nc', engine='h5netcdf', encoding={'depth': {'zlib': True}, 'fractional_depth': {'zlib': True}})
+
     def clean_IRH_arrays(self, trace_dir: str) -> None:
         unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
@@ -482,12 +511,12 @@ class CompileDatabase:
 
     def _post_compilation(self, trace_dir: str) -> None:
         steps = [
-            self.extract_vars,
-            self.compute_irh_density,
-            self.compute_fractional_depth,
-            self.compute_total_extent,
-            self.clean_IRH_arrays,
-            self.get_imbie_basins,
+            # self.extract_vars,
+            # self.compute_irh_density,
+            # self.compute_fractional_depth,
+            # self.compute_total_extent,
+            # self.clean_IRH_arrays,
+            # self.get_imbie_basins,
         ]
         for step in steps:
             step(trace_dir)
