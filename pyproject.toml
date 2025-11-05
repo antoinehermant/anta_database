@@ -16,6 +16,7 @@ requires-python = ">=3.11"
 
 dependencies = [
   "pandas",
+  "geopandas",
   "pyproj",
   "matplotlib",
   "colormaps",
