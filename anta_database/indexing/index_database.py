@@ -26,7 +26,7 @@ class IndexDatabase:
 
             pkl_files.extend(list(glob.glob(f'{self.db_dir}/{row.directory}/pkl/**/*.pkl', recursive=False)))
 
-        var_list = pd.read_csv(f"{self.db_dir}/vars.csv").columns
+        var_list = ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DENS', 'IRH_FRAC_DEPTH', 'IRH_DEPTH']
 
         if os.path.exists(self.file_db):
             os.remove(self.file_db)
@@ -106,7 +106,7 @@ class IndexDatabase:
             if file_name_ in var_list:
                 var = file_name_
             else:
-                var = None
+                var = 'IRH_DEPTH'
 
             flight_id = trace_md.iloc[0]['flight_id']
             institute = trace_md.iloc[0]['institute']
@@ -130,6 +130,13 @@ class IndexDatabase:
                 INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id))
+
+            if var == 'IRH_DEPTH' and os.path.exists(f'{dir_name}/ICE_THCK.pkl'):
+                var = 'IRH_FRAC_DEPTH' # If both IRH DEPTH and ICE THK exist, IRH FRAC DEPTH must have been calculated so index for it
+                cursor.execute('''
+                    INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id))
 
         conn.commit()
         conn.close()

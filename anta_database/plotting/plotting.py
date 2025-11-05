@@ -113,66 +113,6 @@ class Plotting:
             save=save,
         )
 
-    def depth(
-            self,
-            metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
-            title: str = '',
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
-            scale_factor: float = 1.0,
-            marker_size: Optional[float] = None,
-            latex: bool = False,
-            cmap: Optional['LinearSegmentedColormap'] = None,
-            save: Optional[str] = None,
-    ) -> None:
-        """
-        Plot the color-coded layer depth on Antarctic map
-        """
-        self._base_plot(
-            color_by='depth',
-            metadata=metadata,
-            downscale_factor=downscale_factor,
-            title=title,
-            xlim=xlim,
-            ylim=ylim,
-            scale_factor=scale_factor,
-            marker_size=marker_size,
-            latex=latex,
-            cmap=cmap,
-            save=save,
-        )
-
-    def frac_depth(
-            self,
-            metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
-            title: str = '',
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
-            scale_factor: float = 1.0,
-            marker_size: Optional[float] = None,
-            latex: bool = False,
-            cmap: Optional['LinearSegmentedColormap'] = None,
-            save: Optional[str] = None,
-    ) -> None:
-        """
-        Plot the color-coded layer depth on Antarctic map
-        """
-        self._base_plot(
-            color_by='frac_depth',
-            metadata=metadata,
-            downscale_factor=downscale_factor,
-            title=title,
-            xlim=xlim,
-            ylim=ylim,
-            scale_factor=scale_factor,
-            marker_size=marker_size,
-            latex=latex,
-            cmap=cmap,
-            save=save,
-        )
-
     def var(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
@@ -246,10 +186,10 @@ class Plotting:
         if not self._pre_plot_check(metadata):
             return
 
-        if save:
-            matplotlib.use('Agg')
-        else:
-            matplotlib.use('TkAgg')
+        # if save:
+        #     matplotlib.use('Agg')
+        # else: FIXME: this seems to crash spyder for spyder users
+        #     matplotlib.use('TkAgg')
 
         fig, ax = plt.subplots()
 
@@ -299,10 +239,9 @@ class Plotting:
                         else:
                             zorder = 1
                         for unique_dir in unique_directories:
-                            total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
-                            total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
+                            TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
                             dataset = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['dataset']
-                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
+                            plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
 
             for dataset in datasets:
                 citation = self._db.query(dataset=dataset)['reference']
@@ -324,7 +263,7 @@ class Plotting:
             else:
                 var = var[0]
 
-            if var == 'IRHDensity':
+            if var == 'IRH_DENS':
                 levels = np.linspace(1, 10, 10)
                 if cmap == None:
                     cmap = self._custom_cmap_density()
@@ -340,38 +279,67 @@ class Plotting:
                 if marker_size == None:
                     marker_size = 1.
                 for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
+                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
 
-            elif var in ['IceThk', 'SurfElev', 'BedElev', 'BasalUnit']:
+            elif var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
                 label = f'{var} [m]'
                 if marker_size == None:
                     marker_size = 1.
-                if var == 'BedElev':
+                if var == 'BED_ELEV':
                     if cmap == None:
                         cmap = cmaps.bukavu
                     extend = 'both'
                     vmin = -1000
                     vmax = 1000
-                elif var == 'IceThk':
+                elif var == 'ICE_THCK':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
                     vmin = 0
                     vmax = 4000
-                elif var == 'SurfElev':
+                elif var == 'SURF_ELEV':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
                     vmin = 2000
                     vmax = 4000
-                elif var == 'BasalUnit':
+                elif var == 'BASAL_UNIT':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
                     vmin = 2000
                     vmax = 4000
+                elif var == 'IRH_DEPTH':
+                    if cmap == None:
+                        cmap = cmaps.torch_r
+                    extend = 'both'
+                    vmin = None
+                    vmax = None
+                    age = list(metadata['age'])
+                    if len(age) > 1:
+                        print('WARNING: Multiple layers provided: ', age,
+                            '\nSelect a unique age for better results')
+                    elif len(age) == 0:
+                        print('No layer provided, please provide a valid age.')
+                        return
+                elif var == 'IRH_FRAC_DEPTH':
+                    if cmap == None:
+                        cmap = cmaps.torch_r
+                    extend = 'both'
+                    vmin = None
+                    vmax = None
+                    age = list(metadata['age'])
+                    if len(age) > 1:
+                        print('WARNING: Multiple layers provided: ', age,
+                            '\nSelect a unique age for better results')
+                    elif len(age) == 0:
+                        print('No layer provided, please provide a valid age.')
+                        return
+                    age = age[0]
+                    label = r'IRH Fractional Depth [\%]'
+
                 for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax)
+                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax)
 
 
         elif color_by == 'flight_id':
@@ -395,51 +363,12 @@ class Plotting:
                         unique_directories = np.unique(directories)
 
                         for unique_dir in unique_directories:
-                            total_x = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_x.pkl')
-                            total_y = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/total_y.pkl')
+                            TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
                             flight_id = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['flight_id']
-                            plt.scatter(total_x[::downscale_factor]/1000, total_y[::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
+                            plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
             for flight_id in flight_ids:
                 plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
             ncol = 2 if len(flight_ids) > 40 else 1
-
-        elif color_by == 'depth':
-            if marker_size == None:
-                marker_size = 1.
-            if cmap == None:
-                cmap = cmaps.torch_r
-            age = list(metadata['age'])
-            if len(age) > 1:
-                print('WARNING: Multiple layers provided: ', age,
-                      '\nSelect a unique age for better results')
-            elif len(age) == 0:
-                print('No layer provided, please provide a valid age.')
-                return
-            age = age[0]
-            label = 'Depth [m]'
-            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                if not md.get('age'):
-                    continue
-                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['IRHDepth'], cmap=cmap, s=marker_size)
-
-        elif color_by == 'frac_depth':
-            if marker_size == None:
-                marker_size = 1.
-            if cmap == None:
-                cmap = cmaps.torch_r
-            age = list(metadata['age'])
-            if len(age) > 1:
-                print('WARNING: Multiple layers provided: ', age,
-                      '\nSelect a unique age for better results')
-            elif len(age) == 0:
-                print('No layer provided, please provide a valid age.')
-                return
-            age = age[0]
-            label = r'Fractional Depth [\%]'
-            for df, md in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                if not md.get('age'):
-                    continue
-                scatter = plt.scatter(df['x']/1000, df['y']/1000, c=df['FracDepth'], cmap=cmap, s=marker_size)
 
         # --- Format Figure ---
         print('Formatting ...')
@@ -464,8 +393,8 @@ class Plotting:
         elif color_by == 'flight_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
             plt.gcf().set_size_inches(10 * scale_factor * ncol/1.15, 10 * aspect_ratio * scale_factor)
-        elif color_by in ('depth', 'var', 'frac_depth') and scatter is not None:
-            if color_by == 'var' and values is not None:
+        elif color_by == 'var' and scatter is not None:
+            if values is not None:
                 cbar = fig.colorbar(scatter, ax=ax, ticks=values, orientation='horizontal', pad=0.1, fraction=0.04, extend=extend)
             else:
                 cbar = fig.colorbar(scatter, ax=ax, orientation='horizontal', pad=0.1, fraction=0.04, extend=extend)

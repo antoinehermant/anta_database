@@ -160,35 +160,35 @@ class CompileDatabase:
         if self.file_type == 'layer':
             ds = ds.astype({'Flight_ID': str})
 
-        for var in ['IceThk', 'SurfElev', 'BedElev', 'IRHDepth', 'x', 'distance', 'y', 'lat', 'lon']:
+        for var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'IRH_DEPTH', 'PSX', 'DIST', 'PSY', 'lat', 'lon']:
             if var in ds.columns:
                 ds[var] = self.convert_col_to_num(ds[var])
 
-        if 'IceThk' in ds.columns and 'SurfElev' in ds.columns and not 'BedElev' in ds.columns:
-            ds['BedElev'] = ds['SurfElev'] - ds['IceThk']
-        if 'IceThk' in ds.columns and 'BedElev' in ds.columns and not 'SurfElev' in ds.columns:
-            ds['SurfElev'] = ds['BedElev'] + ds['IceThk']
-        if 'SurfElev' in ds.columns and 'BedElev' in ds.columns and not 'IceThk' in ds.columns:
-            ds['IceThk'] = ds['SurfElev'] - ds['BedElev']
+        if 'ICE_THCK' in ds.columns and 'SURF_ELEV' in ds.columns and not 'BED_ELEV' in ds.columns:
+            ds['BED_ELEV'] = ds['SURF_ELEV'] - ds['ICE_THCK']
+        if 'ICE_THCK' in ds.columns and 'BED_ELEV' in ds.columns and not 'SURF_ELEV' in ds.columns:
+            ds['SURF_ELEV'] = ds['BED_ELEV'] + ds['ICE_THCK']
+        if 'SURF_ELEV' in ds.columns and 'BED_ELEV' in ds.columns and not 'ICE_THCK' in ds.columns:
+            ds['ICE_THCK'] = ds['SURF_ELEV'] - ds['BED_ELEV']
 
         if self.wave_speed:
-            for var in ['IceThk', 'BedElev']:
+            for var in ['ICE_THCK', 'BED_ELEV']:
                 if var in ds.columns:
                     ds[var] *= self.wave_speed
         if self.firn_correction:
-            for var in ['IceThk', 'BedElev']:
+            for var in ['ICE_THCK', 'BED_ELEV']:
                 if var in ds.columns:
                     ds[var] += self.firn_correction
 
-        if 'x' not in ds.columns and 'y' not in ds.columns:
+        if 'PSX' not in ds.columns and 'PSY' not in ds.columns:
             if 'lon' in ds.columns and 'lat' in ds.columns:
                 transformer = Transformer.from_proj(
                     "EPSG:4326",  # source: WGS84 (lon/lat)
                     "+proj=stere +lon_0=0 +lat_0=-90 +lat_ts=-71 +datum=WGS84 +units=m +no_defs",  # target: polar
                     always_xy=True
                 )
-                ds['x'], ds['y'] = transformer.transform(ds['lon'].values, ds['lat'].values)
-        elif 'x' in ds.columns and 'y' in ds.columns:
+                ds['PSX'], ds['PSY'] = transformer.transform(ds['lon'].values, ds['lat'].values)
+        elif 'PSX' in ds.columns and 'PSY' in ds.columns:
             pass
         else:
             print('No coordinates found in the dataset')
@@ -200,9 +200,9 @@ class CompileDatabase:
             else:
                 age = pd.NA
             if self.wave_speed:
-                ds['IRHDepth'] *= self.wave_speed
+                ds['IRH_DEPTH'] *= self.wave_speed
             if self.firn_correction:
-                ds['IRHDepth'] += self.firn_correction
+                ds['IRH_DEPTH'] += self.firn_correction
 
             ds['Flight_ID'] = ds['Flight_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
             ds['Flight_ID'] = ds['Flight_ID'].str.replace('/', '_')
@@ -258,25 +258,25 @@ class CompileDatabase:
                             acq_year = unique_time[0][position:position+4]
                         ds_trace.drop(columns='acq_year', inplace=True)
 
-                ds_trace = ds_trace.drop_duplicates(subset=['x', 'y']) # Some datasets showed duplicated data
+                ds_trace = ds_trace.drop_duplicates(subset=['PSX', 'PSY']) # Some datasets showed duplicated data
 
                 if flight_id == 'nan':
                     flight_id = f'{project}_{acq_year}'
                     flight_id_flag = 'not_provided'
 
-                if 'distance' not in ds_trace.columns and dataset not in ['BEDMAP1', 'BEDMAP2']:
-                    x = ds_trace[['x', 'y']]
-                    distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
-                    cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
-                    ds_trace['distance'] = cumulative_distance
+                if 'DIST' not in ds_trace.columns and dataset not in ['BEDMAP1', 'BEDMAP2']:
+                    PSX = ds_trace[['PSX', 'PSY']]
+                    DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
+                    cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
+                    ds_trace['DIST'] = cumulative_DIST
                 elif 'Distance [km]' in original_new_columns.columns:
-                    ds_trace['distance'] *= 1000 # if distance in km, convert to meters
+                    ds_trace['DIST'] *= 1000 # if distance in km, convert to meters
 
                 for col in ds_trace.columns:
                     ds_trace[col] = self.convert_col_to_Int32(ds_trace[col])
 
-                if age is not pd.NA and age in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
-                    ds_trace = ds_trace.rename(columns={'IRHDepth': age})
+                if age is not pd.NA and age in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']:
+                    ds_trace = ds_trace.rename(columns={'IRH_DEPTH': age})
                     if institute:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     else:
@@ -289,8 +289,8 @@ class CompileDatabase:
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
 
-                if 'IRHDepth' in ds_trace.columns:
-                    if ds_trace['IRHDepth'].isna().all(): # If trace contains only nan, skip it
+                if 'IRH_DEPTH' in ds_trace.columns:
+                    if ds_trace['IRH_DEPTH'].isna().all(): # If trace contains only nan, skip it
                         continue
 
                 flight_dir, _ = os.path.split(ds_trace_file)
@@ -312,13 +312,13 @@ class CompileDatabase:
                     trace_md.to_csv(trace_metadata)
 
         elif self.file_type == 'flight_line':
-            if 'distance' not in ds.columns:
-                x = ds[['x', 'y']]
-                distances = np.sqrt(np.sum(np.diff(x, axis=0)**2, axis=1))
-                cumulative_distance = np.concatenate([[0], np.cumsum(distances)])
-                ds['distance'] = cumulative_distance
+            if 'DIST' not in ds.columns:
+                PSX = ds[['PSX', 'PSY']]
+                DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
+                cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
+                ds['DIST'] = cumulative_DIST
             elif 'Distance [km]' in original_new_columns.columns:
-                ds['distance'] *= 1000 # if distance in km, convert to meters
+                ds['DIST'] *= 1000 # if distance in km, convert to meters
 
             flight_id = file_name_
             os.makedirs(f'{file_dict['dir_path']}/pkl/{flight_id}' , exist_ok=True)
@@ -328,19 +328,19 @@ class CompileDatabase:
                 age = str(ages.get(IRH))
                 ds_IRH = ds[IRH]
                 ds_IRH = pd.DataFrame({
-                    'x': ds['x'],
-                    'y': ds['y'],
-                    'distance': ds['distance'],
-                    'IRHDepth': ds_IRH,
+                    'PSX': ds['PSX'],
+                    'PSY': ds['PSY'],
+                    'DIST': ds['DIST'],
+                    'IRH_DEPTH': ds_IRH,
                 })
 
-                ds_IRH['IRHDepth'] = self.convert_col_to_num(ds_IRH['IRHDepth'])
+                ds_IRH['IRH_DEPTH'] = self.convert_col_to_num(ds_IRH['IRH_DEPTH'])
                 if self.wave_speed:
-                    ds_IRH['IRHDepth'] *= self.wave_speed
+                    ds_IRH['IRH_DEPTH'] *= self.wave_speed
                 if self.firn_correction:
-                    ds_IRH['IRHDepth'] += self.firn_correction
+                    ds_IRH['IRH_DEPTH'] += self.firn_correction
 
-                for var in ['IceThk', 'BedElev', 'SurfElev', 'BasalUnit']:
+                for var in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']:
                     if var in ds.columns:
                         ds_IRH[var] = ds[var]
 
@@ -376,7 +376,7 @@ class CompileDatabase:
                     trace_md.to_csv(trace_metadata)
 
     def compute_irh_density(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
+        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
             dfs = [pd.read_pickle(f) for f in files]
@@ -386,22 +386,22 @@ class CompileDatabase:
         else:
             return
 
-        if 'IRHDepth' in dfs.columns:
-            dfs = dfs[['x','y','IRHDepth']]
-            valid = dfs.dropna(subset=['IRHDepth'])
-            density = valid.groupby(['x', 'y']).size().reset_index(name='IRHDensity')
+        if 'IRH_DEPTH' in dfs.columns:
+            dfs = dfs[['PSX','PSY','IRH_DEPTH']]
+            valid = dfs.dropna(subset=['IRH_DEPTH'])
+            density = valid.groupby(['PSX', 'PSY']).size().reset_index(name='IRH_DENS')
 
-            density_file = f'{trace_dir}/IRHDensity.pkl'
+            density_file = f'{trace_dir}/IRH_DENS.pkl'
             density.to_pickle(density_file)
 
     def compute_fractional_depth(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
+        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
 
         for f in files:
             df = pd.read_pickle(f)
-            if 'IceThk' in df.columns and 'IRHDepth' in df.columns:
-                df['FracDepth'] = df['IRHDepth'] / df['IceThk'] * 100
+            if 'ICE_THCK' in df.columns and 'IRH_DEPTH' in df.columns:
+                df['IRH_FRAC_DEPTH'] = df['IRH_DEPTH'] / df['ICE_THCK'] * 100
                 df.to_pickle(f)
 
     def compute_total_extend(self, trace_dir: str) -> None:
@@ -415,52 +415,55 @@ class CompileDatabase:
         else:
             return
 
-        dfs = dfs.drop_duplicates(subset=['x', 'y'])
-        total_x = dfs['x']
-        total_y = dfs['y']
-        total_x.to_pickle(f"{trace_dir}/total_x.pkl")
-        total_y.to_pickle(f"{trace_dir}/total_y.pkl")
+        dfs = dfs.drop_duplicates(subset=['PSX', 'PSY'])
+        TOTAL_PSXPSY = dfs[['PSX', 'PSY']]
+        TOTAL_PSXPSY.to_pickle(f"{trace_dir}/TOTAL_PSXPSY.pkl")
 
     def extract_vars(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
+        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         if len(files) > 1:
             dfs = [pd.read_pickle(f) for f in files]
-            dfs = pd.concat(dfs).drop_duplicates(subset=['x', 'y'])
+            dfs = pd.concat(dfs).drop_duplicates(subset=['PSX', 'PSY'])
         elif len(files) == 1:
             dfs = pd.read_pickle(files[0])
         else:
             return
 
-        for var in ['IceThk', 'BedElev', 'SurfElev']:
+        for var in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV']:
             if var in dfs.columns:
-                ds_var = dfs[dfs.columns.intersection(['x', 'y', 'distance', var])]
+                ds_var = dfs[dfs.columns.intersection(['PSX', 'PSY', 'DIST', var])]
                 if ds_var[var].isna().all(): # If trace contains only nan, skip it
                     continue
                 var_file = f'{trace_dir}/{var}.pkl'
                 ds_var.to_pickle(var_file)
 
     def clean_IRH_arrays(self, trace_dir: str) -> None:
-        unwanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl', 'total_x.pkl', 'total_y.pkl'}
+        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
         for f in files:
             df = pd.read_pickle(f)
-            if 'IRHDepth' not in df.columns:
+            if 'IRH_DEPTH' not in df.columns:
                 os.remove(f)
             else:
-                cols = ['x', 'y', 'distance', 'IRHDepth', 'FracDepth']
+                cols = ['PSX', 'PSY', 'DIST', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']
                 df = df[[col for col in cols if col in df.columns]]
+                # df = df.dropna(axis=1, how='all')  # Drop columns which contain only NA values. But causes issue if ICE THCK actually exists in separate file.
                 df.reset_index(drop=True, inplace=True)
                 df.to_pickle(f)
 
-        wanted = {'IceThk.pkl', 'SurfElev.pkl', 'BasalUnit.pkl', 'BedElev.pkl', 'IRHDensity.pkl'}
+        wanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl'}
         files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) in wanted]
         for f in files:
             df = pd.read_pickle(f)
-            cols = ['x', 'y', 'distance', 'IceThk', 'SurfElev', 'BasalUnit', 'BedElev', 'IRHDensity']
+            cols = ['PSX', 'PSY', 'DIST', 'ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT', 'BED_ELEV', 'IRH_DENS']
             df = df[[col for col in cols if col in df.columns]]
-            df.reset_index(drop=True, inplace=True)
-            df.to_pickle(f)
+            df = df.dropna(axis=1, how='all')  # Drop columns which contain only NA values
+            if not any(col in df.columns for col in ['ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT', 'BED_ELEV', 'IRH_DENS']):
+                os.remove(f) # If no variable remaining in the file, remove it
+            else:
+                df.reset_index(drop=True, inplace=True)
+                df.to_pickle(f)
 
     def _post_compilation(self, trace_dir: str) -> None:
         self.extract_vars(trace_dir)
