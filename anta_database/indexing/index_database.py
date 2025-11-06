@@ -2,8 +2,10 @@ import os
 from tqdm import tqdm
 import glob
 import pandas as pd
+import xarray as xr
 import sqlite3
-import sys
+import h5py
+import json
 
 class IndexDatabase:
     def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index: str = 'database_index.csv'):
@@ -19,14 +21,12 @@ class IndexDatabase:
 
     def index_database(self):
         dataset_ages = {}
-        pkl_files = []
+        h5_files = []
         for _, row in self.index.iterrows():
             table = self.file_metadata(f"{self.db_dir}/{row.directory}/raw_files_md.csv")
             dataset_ages.update({f"{row.directory}": table})
 
-            pkl_files.extend(list(glob.glob(f'{self.db_dir}/{row.directory}/pkl/**/*.pkl', recursive=False)))
-
-        var_list = ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DENS', 'IRH_FRAC_DEPTH', 'IRH_DEPTH']
+            h5_files.extend(list(glob.glob(f'{self.db_dir}/{row.directory}/h5/*.h5', recursive=False)))
 
         if os.path.exists(self.file_db):
             os.remove(self.file_db)
@@ -73,79 +73,74 @@ class IndexDatabase:
             )
         ''')
 
-        for file in tqdm(pkl_files, desc="Indexing files"):
-            dir_name, file_name = os.path.split(file)
-            pkl_dir, flight_id_dir = os.path.split(dir_name)
-            dataset_dir, _ = os.path.split(pkl_dir)
-            trace_md = pd.read_csv(f'{dir_name}/metadata.csv')
-            basins_regions = pd.read_pickle(f'{dir_name}/IMBIE.pkl')
-            trace_md['flight_id'] = trace_md['flight_id'].astype(str)
+        for f in tqdm(h5_files, desc="Indexing files"):
+            _, file_name = os.path.split(f)
 
-            dataset = os.path.basename(dataset_dir)
-            file_name_, ext = os.path.splitext(file_name)
-            relative_file_path = f'{dataset}/pkl/{flight_id_dir}/{file_name}'
+            with h5py.File(f, 'r') as f:
+                flight_id = f.attrs["flight_id"]
+                if flight_id in ['nan', 'none']:
+                    flight_id = None
 
-            # Get the dataset's ID from the dataset table
+                institute = f.attrs['institute']
+                if institute in ['nan', 'none']:
+                    institute = None
+
+                project = f.attrs['project']
+                if project in ['nan', 'none']:
+                    project = None
+
+                acq_year = f.attrs['acq_year']
+                if acq_year in ['nan', 'none']:
+                    acq_year = None
+
+                dataset = f.attrs['dataset']
+                if dataset in ['nan', 'none']:
+                    dataset = None
+
+                ds_vars = list(f.keys())
+
+                if 'age' in ds_vars:
+                    ages = f['age'][:]
+                    age_uncs = f['age_uncertainty'][:]
+                    age_uncs = pd.DataFrame({
+                        'age': ages,
+                        'age_unc': age_uncs
+                    })
+                    age_uncs = age_uncs.set_index('age')
+                else:
+                    ages = None
+                    age_uncs = None
+
+                basin_mapping = json.loads(f.attrs['basins'])
+
+            relative_file_path = f'{dataset}/h5/{file_name}'
+
+            # Get the dataset's ID from the dataset table NOTE: This is essential!! Don't remove
             cursor.execute('SELECT id FROM sources WHERE name = ?', (dataset,))
             dataset_id = cursor.fetchone()[0]
 
-            metadata = dataset_ages[dataset]
+            var_list = ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DENS']
 
-            if 'age' in metadata.columns:
-                if file_name_ in metadata.index:
-                    age = int(metadata.loc[file_name_]['age'])
-                    age_unc = metadata.loc[file_name_]['age_unc']
-                    if not pd.isna(age_unc):
-                        age_unc = int(age_unc)
+            if ages is not None:
+                for age in ages:
+                    if age_uncs is not None:
+                        age_unc = age_uncs.loc[age]
                     else:
                         age_unc = None
-                else:
-                    age = None
-                    age_unc = None
-            else:
-                age = None
-                age_unc = None
 
-            if file_name_ in var_list:
-                var = file_name_
-            elif file_name_ in ['TOTAL_PSXPSY', 'IMBIE']:
-                continue
-            else:
-                var = 'IRH_DEPTH'
+                    for basin, region in basin_mapping.items():
+                        cursor.execute('''
+                            INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, region, basin, flight_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (relative_file_path, dataset_id, institute, project, str(acq_year), str(age), str(age_unc), 'IRH_DEPTH', region, basin, flight_id))
 
-            flight_id = trace_md.iloc[0]['flight_id']
-            institute = trace_md.iloc[0]['institute']
-            project = trace_md.iloc[0]['project']
-            acq_year = trace_md.iloc[0]['acq_year']
-
-            if not pd.isna(institute):
-                institute = str(institute)
-            else:
-                institute = None
-            if not pd.isna(project):
-                project = str(project)
-            else:
-                project = None
-            if not pd.isna(acq_year):
-                acq_year = str(acq_year)
-            else:
-                acq_year = None
-
-            for index, row in basins_regions.iterrows():
-                basin = row['Subregion']
-                region = row['Regions']
-
-                cursor.execute('''
-                    INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id, region, basin)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id, region, basin))
-
-                if var == 'IRH_DEPTH' and os.path.exists(f'{dir_name}/ICE_THCK.pkl'):
-                    var = 'IRH_FRAC_DEPTH' # If both IRH DEPTH and ICE THK exist, IRH FRAC DEPTH must have been calculated so index for it
-                    cursor.execute('''
-                        INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, flight_id, region, basin)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (relative_file_path, dataset_id, institute, project, acq_year, age, age_unc, var, flight_id, region, basin))
+            for var in var_list:
+                if var in ds_vars:
+                    for basin, region in basin_mapping.items():
+                        cursor.execute('''
+                            INSERT INTO datasets (file_path, dataset, institute, project, acq_year, age, age_unc, var, region, basin, flight_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (relative_file_path, dataset_id, institute, project, str(acq_year), None, None, var, region, basin, flight_id))
 
         conn.commit()
         conn.close()

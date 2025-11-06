@@ -1,4 +1,5 @@
 import os
+import h5py
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
@@ -22,10 +23,8 @@ class Plotting:
         module_dir = os.path.dirname(os.path.abspath(__file__))
         self.gl_path = files('anta_database.data').joinpath('GL.pkl')
         self.site_coords_path = files('anta_database.data').joinpath('site-coords.pkl')
-        imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
-        self.basins = gpd.read_file(imbie_path)
-        center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
-        self.center_coords = gpd.read_file(center_coords)
+        self.imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
+        self.center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
 
     def _pre_plot_check(self,
                         metadata: Union[None, Dict, 'MetadataResult'] = None
@@ -68,7 +67,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = None,
+            marker_size: Optional[float] = 0.1,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -96,6 +95,42 @@ class Plotting:
             save=save,
         )
 
+    def institute(
+            self,
+            metadata: Union[None, Dict, 'MetadataResult'] = None,
+            downscale_factor: Optional[int] = None,
+            title: str = '',
+            xlim: tuple = (None, None),
+            ylim: tuple = (None, None),
+            scale_factor: float = 1.0,
+            marker_size: Optional[float] = 0.1,
+            latex: bool = False,
+            cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
+            save: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the data points on a Antarctic map with color-coded institutes
+        """
+        self._base_plot(
+            color_by='institute',
+            metadata=metadata,
+            downscale_factor=downscale_factor,
+            marker_size=marker_size,
+            title=title,
+            xlim=xlim,
+            ylim=ylim,
+            scale_factor=scale_factor,
+            latex=latex,
+            cmap=cmap,
+            grounding_line=grounding_line,
+            basins=basins,
+            stations=stations,
+            save=save,
+        )
+
     def flight_id(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
@@ -104,7 +139,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = None,
+            marker_size: Optional[float] = 0.1,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -140,7 +175,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = None,
+            marker_size: Optional[float] = 0.1,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -186,7 +221,7 @@ class Plotting:
         xlim: tuple = (None, None),
         ylim: tuple = (None, None),
         scale_factor: float = 1.0,
-        marker_size: Optional[float] = None,
+        marker_size: Optional[float] = 0.1,
         latex: bool = False,
         save: Optional[str] = None,
         color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
@@ -239,7 +274,7 @@ class Plotting:
 
         if color_by == 'dataset':
             if downscale_factor == None:
-                downscale_fator = 1
+                downscale_factor = 1
             datasets = list(metadata['dataset'])
             bedmap_entries = {'BEDMAP1', 'BEDMAP2', 'BEDMAP3'}
             bedmap_colors = {
@@ -254,30 +289,63 @@ class Plotting:
             colors = {dataset: cmap(i) for i, dataset in zip(color_indices, remaining_dataset)}
             colors.update(bedmap_colors)
 
-            if marker_size == None:
-                marker_size = 0.01
             flight_ids = metadata['flight_id']
             for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset'):
-                metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids)
+                metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
-                unique_directories = {Path(fp).parent for fp in file_paths}
+                file_paths = np.unique(file_paths)
                 zorder = 0 if dataset in ['BEDMAP1', 'BEDMAP2', 'BEDMAP3'] else 1
-                files = [
-                    str(self._db.db_dir / unique_dir / "TOTAL_PSXPSY.pkl")
-                    for unique_dir in unique_directories
-                ]
 
-                data_frames = (pd.read_pickle(f) for f in files)
-                combined_df = pd.concat(data_frames, ignore_index=True)
-                plt.scatter(combined_df['PSX'][::downscale_factor]/1000, combined_df['PSY'][::downscale_factor]/1000, color=colors[dataset], s=marker_size, zorder=zorder)
+                all_x, all_y = [], []
+                for f in file_paths:
+                    full_path = os.path.join(self._db.db_dir, f)
+                    with h5py.File(full_path, 'r') as ds:
+                        all_x.append(ds['x'][::downscale_factor])
+                        all_y.append(ds['y'][::downscale_factor])
+                df = pd.DataFrame({'x': np.concatenate(all_x),
+                                'y': np.concatenate(all_y)})
+                plt.scatter(df['x']/1000, df['y']/1000, color=colors[dataset], s=marker_size, zorder=zorder, linewidths=0)
 
             for dataset in datasets:
-                citation = self._db.query(dataset=dataset)['reference']
+                citation = self._db.query(dataset=dataset, retain_query=False)['reference']
                 plt.plot([], [], color=colors[dataset], label=citation, linewidth=3)
             if ncol == None:
                 if len(datasets) > 7:
                     ncol = 2
                 if len(datasets) > 15:
+                    ncol = 3
+
+        if color_by == 'institute':
+            if downscale_factor == None:
+                downscale_factor = 1
+            institutes = list(metadata['institute'])
+
+            color_indices = np.linspace(0.1, 0.9, len(institutes))
+            if cmap is None:
+                cmap = self._custom_cmap()
+            colors = {dataset: cmap(i) for i, dataset in zip(color_indices, institutes)}
+
+            flight_ids = metadata['flight_id']
+            for institute in tqdm(institutes, desc="Plotting", total=len(institutes), unit='institute'):
+                metadata_impl = self._db.query(institute=institute, flight_id=flight_ids, retain_query=False)
+                file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
+                file_paths = np.unique(file_paths)
+
+                all_x, all_y = [], []
+                for f in file_paths:
+                    full_path = os.path.join(self._db.db_dir, f)
+                    with h5py.File(full_path, 'r') as ds:
+                        all_x.append(ds['x'][::downscale_factor])
+                        all_y.append(ds['y'][::downscale_factor])
+                df = pd.DataFrame({'x': np.concatenate(all_x),
+                                'y': np.concatenate(all_y)})
+                plt.scatter(df['x']/1000, df['y']/1000, color=colors[institute], s=marker_size, linewidths=0)
+
+                plt.plot([], [], color=colors[institute], label=institute, linewidth=3)
+            if ncol == None:
+                if len(institutes) > 7:
+                    ncol = 2
+                if len(institutes) > 15:
                     ncol = 3
 
         if color_by == 'var':
@@ -304,18 +372,29 @@ class Plotting:
                 norm = BoundaryNorm(bounds, ncolors=discrete_cmap.N)
                 label = f'{var} [N]'
                 extend = 'max'
-                if marker_size == None:
-                    marker_size = 1.
                 all_dfs = []
-                for df, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    all_dfs.append(df)
-                combined_df = pd.concat(all_dfs, ignore_index=True)
-                scatter = plt.scatter(combined_df['PSX']/1000, combined_df['PSY']/1000, c=combined_df[var], cmap=discrete_cmap, s=marker_size, norm=norm)
+                for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                    all_dfs.append(ds)
+
+                df = pd.concat(all_dfs)
+                df[var] = df[var].fillna(0)
+                df = df.sort_values(by=var)
+                unique_values = df[var].unique()
+                for i, val in enumerate(unique_values):
+                    subset = df[df[var] == val]
+                    scatter = ax.scatter(
+                        subset.x / 1000,
+                        subset.y / 1000,
+                        c=subset[var],
+                        cmap=discrete_cmap,
+                        s=marker_size,
+                        norm=norm,
+                        linewidths=0,
+                        zorder=i
+                    )
 
             elif var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
                 label = f'{var} [m]'
-                if marker_size == None:
-                    marker_size = 1.
                 if var == 'BED_ELEV':
                     if cmap == None:
                         cmap = cmaps.bukavu
@@ -370,10 +449,14 @@ class Plotting:
                     label = r'IRH Fractional Depth [\%]'
 
                 all_dfs = []
-                for df, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    all_dfs.append(df)
-                combined_df = pd.concat(all_dfs, ignore_index=True)
-                scatter = plt.scatter(combined_df['PSX']/1000, combined_df['PSY']/1000, c=combined_df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, rasterized=True)
+                for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                    all_dfs.append(ds)
+
+                df = pd.concat(all_dfs)
+                scatter = plt.scatter(df.x/1000, df.y/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+
+                #     all_dfs.append(df)
+                # combined_df = pd.concat(all_dfs, ignore_index=True)
 
         elif color_by == 'flight_id':
             flight_ids = list(metadata['flight_id'])
@@ -381,25 +464,23 @@ class Plotting:
             if cmap == None:
                 cmap = self._custom_cmap()
             colors = {tid: cmap(i) for i, tid in zip(color_indices, flight_ids)}
-            if marker_size == None:
-                marker_size = 1.
 
             datasets = list(metadata['dataset'])
             flight_ids = metadata['flight_id']
-            for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset'):
-                metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids)
+            for flight_id in tqdm(flight_ids, desc="Plotting", total=len(flight_ids), unit='flight_id'):
+                metadata_impl = self._db.query(flight_id=flight_id, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
-                unique_directories = {Path(fp).parent for fp in file_paths}
-                files = [
-                    str(self._db.db_dir / unique_dir / "TOTAL_PSXPSY.pkl")
-                    for unique_dir in unique_directories
-                ]
-                for unique_dir in unique_directories:
-                    TOTAL_PSXPSY = pd.read_pickle(f'{self._db.db_dir}/{unique_dir}/TOTAL_PSXPSY.pkl')
-                    flight_id = pd.read_csv(f'{self._db.db_dir}/{unique_dir}/metadata.csv').iloc[0]['flight_id']
-                    plt.scatter(TOTAL_PSXPSY['PSX'][::downscale_factor]/1000, TOTAL_PSXPSY['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size)
+                file_paths = np.unique(file_paths)
+                all_x, all_y = [], []
+                for f in file_paths:
+                    full_path = os.path.join(self._db.db_dir, f)
+                    with h5py.File(full_path, 'r') as ds:
+                        all_x.append(ds['x'][:])
+                        all_y.append(ds['y'][:])
+                df = pd.DataFrame({'x': np.concatenate(all_x),
+                                'y': np.concatenate(all_y)})
+                plt.scatter(df['x'][::downscale_factor]/1000, df['y'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size, linewidths=0)
 
-            for flight_id in flight_ids:
                 plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
             ncol = 2 if len(flight_ids) > 40 else 1
 
@@ -421,7 +502,7 @@ class Plotting:
         if ncol == None:
             ncol = 1
         # --- Legend/Colorbar ---
-        if color_by == 'dataset':
+        if color_by in ['dataset', 'institute']:
             plt.legend(ncols=ncol, loc='lower left', fontsize=8)
         elif color_by == 'flight_id':
             ax.legend(ncols=ncol, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
@@ -439,14 +520,16 @@ class Plotting:
 
         # --- Plot IMBIE basins ---
         if basins:
-            self.basins.geometry = self.basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
-            self.basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
-            self.center_coords.geometry = self.center_coords.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
-            self.center_coords['x'] = self.center_coords['geometry'].x
-            self.center_coords['y'] = self.center_coords['geometry'].y
-            for x, y, sub in zip(self.center_coords['x'], self.center_coords['y'], self.center_coords['Subregion']):
+            basins = gpd.read_file(self.imbie_path)
+            basins.geometry = basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
+            basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
+            center_coords = gpd.read_file(self.center_coords)
+            center_coords.geometry = center_coords.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
+            center_coords['x'] = center_coords['geometry'].x
+            center_coords['y'] = center_coords['geometry'].y
+            for x, y, sub in zip(center_coords['x'], center_coords['y'], center_coords['Subregion']):
                 ax.text(x, y, sub, fontsize=12, color='k', ha='center',
-                    path_effects=[path_effects.withStroke(linewidth=5, foreground='white')]
+                        path_effects=[path_effects.withStroke(linewidth=5, foreground=(1,1,1,0.7))]
                         )
         # --- Plot ice core sites ---
         if stations:

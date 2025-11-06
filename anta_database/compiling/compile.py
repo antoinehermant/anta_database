@@ -1,5 +1,7 @@
 import warnings
+import h5py
 import os
+import shutil
 import time
 import pandas as pd
 import geopandas as gpd
@@ -8,40 +10,41 @@ import numpy as np
 import xarray as xr
 import glob
 from pyproj import Transformer
-from typing import Union
+from typing import Union, Optional
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from importlib.resources import files
+from scipy.spatial.distance import cdist
 
 class CompileDatabase:
-    def __init__(self, dir_list: Union[str, list[str]], file_type: str = 'layer', wave_speed: Union[None, float] = None, firn_correction: Union[None, float] = None, comp: bool = True, post: bool = True) -> None:
+    def __init__(self,
+                 dir_list: Union[str, list[str]],
+                 wave_speed: Optional[float] = None,
+                 firn_correction: Optional[float] = None,
+                 extract_data: bool = True,
+                 hdf5: bool = True,
+                 compute_distance: bool = True,
+                 compute_IMBIE_basins: bool = True,
+                 compute_IRH_density: bool = True,
+                 set_attributes: bool = True,
+                 shapefiles: bool = True,
+                 remove_tmp_files: bool = True,
+                 var_attrs_json: Optional[str] = None) -> None:
         self.dir_list = dir_list
         self.wave_speed = wave_speed
         self.firn_correction = firn_correction
-        self.file_type = file_type
-        self.comp = comp
-        self.post = post
+        self.extract_data = extract_data
+        self.compute_distance = compute_distance
+        self.compute_IRH_density = compute_IRH_density
+        self.compute_IMBIE_basins = compute_IMBIE_basins
+        self.set_attributes = set_attributes
+        self.hdf5 = hdf5
+        self.shapefiles = shapefiles
+        self.remove_tmp_files = remove_tmp_files
         imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
         self.basins = gpd.read_file(imbie_path)
-
-    def file_metadata(self, file_path) -> pd.DataFrame:
-        table = pd.read_csv(file_path, header=0, sep=',')
-        table = table.fillna({
-            'acquisition_year': 0,
-            'age': 0,
-            'age_unc': 0,
-        })
-        table = table.astype({
-            'raw_file': 'str',
-            'dataset': 'str',
-            # 'institute': 'str',
-            'project': 'str',
-            # 'acquisition_year': 'int32',
-            # 'age': 'int32',
-            # 'age_unc': 'int32',
-        })
-        table.set_index('raw_file', inplace=True)
-        return table
+        self.var_list = ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']
+        self.var_attrs_json = var_attrs_json
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -60,7 +63,7 @@ class CompileDatabase:
         if not self._pre_compile_checks(self.dir_list):
             return
 
-        if self.comp is True:
+        if self.extract_data is True:
             all_files_list = []
             for dir_ in self.dir_list:
                 files = glob.glob(f"{dir_}/raw/*.*")
@@ -75,18 +78,18 @@ class CompileDatabase:
             num_workers = min(num_tasks, cpus)
 
             print('\n',
-                    'Will start compiling', num_tasks, 'raw files\n'
+                    'Will start extracting data from', num_tasks, 'raw files\n'
                     '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
 
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(pool.imap_unordered(self._compile, all_files_list), total=num_tasks, desc="Processing"):
+                    for _ in tqdm(pool.imap_unordered(self.extract, all_files_list), total=num_tasks, desc="Processing", unit="file"):
                         pass
             else:
-                for file_dict in tqdm(all_files_list, desc="Processing"):
-                    self._compile(file_dict=file_dict)
+                for file_dict in tqdm(all_files_list, desc="Processing", unit="file"):
+                    self.extract(file_dict=file_dict)
 
-        if self.post is True:
+        if self.hdf5 is True:
             all_dirs = []
             for dir_ in self.dir_list:
                 dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
@@ -96,19 +99,118 @@ class CompileDatabase:
             num_workers = min(num_tasks, cpus)
 
             print('\n',
-                    'Will start post compilation of', len(all_dirs), 'traces\n'
+                    'Will start creating the hdf5 for', len(all_dirs), 'traces\n'
                     '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
 
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(pool.imap_unordered(self._post_compilation, all_dirs), total=num_tasks):
+                    for _ in tqdm(pool.imap_unordered(self.combine_dfs, all_dirs), total=num_tasks):
                         pass
             else:
                 for trace_dir in tqdm(all_dirs, desc='Processing'):
-                    self._post_compilation(trace_dir=trace_dir)
+                    self.combine_dfs(trace_dir)
+
+
+        all_h5 = []
+        for dir_ in self.dir_list:
+            h5_files = glob.glob(f"{dir_}/h5/*.h5")
+            all_h5.extend(h5_files)
+
+        num_tasks = len(all_h5)
+        num_workers = min(num_tasks, cpus)
+
+        if self.compute_distance:
+
+            print('\n',
+                    'Computing distances along transects for', num_tasks, 'h5 files\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.compute_distances, all_h5), total=num_tasks):
+                        pass
+            else:
+                for h5_file in tqdm(all_h5, desc='Processing'):
+                    self.compute_distances(h5_file)
+
+        if self.compute_IRH_density:
+
+            print('\n',
+                    'Computing IRH density in', num_tasks, 'h5 files\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.compute_irh_density, all_h5), total=num_tasks):
+                        pass
+            else:
+                for h5_file in tqdm(all_h5, desc='Processing'):
+                    self.compute_irh_density(h5_file)
+
+        if self.compute_IMBIE_basins:
+
+            print('\n',
+                    'Computing IMBIE basins for', num_tasks, 'h5 files\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.compute_imbie_basins, all_h5), total=num_tasks):
+                        pass
+            else:
+                for h5_file in tqdm(all_h5, desc='Processing'):
+                    self.compute_imbie_basins(h5_file)
+
+        if self.set_attributes:
+
+            print('\n',
+                    'Settings variable attributes in', num_tasks, 'h5 files\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.set_attrs, all_h5), total=num_tasks):
+                        pass
+            else:
+                for h5_file in tqdm(all_h5, desc='Processing'):
+                    self.set_attrs(h5_file)
+
+            if self.remove_tmp_files:
+                print('\nRemoving temporary directories ...')
+                num_tasks = len(self.dir_list)
+                num_workers = min(num_tasks, cpus)
+                if num_workers > 1:
+                    with Pool(num_workers) as pool:
+                        for _ in tqdm(pool.imap_unordered(self._cleanup, self.dir_list), total=num_tasks, unit='directory'):
+                            pass
+                else:
+                    for ds_dir in tqdm(self.dir_list, desc='Removing', unit='directory'):
+                        self._cleanup(ds_dir)
+
+        if self.shapefiles is True:
+            num_tasks = len(self.dir_list)
+            num_workers = min(num_tasks, cpus)
+
+            print('\n',
+                    'Will start creating the shapefiles for', len(self.dir_list), 'datasets\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.make_shapefile, self.dir_list), total=num_tasks):
+                        pass
+            else:
+                for ds_dir in tqdm(self.dir_list, desc='Processing'):
+                    self.make_shapefile(ds_dir)
 
         elapsed = time.time() - start_time
         print(f"\nCompilation completed in {elapsed:.2f} seconds")
+
+    def _cleanup(self, dataset_dir: str) -> None:
+        dir_path = f'{dataset_dir}/pkl/'
+
+        if os.path.isdir(dir_path):
+            shutil.rmtree(dir_path)
 
     def convert_col_to_Int32(self, df):
         df = df.fillna(pd.NA)
@@ -120,10 +222,10 @@ class CompileDatabase:
         df = pd.to_numeric(df, errors='coerce')
         return df
 
-    def _compile(self, file_dict) -> None:
+    def extract(self, file_dict) -> None:
 
         _, ext = os.path.splitext(file_dict['file'])
-        table = self.file_metadata(f'{file_dict['dir_path']}/raw_files_md.csv')
+        raw_md = pd.read_json(f'{file_dict['dir_path']}/raw_md.json')
         original_new_columns = pd.read_csv(f'{file_dict['dir_path']}/original_new_column_names.csv')
 
         if ext == '.tab':
@@ -163,9 +265,6 @@ class CompileDatabase:
         pattern_header = original_new_columns.iloc[0]
         pattern_values.columns = pattern_header
 
-        if self.file_type == 'layer':
-            ds = ds.astype({'Flight_ID': str})
-
         for var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'IRH_DEPTH', 'PSX', 'DIST', 'PSY', 'lat', 'lon']:
             if var in ds.columns:
                 ds[var] = self.convert_col_to_num(ds[var])
@@ -200,9 +299,12 @@ class CompileDatabase:
             print('No coordinates found in the dataset')
             return
 
-        if self.file_type == 'layer':
-            if 'age' in table.columns:
-                age = table.loc[file_name_]['age']
+        if 'raw file' in raw_md.columns:
+            raw_md.set_index('raw file', inplace=True)
+            raw_md = raw_md.loc[file_dict['file']]
+
+            if 'age' in raw_md.index:
+                age = raw_md['age']
             else:
                 age = pd.NA
             if self.wave_speed:
@@ -210,6 +312,7 @@ class CompileDatabase:
             if self.firn_correction:
                 ds['IRH_DEPTH'] += self.firn_correction
 
+            ds = ds.astype({'Flight_ID': str})
             ds['Flight_ID'] = ds['Flight_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
             ds['Flight_ID'] = ds['Flight_ID'].str.replace('/', '_')
             ds.set_index('Flight_ID', inplace=True)
@@ -220,22 +323,24 @@ class CompileDatabase:
             flight_id = []
             flight_id_flag = 'original'
 
-            if 'flight_id' in table.columns:
-                if not pd.isna(table.loc[file_name_]['flight_id']):
-                    flight_id = table.loc[file_name_]['flight_id']
+            if 'flight ID' in raw_md.index:
+                if not pd.isna(raw_md['flight ID']):
+                    flight_id = raw_md['flight ID']
                     flight_id_flag = 'not_provided'
 
-            if 'flight_id_prefix' in table.columns:
-                if not pd.isna(table.loc[file_name_]['flight_id_prefix']):
-                    ds.index = [f"{table.loc[file_name_]['flight_id_prefix']}_{x}" for x in ds.index]
+            if 'flight_id_prefix' in raw_md.index:
+                if not pd.isna(raw_md['flight ID prefix']):
+                    ds.index = [f"{raw_md['flight ID prefix']}_{x}" for x in ds.index]
                     flight_id_flag = 'project_acq-year_number'
 
-            dataset = table.loc[file_name_]['dataset']
-            institute = table.loc[file_name_]['institute']
+            dataset = raw_md['dataset']
+            institute = raw_md['institute']
+            if pd.isna(institute):
+                institute = 'nan'
             institute_flag = 'original'
-            project = table.loc[file_name_]['project']
+            project = raw_md['project']
             project_flag = 'original'
-            acq_year = table.loc[file_name_]['acquisition_year']
+            acq_year = raw_md['acquisition year']
             acq_year_flag = 'original'
 
             flight_ids = np.unique(ds.index)
@@ -269,25 +374,25 @@ class CompileDatabase:
                     flight_id_flag = 'not_provided'
 
                 if age is not pd.NA:
+                    # age = str(age)
                     ds_trace = ds_trace.rename(columns={'IRH_DEPTH': age})
-                    if institute:
+                    if institute != 'nan':
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
-                    if ds_trace[age].isna().all(): # If trace contains only nan, skip it
-                        continue
                 else:
-                    if institute:
+                    if institute != 'nan':
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
 
-                if age in ds_trace.columns:
-                    if ds_trace[age].isna().all(): # If trace contains only nan, skip it
-                        continue
+                # if age in ds_trace.columns:
+                #     if ds_trace[age].isna().all(): # If trace contains only nan, skip it
+                #         continue
 
                 flight_dir, _ = os.path.split(ds_trace_file)
                 os.makedirs(flight_dir, exist_ok=True)
+                ds_trace.reset_index(drop=True, inplace=True)
                 ds_trace.to_pickle(ds_trace_file)
 
                 trace_metadata = f'{flight_dir}/metadata.csv'
@@ -304,219 +409,349 @@ class CompileDatabase:
                     trace_md.set_index('flight_id', inplace=True)
                     trace_md.to_csv(trace_metadata)
 
-        elif self.file_type == 'flight_line':
+        # FIXME: how to handle data type flight line from raw md file now
+        elif raw_md.iloc[0]['data type'] == 'flight line':
+            IRH_md = pd.read_json(f'{file_dict['dir_path']}/raw_md.json')
 
             flight_id = file_name_
-            os.makedirs(f'{file_dict['dir_path']}/pkl/{flight_id}' , exist_ok=True)
-            ages = {key: int(table.loc[key]['age']) for key in ds.columns if key in table.index}
+            IRH_md.set_index('IRH name', inplace=True)
 
-            for IRH in ages:
-                age = str(ages.get(IRH))
-                ds_IRH = ds[IRH]
-                ds_IRH = pd.DataFrame({
-                    'PSX': ds['PSX'],
-                    'PSY': ds['PSY'],
-                    age: ds_IRH,
-                })
-
-                ds_IRH[age] = self.convert_col_to_num(ds_IRH['IRH_DEPTH'])
-                if self.wave_speed:
-                    ds_IRH[age] *= self.wave_speed
-                if self.firn_correction:
-                    ds_IRH[age] += self.firn_correction
-
-                for var in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']:
-                    if var in ds.columns:
-                        ds_IRH[var] = ds[var]
-
-                dataset = table.loc[IRH]['dataset']
-                institute = table.loc[IRH]['institute']
-                institute_flag = 'original'
-                project = table.loc[IRH]['project']
-                project_flag = 'original'
-                acq_year = table.loc[IRH]['acquisition_year']
-                acq_year_flag = 'original'
-                flight_id_flag = 'original'
-
-                if institute:
-                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl'
-                else:
-                    ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl'
-                ds_IRH.to_pickle(ds_trace_file)
-
-                trace_metadata = f'{file_dict['dir_path']}/pkl/{flight_id}/metadata.csv'
-                if not os.path.exists(trace_metadata):
-                    trace_md = pd.DataFrame({
-                        'dataset': [dataset, 'original'],
-                        'flight_id': [flight_id, flight_id_flag],
-                        'institute': [institute, institute_flag],
-                        'project': [project, project_flag],
-                        'acq_year': [acq_year, acq_year_flag]
+            for IRH, row in IRH_md.iterrows():
+                if IRH in ds.columns:
+                    age = row['age']
+                    ds_IRH = ds[IRH]
+                    ds_IRH = pd.DataFrame({
+                        'PSX': ds['PSX'],
+                        'PSY': ds['PSY'],
+                        age: ds_IRH,
                     })
-                    trace_md.set_index('flight_id', inplace=True)
-                    trace_md.to_csv(trace_metadata)
 
-    def compute_irh_density(self, trace_dir: str) -> None:
-        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
-        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
-        if len(files) > 1:
-            dfs = [pd.read_pickle(f) for f in files]
-            dfs = pd.concat(dfs)
-        elif len(files) == 1:
-            dfs = pd.read_pickle(files[0])
-        else:
-            return
+                    ds_IRH[age] = self.convert_col_to_num(ds_IRH[age])
+                    if self.wave_speed:
+                        ds_IRH[age] *= self.wave_speed
+                    if self.firn_correction:
+                        ds_IRH[age] += self.firn_correction
 
-        if 'IRH_DEPTH' in dfs.columns:
-            dfs = dfs[['PSX','PSY','IRH_DEPTH']]
-            valid = dfs.dropna(subset=['IRH_DEPTH'])
-            density = valid.groupby(['PSX', 'PSY']).size().reset_index(name='IRH_DENS')
+                    for var in self.var_list:
+                        if var in ds.columns:
+                            ds_IRH[var] = ds[var]
 
-            density_file = f'{trace_dir}/IRH_DENS.pkl'
-            density.to_pickle(density_file)
+                    dataset = row['dataset']
+                    institute = row['institute']
+                    if pd.isna(institute):
+                        institute = 'nan'
+                    institute_flag = 'original'
+                    project = row['project']
+                    project_flag = 'original'
+                    acq_year = row['acquisition year']
+                    acq_year_flag = 'original'
+                    flight_id_flag = 'original'
 
-    def compute_fractional_depth(self, trace_dir: str) -> None:
-        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
-        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
+                    if institute != 'nan':
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl'
+                    else:
+                        ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl'
+                    flight_dir, _ = os.path.split(ds_trace_file)
+                    os.makedirs(flight_dir, exist_ok=True)
+                    ds_IRH.reset_index(drop=True, inplace=True)
+                    ds_IRH.to_pickle(ds_trace_file)
 
-        for f in files:
-            df = pd.read_pickle(f)
-            if 'ICE_THCK' in df.columns and 'IRH_DEPTH' in df.columns:
-                df['IRH_FRAC_DEPTH'] = df['IRH_DEPTH'] / df['ICE_THCK'] * 100
-                df.to_pickle(f)
+                    trace_metadata = f'{flight_dir}/metadata.csv'
+                    if not os.path.exists(trace_metadata):
+                        trace_md = pd.DataFrame({
+                            'dataset': [dataset, 'original'],
+                            'flight_id': [flight_id, flight_id_flag],
+                            'institute': [institute, institute_flag],
+                            'project': [project, project_flag],
+                            'acq_year': [acq_year, acq_year_flag]
+                        })
+                        trace_md.set_index('flight_id', inplace=True)
+                        trace_md.to_csv(trace_metadata)
 
-    def compute_total_extent(self, trace_dir: str) -> None:
-        files = glob.glob(f"{trace_dir}/*.pkl")
-
-        if len(files) > 1:
-            dfs = [pd.read_pickle(f) for f in files]
-            dfs = pd.concat(dfs)
-        elif len(files) == 1:
-            dfs = pd.read_pickle(files[0])
-        else:
-            return
-
-        dfs = dfs.drop_duplicates(subset=['PSX', 'PSY'])
-        TOTAL_PSXPSY = dfs[['PSX', 'PSY']]
-        TOTAL_PSXPSY.to_pickle(f"{trace_dir}/TOTAL_PSXPSY.pkl")
-
-    def extract_vars(self, trace_dir: str) -> None:
-        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
-        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
-        if len(files) > 1:
-            dfs = [pd.read_pickle(f) for f in files]
-            dfs = pd.concat(dfs).drop_duplicates(subset=['PSX', 'PSY'])
-        elif len(files) == 1:
-            dfs = pd.read_pickle(files[0])
-        else:
-            return
-
-        for var in ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV']:
-            if var in dfs.columns:
-                ds_var = dfs[dfs.columns.intersection(['PSX', 'PSY', 'DIST', var])]
-                if ds_var[var].isna().all(): # If trace contains only nan, skip it
-                    continue
-                var_file = f'{trace_dir}/{var}.pkl'
-                ds_var.to_pickle(var_file)
 
     def combine_dfs(self, trace_dir: str) -> None:
         files = glob.glob(f"{trace_dir}/*.pkl")
-        dfs = [pd.read_pickle(f) for f in files]
+        if not files:
+            return
 
-        dfs_list = []
-        for df in dfs:
-            df = df.set_index(['PSX', 'PSY'])
-            dfs_list.append(df)
+        if len(files) > 1:
+            dfs = [pd.read_pickle(f) for f in files]
 
-        merged_df = pd.concat(dfs, axis=1, join='outer')
-        merged_df = merged_df.reset_index()
+            dfs_prep = []
+            for df in dfs:
+                df = df.set_index(['PSX', 'PSY'])
+                df = df[~df.index.duplicated(keep='first')]
+                dfs_prep.append(df)
 
-        PSX = merged_df[['PSX', 'PSY']].astype(float)
-        DISTs = np.sqrt(np.sum(np.diff(PSX, axis=0)**2, axis=1))
-        cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
-        merged_df['DIST'] = cumulative_DIST
-        merged_df = merged_df.reset_index()
-        layers = [col for col in merged_df.columns if str(col).isdigit()]
-        distance = merged_df['DIST']
-        depth_data = merged_df[layers]
+            merged_df = pd.concat(dfs_prep, axis=1, join='outer')
+            merged_df.reset_index(inplace=True)
+            merged_df.columns = merged_df.columns.astype(str)
 
-        distance = merged_df['DIST'].values
-        x = merged_df['PSX'].values
-        y = merged_df['PSY'].values
-        depth_data = merged_df[layers].values
+            for col in self.var_list:
+                matching_cols = [c for c in merged_df.columns if col.lower() in c.lower()]
+                if matching_cols:
+                    temp_col = f"temp_{col}"
+                    merged_df[temp_col] = merged_df[matching_cols].bfill(axis=1).iloc[:, 0]
+                    merged_df = merged_df.drop(columns=matching_cols)
+                    merged_df = merged_df.rename(columns={temp_col: col})
 
+        else:
+            merged_df = pd.read_pickle(files[0])
+
+        x = merged_df['PSX']
+        y = merged_df['PSY']
         data_vars = {
-            'x': (['distance'], x),
-            'y': (['distance'], y),
-            'IRH_DEPTH': (['distance', 'IRH'], depth_data),
+            'x': (['point'], x),
+            'y': (['point'], y),
         }
 
-        other_vars = ['BED_ELEV', 'ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT']
+        ages = [col for col in merged_df.columns if str(col).isdigit()]
 
-        for var in other_vars:
+        for var in self.var_list:
             if var in merged_df.columns:
-                data_vars[var] = (['distance'], merged_df[var].values)
+                data_vars[var] = (['point'], merged_df[var].values)
 
+        pkl_dir, trace_id = os.path.split(trace_dir)
+        dataset_dir, pkl = os.path.split(pkl_dir)
+        trace_md = pd.read_csv(f'{trace_dir}/metadata.csv')
+        institute = str(trace_md.iloc[0]['institute'])
+        flight_id = str(trace_md.iloc[0]['flight_id'])
         ds = xr.Dataset(
             coords={
-                'distance': distance,
-                'layer': layers,
+                'point': np.arange(len(merged_df)),
             },
             data_vars=data_vars,
             attrs={
-                'institute': 'Your Institute',
-                'region': 'West Antarctica',
-                'date': '2025-11-05',
+                'dataset': str(trace_md.iloc[0]['dataset']),
+                'institute': institute,
+                'project': str(trace_md.iloc[0]['project']),
+                'acq_year': str(trace_md.iloc[0]['acq_year']),
+                'flight_id': str(trace_md.iloc[0]['flight_id']),
             }
         )
+        point_shape = len(merged_df)
+        if point_shape < 1e6:
+            chunk_size_point = min(100, point_shape)
+        elif point_shape < 1e7:
+            chunk_size_point = 1000
+        else:
+            chunk_size_point = 10000
 
-        ds.to_netcdf(f'{trace_dir}/NETCDF.nc', engine='h5netcdf', encoding={'depth': {'zlib': True}, 'fractional_depth': {'zlib': True}})
+        encoding = {
+            'x': {'zlib': True, 'complevel': 1},
+            'y': {'zlib': True, 'complevel': 1},
+        }
 
-    def clean_IRH_arrays(self, trace_dir: str) -> None:
-        unwanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl', 'TOTAL_PSXPSY.pkl'}
-        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) not in unwanted]
-        for f in files:
-            df = pd.read_pickle(f)
-            if 'IRH_DEPTH' not in df.columns:
-                os.remove(f)
-            else:
-                cols = ['PSX', 'PSY', 'DIST', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']
-                df = df[[col for col in cols if col in df.columns]]
-                # df = df.dropna(axis=1, how='all')  # Drop columns which contain only NA values. But causes issue if ICE THCK actually exists in separate file.
-                df.reset_index(drop=True, inplace=True)
-                df.to_pickle(f)
+        if ages:
+            sorted_ages = sorted(ages, key=lambda x: int(x))
+            sorted_ages_int = [int(age) for age in sorted_ages]
+            depth_data = merged_df[sorted_ages]
+            data_vars['IRH_DEPTH'] = (['point', 'age'], depth_data)  # Use 'age' as the dimension name
+            ds = ds.assign_coords(age=sorted_ages_int)
+            ds['IRH_DEPTH'] = (['point', 'age'], depth_data)
 
-        wanted = {'ICE_THCK.pkl', 'SURF_ELEV.pkl', 'BASAL_UNIT.pkl', 'BED_ELEV.pkl', 'IRH_DENS.pkl'}
-        files = [f for f in glob.glob(f"{trace_dir}/*.pkl") if os.path.basename(f) in wanted]
-        for f in files:
-            df = pd.read_pickle(f)
-            cols = ['PSX', 'PSY', 'DIST', 'ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT', 'BED_ELEV', 'IRH_DENS']
-            df = df[[col for col in cols if col in df.columns]]
-            df = df.dropna(axis=1, how='all')  # Drop columns which contain only NA values
-            if not any(col in df.columns for col in ['ICE_THCK', 'SURF_ELEV', 'BASAL_UNIT', 'BED_ELEV', 'IRH_DENS']):
-                os.remove(f) # If no variable remaining in the file, remove it
-            else:
-                df.reset_index(drop=True, inplace=True)
-                df.to_pickle(f)
+            if 'IRH_DEPTH' in ds.variables:
+                ds['IRH_DEPTH'] = ds['IRH_DEPTH'].chunk({'age': 1, 'point': chunk_size_point})
+                encoding['IRH_DEPTH'] = {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point, 1)}
 
-    def get_imbie_basins(self, trace_dir: str):
-        TOTAL_PSXPSY = pd.read_pickle(f'{trace_dir}/TOTAL_PSXPSY.pkl')
-        geometry = [Point(xy) for xy in zip(TOTAL_PSXPSY['PSX'], TOTAL_PSXPSY['PSY'])]
-        points = gpd.GeoDataFrame(TOTAL_PSXPSY, geometry=geometry, crs=self.basins.crs)
-        joined = gpd.sjoin(points, self.basins, how="inner", predicate="within")
-        lookup_df = joined[['Subregion', 'Regions']].drop_duplicates()
-        lookup_df.reset_index(drop=True, inplace=True)
-        lookup_df.to_pickle(f'{trace_dir}/IMBIE.pkl')
-        lookup_df.to_csv(f'{trace_dir}/IMBIE.csv')
+            md = pd.read_json(f'{dataset_dir}/raw_md.json')
+            if 'age' in md.columns and 'age uncertainty' in md.columns:
+                age_unc = md[['age', 'age uncertainty']]
+                age_unc = age_unc.drop_duplicates()
+                # age_unc = age_unc.astype(int)
+                age_unc = age_unc.set_index('age')
+                age_unc = age_unc.loc[sorted_ages_int]['age uncertainty'].values
+                age_uncertainties = xr.DataArray(
+                        data=age_unc,
+                        dims=['age'],
+                        coords={'age': sorted_ages_int},
+                        attrs={'units': 'years'}
+                    )
+                ds['age_uncertainty'] = age_uncertainties
 
-    def _post_compilation(self, trace_dir: str) -> None:
-        steps = [
-            # self.extract_vars,
-            # self.compute_irh_density,
-            # self.compute_fractional_depth,
-            # self.compute_total_extent,
-            # self.clean_IRH_arrays,
-            # self.get_imbie_basins,
-        ]
-        for step in steps:
-            step(trace_dir)
+
+        for var in self.var_list:
+            if var in ds.variables:
+                ds[var] = ds[var].chunk({'point': chunk_size_point})
+                encoding[var] = {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}
+
+        h5_dir = os.path.join(dataset_dir, 'h5')
+        os.makedirs(h5_dir, exist_ok=True)
+        if institute != 'nan':
+            h5_file = f'{h5_dir}/{institute}_{flight_id}.h5'
+        else:
+            h5_file = f'{h5_dir}/{flight_id}.h5'
+
+        ds.to_netcdf(h5_file, engine='h5netcdf', encoding=encoding, mode='w')
+
+    def compute_fractional_depth(self, h5_file: str) -> None:
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+
+                if 'ICE_THCK' in ds.variables and 'IRH_DEPTH' in ds.variables:
+
+                    ds['IRH_FRAC_DEPTH'] = ds.IRH_DEPTH/ds.ICE_THCK*100
+
+                    point_shape = len(ds.point.values)
+                    if point_shape < 1e6:
+                        chunk_size_point = min(100, point_shape)
+                    elif point_shape < 1e7:
+                        chunk_size_point = 1000
+                    else:
+                        chunk_size_point = 10000
+                    ds['IRH_FRAC_DEPTH'] = ds['IRH_DEPTH'].chunk({'age': 1, 'point': chunk_size_point})
+                    encoding = {'IRH_FRAC_DEPTH': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point, 1)}}
+
+                    ds = ds[list(ds.variables)]
+                    ds.to_netcdf(h5_file, engine='h5netcdf', mode='a', encoding=encoding)
+
+    def compute_irh_density(self, h5_file: str) -> None:
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+
+                if 'IRH_DEPTH' in ds.variables:
+                    ds['IRH_DENS'] = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='age')
+
+                    point_shape = len(ds.point.values)
+                    if point_shape < 1e6:
+                        chunk_size_point = min(100, point_shape)
+                    elif point_shape < 1e7:
+                        chunk_size_point = 1000
+                    else:
+                        chunk_size_point = 10000
+
+                    ds['IRH_DENS'] = ds['IRH_DENS'].chunk({'point': chunk_size_point})
+                    encoding = {'IRH_DENS': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
+
+                    ds = ds[list(ds.variables)]
+                    ds.to_netcdf(h5_file, engine='h5netcdf', mode='a', encoding=encoding)
+
+    def order_points(self, h5_file: str) -> None:
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+                x = ds['x'].values
+                y = ds['y'].values
+                coords = np.column_stack((x, y))
+
+                distances = cdist(coords, coords, metric='euclidean')
+
+                np.random.seed(0)
+                start_idx = 0
+                ordered_indices = [start_idx]
+
+                remaining_indices = set(range(len(coords)))
+                remaining_indices.remove(start_idx)
+
+                while remaining_indices:
+                    last_idx = ordered_indices[-1]
+                    nearest_idx = min(remaining_indices, key=lambda idx: distances[last_idx, idx])
+                    ordered_indices.append(nearest_idx)
+                    remaining_indices.remove(nearest_idx)
+
+                ds = ds.isel(point=ordered_indices)
+                ds = ds.assign_coords(point=np.arange(len(ds.point)))
+
+                ds = ds[list(ds.variables)]
+                ds.to_netcdf(h5_file, engine='h5netcdf', mode='a')
+
+    def compute_distances(self, h5_file: str) -> None:
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+                if 'distance' not in ds.variables:
+                    x = ds['x'].values
+                    y = ds['y'].values
+
+                    coords = np.column_stack((x, y))
+
+                    diff = np.diff(coords, axis=0)
+                    DISTs = np.sqrt(np.einsum('ij,ij->i', diff, diff))
+                    cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
+
+                    ds['distance'] = (['point'], cumulative_DIST)
+
+                    point_shape = len(ds.point.values)
+                    if point_shape < 1e6:
+                        chunk_size_point = min(100, point_shape)
+                    elif point_shape < 1e7:
+                        chunk_size_point = 1000
+                    else:
+                        chunk_size_point = 10000
+
+                    ds['distance'] = ds['distance'].chunk({'point': chunk_size_point})
+                    encoding = {'distance': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
+
+                    ds = ds[list(ds.variables)]
+                    ds.to_netcdf(h5_file, engine='h5netcdf', mode='a', encoding=encoding)
+
+    def compute_imbie_basins(self, h5_file: str) -> None:
+
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+                x = ds['x'].values
+                y = ds['y'].values
+
+                coords = np.column_stack((x, y))
+                geometry = [Point(xy) for xy in zip(x, y)]
+                points = gpd.GeoDataFrame(coords, geometry=geometry, crs=self.basins.crs)
+                joined = gpd.sjoin(points, self.basins, how="inner", predicate="within")
+                lookup_df = joined[['Subregion', 'Regions']].drop_duplicates()
+                lookup_df.reset_index(drop=True, inplace=True)
+                basin_mapping = dict(zip(lookup_df['Subregion'], lookup_df['Regions']))
+                import json
+                ds.attrs['basins'] = json.dumps(basin_mapping)
+
+                ds = ds[list(ds.variables)]
+                ds.to_netcdf(h5_file, engine='h5netcdf', mode='a')
+
+    def set_attrs(self, h5_file: str) -> None:
+
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+                if self.var_attrs_json:
+                    var_attrs = pd.read_json(self.var_attrs_json)
+                    var_attrs.set_index('variable', inplace=True)
+
+                    for var, row in var_attrs.iterrows():
+                        if var in ds.variables:
+                            ds[var].attrs['units'] = row['units']
+                            ds[var].attrs['long_name'] = row['long_name']
+                            ds[var].attrs['description'] = row['description']
+                        elif var in ds.coords:
+                            ds[var].attrs['units'] = row['units']
+                            ds[var].attrs['long_name'] = row['long_name']
+                            ds[var].attrs['description'] = row['description']
+
+                ds = ds[list(ds.variables)]
+                ds.to_netcdf(h5_file, engine='h5netcdf', mode='a')
+
+    def make_shapefile(self, dataset_dir: str) -> None:
+        h5files = glob.glob(f'{dataset_dir}/h5/*.h5')
+
+        all_dfs = []
+        for h5f in h5files:
+            with h5py.File(h5f, 'r') as f:
+                x = f["x"][:]
+                y = f["y"][:]
+                N = f["IRH_DENS"][:]
+                depth = f["IRH_DEPTH"][:, -1]
+                flight_id = f.attrs["flight_id"]
+
+            df = pd.DataFrame({
+                "x": x,
+                "y": y,
+                "N": N,
+                "DL": depth,
+                "flight_id": flight_id
+            })
+
+            all_dfs.append(df)
+
+        df_all = pd.concat(all_dfs, ignore_index=True)
+
+        geometry = [Point(xy) for xy in zip(df_all.x, df_all.y)]
+        gdf = gpd.GeoDataFrame(df_all, geometry=geometry, crs="EPSG:3031")
+        combined_gdf = gpd.GeoDataFrame(gdf, crs="EPSG:3031")
+        dataset = os.path.basename(os.path.normpath(dataset_dir))
+        shape_dir = f"{dataset_dir}/shap/"
+        os.makedirs(shape_dir, exist_ok=True)
+        combined_gdf.to_file(f"{shape_dir}/{dataset}.shp")

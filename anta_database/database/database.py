@@ -2,7 +2,9 @@ import os
 import sqlite3
 import pandas as pd
 import numpy as np
-from typing import Union, List, Dict, Tuple, Optional
+import xarray as xr
+import h5py
+from typing import Union, List, Dict, Tuple, Optional, Generator
 
 from anta_database.plotting.plotting import Plotting
 
@@ -207,7 +209,7 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.region, d.basin, d.file_path'
+        select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.region, d.basin'
         query = f'''
             SELECT {select_clause}
             FROM datasets d
@@ -236,16 +238,19 @@ class Database:
 
         metadata = {
             'dataset': results[0][0],
-            'institute': results[0][1],
-            'project': results[0][2],
-            'acq_year': results[0][3],
-            'age': results[0][4],
-            'age_unc': results[0][5],
-            'var': results[0][6],
-            'flight_id': results[0][7],
-            'region': results[0][8],
-            'basin': results[0][9],
-            'file_path': results[0][10],
+            'var': results[0][9],
+            'age': results[0][7],
+            'flight_id': results[0][10],
+            'dataset_doi': results[0][2],
+            'publication_doi': results[0][3],
+            'institute': results[0][4],
+            'project': results[0][5],
+            'acq_year': results[0][6],
+            'age_unc': results[0][8],
+            'region': results[0][11],
+            'basin': results[0][12],
+            'reference': results[0][1],
+            'file_path': file_path,
             'database_path': self.db_dir,
             'file_db': self.file_db,
         }
@@ -261,6 +266,7 @@ class Database:
               flight_id: Optional[Union[str, List[str]]] = None,
               region: Optional[Union[str, List[str]]] = None,
               basin: Optional[Union[str, List[str]]] = None,
+              retain_query: Optional[bool] = True,
               ) -> 'MetadataResult':
         select_clause = 'a.name, a.citation, a.dataset_doi, a.publication_doi, d.institute, d.project, d.acq_year, d.age, d.age_unc, d.var, d.flight_id, d.region, d.basin'
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, basin, select_clause)
@@ -351,7 +357,9 @@ class Database:
         metadata['region'] = list(set(metadata['region']))
         metadata['basin'] = list(set(metadata['basin']))
 
-        self.md = metadata
+        if retain_query:
+            self.md = metadata
+
         return MetadataResult(metadata, self.max_displayed_flight_ids)
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
@@ -378,44 +386,120 @@ class Database:
 
         return file_paths
 
-    def data_generator(self, metadata: Union[None, Dict, 'MetadataResult'] = None, data_dir: Union[None, str] = None, downscale_factor: Union[None, int] = None, downsample_distance: Union[None, float, int] = None):
-        """
-        Generates DataFrames and their associated dataset names from the database based on the provided metadata.
+    def get_files(
+        self,
+        metadata: Union[None, Dict, 'MetadataResult'] = None,
+        data_dir: Union[None, str] = None,
+    ):
 
-        This method queries the database using the filter parameters stored in the metadata,
-        retrieves the file paths and dataset names, and yields each DataFrame along with its dataset.
+        md = metadata or self.md
+        if not md:
+            print('Please provide metadata of the files you want to generate the data from. Exiting...')
+            return
 
-        Args:
-            metadata: the results from the query()
-        """
-        if metadata:
-            md = metadata
-        elif self.md:
-            md = self.md
-        else:
-            print('Please provide metadata of the files you want to generate the data from. Exiting ...')
+        data_dir = data_dir or self.db_dir
+        if not data_dir:
+            print('No data directory provided. Exiting...')
             return
 
         file_paths = self._get_file_paths_from_metadata(metadata=md)
+        file_paths = np.unique(file_paths)
+        full_paths = [os.path.join(data_dir, fp) for fp in file_paths]
 
-        if data_dir:
-            data_dir = data_dir
-        elif self.db_dir:
-            data_dir = self.db_dir
-        else:
-            print('No data dir provided, do not know where to look for data ...')
+
+        return full_paths
+
+    def data_generator(
+        self,
+        metadata: Union[None, Dict, 'MetadataResult'] = None,
+        data_dir: Optional[str] = None,
+        downscale_factor: Optional[str] = None,
+    ) -> Generator[Tuple[pd.DataFrame, Dict]]:
+        """
+        Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
+
+        Args:
+            metadata: Metadata for filtering files.
+            data_dir: Directory containing the data files.
+            vars_to_load: List of variables to load from each file.
+
+        Yields:
+            Tuple[xr.Dataset, Dict]: A lazy-loaded xarray Dataset and its metadata.
+        """
+        # Resolve metadata
+        md = metadata or self.md.copy()
+        if not md:
+            print('Please provide metadata of the files you want to generate the data from. Exiting...')
             return
 
+        # Resolve data directory
+        data_dir = data_dir or self.db_dir
+        if not data_dir:
+            print('No data directory provided. Exiting...')
+            return
+
+        file_paths = self._get_file_paths_from_metadata(metadata=md)
+        file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
+
         for file_path in file_paths:
-            df = pd.read_pickle(os.path.join(data_dir, file_path))
-            if downscale_factor:
-                df = df[::downscale_factor]
-            if downsample_distance:
-                df['bin'] = np.floor(df['distance'] / downsample_distance) * downsample_distance
-                df = df.groupby('bin').mean().reset_index()
-                df.drop(columns=['bin'], inplace=True)
-            metadata = self._get_file_metadata(file_path)
-            yield df, metadata
+            full_path = os.path.join(data_dir, file_path)
+            file_md = self._get_file_metadata(file_path)
+            for var in md['var']:
+                if var == 'IRH_DEPTH':
+                    for age in md['age']:
+                        ds = h5py.File(full_path, 'r')
+                        irh_values = ds['age'][:]
+                        irh_index = np.where(irh_values == int(age))[0]
+                        if len(irh_index) == 0:
+                            continue
+                        irh_index = irh_index[0]
+                        df = pd.DataFrame({'x': ds['x'][::downscale_factor],
+                                        'y': ds['y'][::downscale_factor],
+                                        'distance': ds['distance'][::downscale_factor],
+                                        var: ds[var][::downscale_factor, irh_index]})
+
+                        metadata = {
+                            'dataset': file_md['dataset'],
+                            'var': var,
+                            'age': age,
+                            'flight_id': file_md['flight_id'],
+                            'institute': file_md['institute'],
+                            'project': file_md['project'],
+                            'acq_year': file_md['acq_year'],
+                            'age_unc': file_md['age'],
+                            'reference': file_md['reference'],
+                            'dataset_doi': file_md['dataset_doi'],
+                            'publication_doi': file_md['publication_doi'],
+                            'flight_id': file_md['flight_id'],
+                            'region': file_md['region'],
+                            'basin': file_md['basin'],}
+
+                        yield df, metadata
+
+                else:
+                    ds = h5py.File(full_path, 'r')
+                    df = pd.DataFrame({'x': ds['x'][::downscale_factor],
+                                    'y': ds['y'][::downscale_factor],
+                                    'distance': ds['distance'][::downscale_factor],
+                                    var: ds[var][::downscale_factor]})
+
+                    metadata = {
+                        'dataset': file_md['dataset'],
+                        'var': var,
+                        'age': None,
+                        'flight_id': file_md['flight_id'],
+                        'institute': file_md['institute'],
+                        'project': file_md['project'],
+                        'acq_year': file_md['acq_year'],
+                        'age_unc': file_md['age'],
+                        'reference': file_md['reference'],
+                        'dataset_doi': file_md['dataset_doi'],
+                        'publication_doi': file_md['publication_doi'],
+                        'flight_id': file_md['flight_id'],
+                        'region': file_md['region'],
+                        'basin': file_md['basin'],}
+
+                    yield df, metadata
 
     @property
     def plot(self):
@@ -459,7 +543,7 @@ class MetadataResult:
         output.append(f"\n  - reference: {', '.join(md['reference'])}")
         output.append(f"  - dataset DOI: {', '.join(md['dataset_doi'])}")
         output.append(f"  - publication DOI: {', '.join(md['publication_doi'])}")
-        output.append(f"  - database: {md['database_path']}/{md['file_db']}")
+        output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
         output.append(f"  - query params: {md['_query_params']}")
         output.append(f"  - filter params: {md['_filter_params']}")
 
