@@ -28,6 +28,7 @@ class CompileDatabase:
                  compute_IRH_density: bool = True,
                  set_attributes: bool = True,
                  shapefiles: bool = True,
+                 break_transects: bool = False,
                  remove_tmp_files: bool = True,
                  var_attrs_json: Optional[str] = None) -> None:
         self.dir_list = dir_list
@@ -40,6 +41,7 @@ class CompileDatabase:
         self.set_attributes = set_attributes
         self.hdf5 = hdf5
         self.shapefiles = shapefiles
+        self.break_transects = break_transects
         self.remove_tmp_files = remove_tmp_files
         imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
         self.basins = gpd.read_file(imbie_path)
@@ -110,6 +112,28 @@ class CompileDatabase:
                 for trace_dir in tqdm(all_dirs, desc='Processing'):
                     self.combine_dfs(trace_dir)
 
+
+        all_h5 = []
+        for dir_ in self.dir_list:
+            h5_files = glob.glob(f"{dir_}/h5/*.h5")
+            all_h5.extend(h5_files)
+
+        num_tasks = len(all_h5)
+        num_workers = min(num_tasks, cpus)
+
+        if self.break_transects:
+
+            print('\n',
+                    'Breaking possible flight transects in separated h5 files for', num_tasks, 'h5 files\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.do_break_transects, all_h5), total=num_tasks):
+                        pass
+            else:
+                for h5_file in tqdm(all_h5, desc='Processing'):
+                    self.do_break_transects(h5_file)
 
         all_h5 = []
         for dir_ in self.dir_list:
@@ -527,6 +551,7 @@ class CompileDatabase:
                 'project': str(trace_md.iloc[0]['project']),
                 'acq_year': str(trace_md.iloc[0]['acq_year']),
                 'flight_id': str(trace_md.iloc[0]['flight_id']),
+                'flight_id_flag': str(trace_md.iloc[1]['flight_id']),
             }
         )
         point_shape = len(merged_df)
@@ -583,6 +608,29 @@ class CompileDatabase:
             h5_file = f'{h5_dir}/{flight_id}.h5'
 
         ds.to_netcdf(h5_file, engine='h5netcdf', encoding=encoding, mode='w')
+
+    def do_break_transects(self, h5_file: str) -> None:
+        h5_dir, _ = os.path.split(h5_file)
+        with h5py.File(h5_file, 'a') as f:
+            with xr.open_dataset(f, engine='h5netcdf') as ds:
+
+                flight_id_flag = ds.attrs["flight_id_flag"]
+
+                if flight_id_flag == 'not_provided':
+                    x = ds['x'].values
+                    x_diff = np.diff(x)
+                    idx = np.abs(x_diff) < 50000
+                    break_points = np.where(idx == 0)[0] + 1
+                    break_points = np.append(0, break_points)
+
+                    for t in range(len(break_points) -1):
+                        ds_flight_line = ds.isel(point=slice(break_points[t], break_points[t+1])).copy()
+                        ds_flight_line['point'] = np.arange(len(ds_flight_line.point))
+                        ds_flight_line.attrs['flight_id'] += f'_{t}'
+
+                        h5_flight_file = f'{h5_dir}/{ds_flight_line.attrs['flight_id']}.h5'
+
+                        ds_flight_line.to_netcdf(h5_flight_file, engine='h5netcdf', mode='a')
 
     def compute_fractional_depth(self, h5_file: str) -> None:
         with h5py.File(h5_file, 'a') as f:
