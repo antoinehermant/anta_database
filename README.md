@@ -3,29 +3,42 @@
 </h1><br>
 
 [![PyPi](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
-[![Conda](https://img.shields.io/conda/vn/conda-forge/anta_database)](https://anaconda.org/conda-forge/anta_database)
 [![Downloads](https://img.shields.io/pypi/dm/anta_database)](https://pypi.org/project/anta_database)
-
 [![GitHub issues](https://img.shields.io/badge/issue_tracking-github-blue.svg)](https://github.com/antoinehermant/anta_database/issues)
 <!-- [![Contributing](https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?)](https://matplotlib.org/stable/devel/index.html) -->
+<!-- [![Conda](https://img.shields.io/conda/vn/conda-forge/anta_database)](https://anaconda.org/conda-forge/anta_database) -->
 
-AntADatabase is an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
+AntADatabase is a Python-powered SQLite database designed for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
 
 Visit the [Home Page](https://antoinehermant.github.io/anta_database/intro) for more information.
 
-# SQLite Database
+# The AntADatabase
 
-The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
+The AntADatabase contains all traced and dated Internal Reflective Horizons (isochrones) that have been published at that date. All the data is organized by flight transect for each dataset. The data is encoded in HDF5 (Hierarchical Data Format) which provides convenient data structure and performant read speeds. 
+Variables per file (when exist):
+- x(point)
+- y(point)
+- distance(point)
+- IRH_DEPTH(point, age)
+- IRH_DENS(point, age)
+- ICE_THCK(point, age)
+- SURF_ELEV(point, age)
+- BED_ELEV(point, age)
 
--   Browsing by dataset, layer age, flight ID, institute and/or project.
--   Memory efficiency: Only relevant data is read when needed.
--   Fast read performance: Lightweight and optimized for speed.
+# anta_database Python module
 
-# Key Features
+This Python module provides SQL indexing for the AntADatabase, as well as quick plot functions and generate lazy data for later use. It allows to quickly browse through the database, filtering by:
+- dataset
+- institute
+- project
+- age
+- acq_year (year of radar acquisition)
+- region
+- basin
+- var (variable)
+- flight id
 
--   Efficient SQLite indexing
--   Quick visualization on Antarctica map
--   Generate lazy data for later use
+For examples of queries, plots, generate data (e.g for model comparison), please see [Quick start](https://antoinehermant.github.io/anta_database/quick_start)
 
 # Installation
 
@@ -57,6 +70,8 @@ Feel free to raise an issue on the GitHub if you find any bug or if you would li
 # Contribution
 
 If you like this database and wish to help me develop this module, do not hesitate to contact me. You should then fork the repo, build feature branches and pull request. That would be much appreciated!
+Please have also a look at the [Roadmap](https://github.com/antoinehermant/anta_database/blob/main/ROADMAP.md) to check whether some features are already in development or for ideas.
+
 
 # Acknowledgments
 
