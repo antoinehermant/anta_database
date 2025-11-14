@@ -300,11 +300,11 @@ class Plotting:
                 for f in file_paths:
                     full_path = os.path.join(self._db.db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
-                        all_x.append(ds['x'][::downscale_factor])
-                        all_y.append(ds['y'][::downscale_factor])
-                df = pd.DataFrame({'x': np.concatenate(all_x),
-                                'y': np.concatenate(all_y)})
-                plt.scatter(df['x']/1000, df['y']/1000, color=colors[dataset], s=marker_size, zorder=zorder, linewidths=0)
+                        all_x.append(ds['PSX'][::downscale_factor])
+                        all_y.append(ds['PSY'][::downscale_factor])
+                df = pd.DataFrame({'PSX': np.concatenate(all_x),
+                                'PSY': np.concatenate(all_y)})
+                plt.scatter(df['PSX']/1000, df['PSY']/1000, color=colors[dataset], s=marker_size, zorder=zorder, linewidths=0)
 
             for dataset in datasets:
                 citation = self._db.query(dataset=dataset, retain_query=False)['reference']
@@ -335,11 +335,11 @@ class Plotting:
                 for f in file_paths:
                     full_path = os.path.join(self._db.db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
-                        all_x.append(ds['x'][::downscale_factor])
-                        all_y.append(ds['y'][::downscale_factor])
-                df = pd.DataFrame({'x': np.concatenate(all_x),
-                                'y': np.concatenate(all_y)})
-                plt.scatter(df['x']/1000, df['y']/1000, color=colors[institute], s=marker_size, linewidths=0)
+                        all_x.append(ds['PSX'][::downscale_factor])
+                        all_y.append(ds['PSY'][::downscale_factor])
+                df = pd.DataFrame({'PSX': np.concatenate(all_x),
+                                'PSY': np.concatenate(all_y)})
+                plt.scatter(df['PSX']/1000, df['PSY']/1000, color=colors[institute], s=marker_size, linewidths=0)
 
                 plt.plot([], [], color=colors[institute], label=institute, linewidth=3)
             if ncol == None:
@@ -359,7 +359,7 @@ class Plotting:
             else:
                 var = var[0]
 
-            if var == 'IRH_DENS':
+            if var == 'IRH_NUM':
                 levels = np.linspace(1, 10, 10)
                 if cmap == None:
                     cmap = self._custom_cmap_density()
@@ -393,7 +393,7 @@ class Plotting:
                         zorder=i
                     )
 
-            elif var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
+            elif var in ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
                 label = f'{var} [m]'
                 if var == 'BED_ELEV':
                     if cmap == None:
@@ -401,7 +401,7 @@ class Plotting:
                     extend = 'both'
                     vmin = -1000
                     vmax = 1000
-                elif var == 'ICE_THCK':
+                elif var == 'ICE_THK':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
@@ -475,11 +475,11 @@ class Plotting:
                 for f in file_paths:
                     full_path = os.path.join(self._db.db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
-                        all_x.append(ds['x'][:])
-                        all_y.append(ds['y'][:])
-                df = pd.DataFrame({'x': np.concatenate(all_x),
-                                'y': np.concatenate(all_y)})
-                plt.scatter(df['x'][::downscale_factor]/1000, df['y'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size, linewidths=0)
+                        all_x.append(ds['PSX'][:])
+                        all_y.append(ds['PSY'][:])
+                df = pd.DataFrame({'PSX': np.concatenate(all_x),
+                                'PSY': np.concatenate(all_y)})
+                plt.scatter(df['PSX'][::downscale_factor]/1000, df['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size, linewidths=0)
 
                 plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
             ncol = 2 if len(flight_ids) > 40 else 1

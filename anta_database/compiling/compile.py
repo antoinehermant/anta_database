@@ -45,7 +45,7 @@ class CompileDatabase:
         self.remove_tmp_files = remove_tmp_files
         imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
         self.basins = gpd.read_file(imbie_path)
-        self.var_list = ['ICE_THCK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']
+        self.var_list = ['ICE_THK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']
         self.var_attrs_json = var_attrs_json
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
@@ -289,23 +289,23 @@ class CompileDatabase:
         pattern_header = original_new_columns.iloc[0]
         pattern_values.columns = pattern_header
 
-        for var in ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'IRH_DEPTH', 'PSX', 'DIST', 'PSY', 'lat', 'lon']:
+        for var in ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'PSX', 'DIST', 'PSY', 'lat', 'lon']:
             if var in ds.columns:
                 ds[var] = self.convert_col_to_num(ds[var])
 
-        if 'ICE_THCK' in ds.columns and 'SURF_ELEV' in ds.columns and not 'BED_ELEV' in ds.columns:
-            ds['BED_ELEV'] = ds['SURF_ELEV'] - ds['ICE_THCK']
-        if 'ICE_THCK' in ds.columns and 'BED_ELEV' in ds.columns and not 'SURF_ELEV' in ds.columns:
-            ds['SURF_ELEV'] = ds['BED_ELEV'] + ds['ICE_THCK']
-        if 'SURF_ELEV' in ds.columns and 'BED_ELEV' in ds.columns and not 'ICE_THCK' in ds.columns:
-            ds['ICE_THCK'] = ds['SURF_ELEV'] - ds['BED_ELEV']
+        if 'ICE_THK' in ds.columns and 'SURF_ELEV' in ds.columns and not 'BED_ELEV' in ds.columns:
+            ds['BED_ELEV'] = ds['SURF_ELEV'] - ds['ICE_THK']
+        if 'ICE_THK' in ds.columns and 'BED_ELEV' in ds.columns and not 'SURF_ELEV' in ds.columns:
+            ds['SURF_ELEV'] = ds['BED_ELEV'] + ds['ICE_THK']
+        if 'SURF_ELEV' in ds.columns and 'BED_ELEV' in ds.columns and not 'ICE_THK' in ds.columns:
+            ds['ICE_THK'] = ds['SURF_ELEV'] - ds['BED_ELEV']
 
         if self.wave_speed:
-            for var in ['ICE_THCK', 'BED_ELEV']:
+            for var in ['ICE_THK', 'BED_ELEV']:
                 if var in ds.columns:
                     ds[var] *= self.wave_speed
         if self.firn_correction:
-            for var in ['ICE_THCK', 'BED_ELEV']:
+            for var in ['ICE_THK', 'BED_ELEV']:
                 if var in ds.columns:
                     ds[var] += self.firn_correction
 
@@ -359,13 +359,21 @@ class CompileDatabase:
 
             dataset = raw_md['dataset']
             institute = raw_md['institute']
-            if pd.isna(institute):
-                institute = 'nan'
+            if isinstance(institute, list):
+                if all(pd.isna(institute)):
+                    institute = 'nan'
+            else:
+                if pd.isna(institute):
+                    institute = 'nan'
             institute_flag = 'original'
             project = raw_md['project']
             project_flag = 'original'
             acq_year = raw_md['acquisition year']
             acq_year_flag = 'original'
+            if 'radar instrument' in raw_md.index:
+                radar_inst = raw_md['radar instrument']
+            else:
+                radar_inst = 'nan'
 
             flight_ids = np.unique(ds.index)
             if flight_id_flag == 'not_provided':
@@ -400,12 +408,12 @@ class CompileDatabase:
                 if age is not pd.NA:
                     # age = str(age)
                     ds_trace = ds_trace.rename(columns={'IRH_DEPTH': age})
-                    if institute != 'nan':
+                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                 else:
-                    if institute != 'nan':
+                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
@@ -428,7 +436,8 @@ class CompileDatabase:
                         'flight_id': [flight_id, flight_id_flag],
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
-                        'acq_year': [acq_year, acq_year_flag]
+                        'acq_year': [acq_year, acq_year_flag],
+                        'radar_instrument': [radar_inst, None]
                     })
                     trace_md.set_index('flight_id', inplace=True)
                     trace_md.to_csv(trace_metadata)
@@ -462,16 +471,24 @@ class CompileDatabase:
 
                     dataset = row['dataset']
                     institute = row['institute']
-                    if pd.isna(institute):
-                        institute = 'nan'
+                    if isinstance(institute, list):
+                        if all(pd.isna(institute)):
+                            institute = 'nan'
+                    else:
+                        if pd.isna(institute):
+                            institute = 'nan'
                     institute_flag = 'original'
                     project = row['project']
                     project_flag = 'original'
                     acq_year = row['acquisition year']
                     acq_year_flag = 'original'
                     flight_id_flag = 'original'
+                    if 'radar instrument' in row.columns:
+                        radar_inst = row['radar instrument']
+                    else:
+                        radar_inst = 'nan'
 
-                    if institute != 'nan':
+                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl'
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl'
@@ -487,7 +504,8 @@ class CompileDatabase:
                             'flight_id': [flight_id, flight_id_flag],
                             'institute': [institute, institute_flag],
                             'project': [project, project_flag],
-                            'acq_year': [acq_year, acq_year_flag]
+                            'acq_year': [acq_year, acq_year_flag],
+                            'radar_instrument': [radar_inst, None]
                         })
                         trace_md.set_index('flight_id', inplace=True)
                         trace_md.to_csv(trace_metadata)
@@ -525,8 +543,8 @@ class CompileDatabase:
         x = merged_df['PSX']
         y = merged_df['PSY']
         data_vars = {
-            'x': (['point'], x),
-            'y': (['point'], y),
+            'PSX': (['point'], x),
+            'PSY': (['point'], y),
         }
 
         ages = [col for col in merged_df.columns if str(col).isdigit()]
@@ -549,9 +567,10 @@ class CompileDatabase:
                 'dataset': str(trace_md.iloc[0]['dataset']),
                 'institute': institute,
                 'project': str(trace_md.iloc[0]['project']),
-                'acq_year': str(trace_md.iloc[0]['acq_year']),
-                'flight_id': str(trace_md.iloc[0]['flight_id']),
-                'flight_id_flag': str(trace_md.iloc[1]['flight_id']),
+                'radar instrument': str(trace_md.iloc[0]['radar_instrument']),
+                'acquisition year': str(trace_md.iloc[0]['acq_year']),
+                'flight ID': str(trace_md.iloc[0]['flight_id']),
+                'flight ID flag': str(trace_md.iloc[1]['flight_id']),
             }
         )
         point_shape = len(merged_df)
@@ -563,20 +582,20 @@ class CompileDatabase:
             chunk_size_point = 10000
 
         encoding = {
-            'x': {'zlib': True, 'complevel': 1},
-            'y': {'zlib': True, 'complevel': 1},
+            'PSX': {'zlib': True, 'complevel': 1},
+            'PSY': {'zlib': True, 'complevel': 1},
         }
 
         if ages:
             sorted_ages = sorted(ages, key=lambda x: int(x))
             sorted_ages_int = [int(age) for age in sorted_ages]
             depth_data = merged_df[sorted_ages]
-            data_vars['IRH_DEPTH'] = (['point', 'age'], depth_data)  # Use 'age' as the dimension name
+            data_vars['IRH_DEPTH'] = (['point', 'IRH_AGE'], depth_data)
             ds = ds.assign_coords(age=sorted_ages_int)
-            ds['IRH_DEPTH'] = (['point', 'age'], depth_data)
+            ds['IRH_DEPTH'] = (['point', 'IRH_AGE'], depth_data)
 
             if 'IRH_DEPTH' in ds.variables:
-                ds['IRH_DEPTH'] = ds['IRH_DEPTH'].chunk({'age': 1, 'point': chunk_size_point})
+                ds['IRH_DEPTH'] = ds['IRH_DEPTH'].chunk({'IRH_AGE': 1, 'point': chunk_size_point})
                 encoding['IRH_DEPTH'] = {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point, 1)}
 
             md = pd.read_json(f'{dataset_dir}/raw_md.json')
@@ -588,11 +607,10 @@ class CompileDatabase:
                 age_unc = age_unc.loc[sorted_ages_int]['age uncertainty'].values
                 age_uncertainties = xr.DataArray(
                         data=age_unc,
-                        dims=['age'],
-                        coords={'age': sorted_ages_int},
-                        attrs={'units': 'years'}
+                        dims=['IRH_AGE'],
+                        coords={'IRH_AGE': sorted_ages_int},
                     )
-                ds['age_uncertainty'] = age_uncertainties
+                ds['IRH_AGE_UNC'] = age_uncertainties
 
 
         for var in self.var_list:
@@ -602,7 +620,7 @@ class CompileDatabase:
 
         h5_dir = os.path.join(dataset_dir, 'h5')
         os.makedirs(h5_dir, exist_ok=True)
-        if institute != 'nan':
+        if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
             h5_file = f'{h5_dir}/{institute}_{flight_id}.h5'
         else:
             h5_file = f'{h5_dir}/{flight_id}.h5'
@@ -610,14 +628,15 @@ class CompileDatabase:
         ds.to_netcdf(h5_file, engine='h5netcdf', encoding=encoding, mode='w')
 
     def do_break_transects(self, h5_file: str) -> None:
-        h5_dir, _ = os.path.split(h5_file)
+        h5_dir, name = os.path.split(h5_file)
+        file_, ext = os.path.splitext(name)
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
 
                 flight_id_flag = ds.attrs["flight_id_flag"]
 
                 if flight_id_flag == 'not_provided':
-                    x = ds['x'].values
+                    x = ds['PSX'].values
                     x_diff = np.diff(x)
                     idx = np.abs(x_diff) < 50000
                     break_points = np.where(idx == 0)[0] + 1
@@ -628,7 +647,7 @@ class CompileDatabase:
                         ds_flight_line['point'] = np.arange(len(ds_flight_line.point))
                         ds_flight_line.attrs['flight_id'] += f'_{t}'
 
-                        h5_flight_file = f'{h5_dir}/{ds_flight_line.attrs['flight_id']}.h5'
+                        h5_flight_file = f'{h5_dir}/{file_}_{t}.h5'
 
                         ds_flight_line.to_netcdf(h5_flight_file, engine='h5netcdf', mode='a')
 
@@ -636,9 +655,9 @@ class CompileDatabase:
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
 
-                if 'ICE_THCK' in ds.variables and 'IRH_DEPTH' in ds.variables:
+                if 'ICE_THK' in ds.variables and 'IRH_DEPTH' in ds.variables:
 
-                    ds['IRH_FRAC_DEPTH'] = ds.IRH_DEPTH/ds.ICE_THCK*100
+                    ds['IRH_FRAC_DEPTH'] = ds.IRH_DEPTH/ds.ICE_THK*100
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -647,7 +666,7 @@ class CompileDatabase:
                         chunk_size_point = 1000
                     else:
                         chunk_size_point = 10000
-                    ds['IRH_FRAC_DEPTH'] = ds['IRH_DEPTH'].chunk({'age': 1, 'point': chunk_size_point})
+                    ds['IRH_FRAC_DEPTH'] = ds['IRH_DEPTH'].chunk({'IRH_AGE': 1, 'point': chunk_size_point})
                     encoding = {'IRH_FRAC_DEPTH': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point, 1)}}
 
                     ds = ds[list(ds.variables)]
@@ -658,7 +677,7 @@ class CompileDatabase:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
 
                 if 'IRH_DEPTH' in ds.variables:
-                    ds['IRH_DENS'] = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='age')
+                    ds['IRH_NUM'] = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='IRH_AGE')
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -668,8 +687,8 @@ class CompileDatabase:
                     else:
                         chunk_size_point = 10000
 
-                    ds['IRH_DENS'] = ds['IRH_DENS'].chunk({'point': chunk_size_point})
-                    encoding = {'IRH_DENS': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
+                    ds['IRH_NUM'] = ds['IRH_NUM'].chunk({'point': chunk_size_point})
+                    encoding = {'IRH_NUM': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
 
                     ds = ds[list(ds.variables)]
                     ds.to_netcdf(h5_file, engine='h5netcdf', mode='a', encoding=encoding)
@@ -677,8 +696,8 @@ class CompileDatabase:
     def order_points(self, h5_file: str) -> None:
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
-                x = ds['x'].values
-                y = ds['y'].values
+                x = ds['PSX'].values
+                y = ds['PSY'].values
                 coords = np.column_stack((x, y))
 
                 distances = cdist(coords, coords, metric='euclidean')
@@ -705,9 +724,9 @@ class CompileDatabase:
     def compute_distances(self, h5_file: str) -> None:
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
-                if 'distance' not in ds.variables:
-                    x = ds['x'].values
-                    y = ds['y'].values
+                if 'Distance' not in ds.variables:
+                    x = ds['PSX'].values
+                    y = ds['PSY'].values
 
                     coords = np.column_stack((x, y))
 
@@ -715,7 +734,7 @@ class CompileDatabase:
                     DISTs = np.sqrt(np.einsum('ij,ij->i', diff, diff))
                     cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
 
-                    ds['distance'] = (['point'], cumulative_DIST)
+                    ds['Distance'] = (['point'], cumulative_DIST)
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -725,8 +744,8 @@ class CompileDatabase:
                     else:
                         chunk_size_point = 10000
 
-                    ds['distance'] = ds['distance'].chunk({'point': chunk_size_point})
-                    encoding = {'distance': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
+                    ds['Distance'] = ds['Distance'].chunk({'point': chunk_size_point})
+                    encoding = {'Distance': {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}}
 
                     ds = ds[list(ds.variables)]
                     ds.to_netcdf(h5_file, engine='h5netcdf', mode='a', encoding=encoding)
@@ -735,18 +754,18 @@ class CompileDatabase:
 
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
-                x = ds['x'].values
-                y = ds['y'].values
+                x = ds['PSX'].values
+                y = ds['PSY'].values
 
                 coords = np.column_stack((x, y))
                 geometry = [Point(xy) for xy in zip(x, y)]
                 points = gpd.GeoDataFrame(coords, geometry=geometry, crs=self.basins.crs)
                 joined = gpd.sjoin(points, self.basins, how="inner", predicate="within")
-                lookup_df = joined[['Subregion', 'Regions']].drop_duplicates()
+                lookup_df = joined[joined['Regions'] != 'Islands'][['Subregion', 'Regions']].drop_duplicates()
                 lookup_df.reset_index(drop=True, inplace=True)
                 basin_mapping = dict(zip(lookup_df['Subregion'], lookup_df['Regions']))
                 import json
-                ds.attrs['basins'] = json.dumps(basin_mapping)
+                ds.attrs['IMBIE_basins'] = json.dumps(basin_mapping)
 
                 ds = ds[list(ds.variables)]
                 ds.to_netcdf(h5_file, engine='h5netcdf', mode='a')
@@ -778,16 +797,16 @@ class CompileDatabase:
         all_dfs = []
         for h5f in h5files:
             with h5py.File(h5f, 'r') as f:
-                x = f["x"][:]
-                y = f["y"][:]
-                N = f["IRH_DENS"][:]
+                x = f["PSX"][:]
+                y = f["PSY"][:]
+                N = f["IRH_NUM"][:]
                 depth = f["IRH_DEPTH"][:, -1]
                 flight_id = f.attrs["flight_id"]
 
             df = pd.DataFrame({
-                "x": x,
-                "y": y,
-                "N": N,
+                "PSX": x,
+                "PSY": y,
+                "IRH_NUM": N,
                 "DL": depth,
                 "flight_id": flight_id
             })
