@@ -368,7 +368,7 @@ class Plotting:
                 values = np.arange(1, 11)
                 colors = cmap(np.linspace(0, 1, len(values)))
                 discrete_cmap = ListedColormap(colors)
-                bounds = np.arange(0.5, 11)
+                bounds = np.arange(0.5, 11.5)
                 norm = BoundaryNorm(bounds, ncolors=discrete_cmap.N)
                 label = f'{var} [N]'
                 extend = 'max'
@@ -382,9 +382,10 @@ class Plotting:
                 unique_values = df[var].unique()
                 for i, val in enumerate(unique_values):
                     subset = df[df[var] == val]
+                    subset = subset[subset['IRH_NUM'] != 0.0]
                     scatter = ax.scatter(
-                        subset.x / 1000,
-                        subset.y / 1000,
+                        subset['PSX'] / 1000,
+                        subset['PSY'] / 1000,
                         c=subset[var],
                         cmap=discrete_cmap,
                         s=marker_size,
@@ -453,7 +454,7 @@ class Plotting:
                     all_dfs.append(ds)
 
                 df = pd.concat(all_dfs)
-                scatter = plt.scatter(df.x/1000, df.y/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+                scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
                 #     all_dfs.append(df)
                 # combined_df = pd.concat(all_dfs, ignore_index=True)

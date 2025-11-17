@@ -127,7 +127,7 @@ class IndexDatabase:
             cursor.execute('SELECT id FROM sources WHERE name = ?', (dataset,))
             dataset_id = cursor.fetchone()[0]
 
-            var_list = ['ICE_THCK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DENS']
+            var_list = ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_NUM']
 
             if ages is not None:
                 for age in ages:

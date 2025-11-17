@@ -483,7 +483,7 @@ class CompileDatabase:
                     acq_year = row['acquisition year']
                     acq_year_flag = 'original'
                     flight_id_flag = 'original'
-                    if 'radar instrument' in row.columns:
+                    if 'radar instrument' in row.index:
                         radar_inst = row['radar instrument']
                     else:
                         radar_inst = 'nan'
@@ -678,6 +678,7 @@ class CompileDatabase:
 
                 if 'IRH_DEPTH' in ds.variables:
                     ds['IRH_NUM'] = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='IRH_AGE')
+                    ds['IRH_NUM'] = ds['IRH_NUM'].where(ds['IRH_NUM'] != 0, np.nan)
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
