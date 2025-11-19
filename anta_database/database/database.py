@@ -48,22 +48,42 @@ class Database:
         """
         query = f'''
             SELECT {select_clause}
-            FROM datasets d
-            JOIN sources a ON d.dataset = a.id
+            FROM
+                datasets d
+            JOIN
+                sources s ON d.dataset = s.id
+            LEFT JOIN
+                dataset_projects dp ON d.id = dp.dataset_id
+            LEFT JOIN
+                projects p ON dp.project_id = p.id
+            LEFT JOIN
+                dataset_institutes di ON d.id = di.dataset_id
+            LEFT JOIN
+                institutes i ON di.institute_id = i.id
+            LEFT JOIN
+                dataset_variables dv ON d.id = dv.dataset_id
+            LEFT JOIN
+                variables v ON dv.variable_id = v.id
+            LEFT JOIN
+                dataset_ages da ON d.id = da.dataset_id
+            LEFT JOIN
+                ages a ON da.age_id = a.id
+            LEFT JOIN
+                regions r ON da.region_id = r.id
         '''
         conditions = []
         params = []
         for field, column in [
-                (age, 'd.age'),
-                (var, 'd.var'),
-                (dataset, 'a.name'),
-                (institute, 'd.institute'),
-                (project, 'd.project'),
-                (acq_year, 'd.acq_year'),
-                (line, 'd.flight_id'),
-                (region, 'd.region'),
-                (IMBIE_basin, 'd.IMBIE_basin'),
-                (radar_instrument, 'd.radar_instrument')
+                    (age, 'a.age'),
+                    (var, 'v.name'),
+                    (dataset, 's.name'),
+                    (institute, 'i.name'),
+                    (project, 'p.name'),
+                    (acq_year, 'd.acq_year'),
+                    (line, 'd.flight_id'),
+                    (region, 'r.region'),
+                    (IMBIE_basin, 'r.IMBIE_basin'),
+                    (radar_instrument, 'd.radar_instrument')
         ]:
             if field is not None:
                 if isinstance(field, list):
@@ -130,15 +150,15 @@ class Database:
                         params.append(field)
 
         for field, column in [
-                ('age', 'd.age'),
-                ('var', 'd.var'),
-                ('dataset', 'a.name'),
-                ('institute', 'd.institute'),
-                ('project', 'd.project'),
+                ('age', 'a.age'),
+                ('var', 'v.var'),
+                ('dataset', 's.name'),
+                ('institute', 'i.name'),
+                ('project', 'p.name'),
                 ('acq_year', 'd.acq_year'),
                 ('flight_id', 'd.flight_id'),
-                ('region', 'd.region'),
-                ('IMBIE_basin', 'd.IMBIE_basin'),
+                ('region', 'r.region'),
+                ('IMBIE_basin', 'r.IMBIE_basin'),
                 ('radar_instrument', 'd.radar_instrument')
         ]:
             if self.excluded[field]:
@@ -198,12 +218,12 @@ class Database:
                         conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
 
         if not self.include_BM:
-            conditions.append("a.name NOT LIKE ?")
+            conditions.append("s.name NOT LIKE ?")
             params.append('%BEDMAP%')
 
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
-        query += ' ORDER BY CAST(d.age AS INTEGER) ASC'
+        query += ' ORDER BY CAST(a.age AS INTEGER) ASC'
         return query, params
 
     def _is_year_in_range(self, year: str, range_str: str) -> bool:
@@ -292,25 +312,45 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 'a.name, \
-                        a.citation, \
-                        a.DOI_dataset, \
-                        a.DOI_publication, \
-                        d.institute, \
-                        d.project, \
+        select_clause = 's.name AS dataset, \
+                        s.citation, \
+                        s.DOI_dataset, \
+                        s.DOI_publication, \
+                        i.name AS institute, \
+                        p.name AS project, \
                         d.acq_year, \
-                        d.age, \
-                        d.age_unc, \
-                        d.var, \
+                        a.age, \
+                        a.age_unc, \
+                        v.name AS var, \
                         d.flight_id, \
-                        d.region, \
-                        d.IMBIE_basin, \
+                        r.region, \
+                        r.IMBIE_basin, \
                         d.radar_instrument \
         '
         query = f'''
             SELECT {select_clause}
-            FROM datasets d
-            JOIN sources a ON d.dataset = a.id
+            FROM
+                datasets d
+            JOIN
+                sources s ON d.dataset = s.id
+            LEFT JOIN
+                dataset_projects dp ON d.id = dp.dataset_id
+            LEFT JOIN
+                projects p ON dp.project_id = p.id
+            LEFT JOIN
+                dataset_institutes di ON d.id = di.dataset_id
+            LEFT JOIN
+                institutes i ON di.institute_id = i.id
+            LEFT JOIN
+                dataset_variables dv ON d.id = dv.dataset_id
+            LEFT JOIN
+                variables v ON dv.variable_id = v.id
+            LEFT JOIN
+                dataset_ages da ON d.id = da.dataset_id
+            LEFT JOIN
+                ages a ON da.age_id = a.id
+            LEFT JOIN
+                regions r ON da.region_id = r.id
         '''
         conditions = []
         params = []
@@ -368,19 +408,19 @@ class Database:
               retain_query: Optional[bool] = True,
               ) -> 'MetadataResult':
 
-        select_clause = 'a.name, \
-                        a.citation, \
-                        a.DOI_dataset, \
-                        a.DOI_publication, \
-                        d.institute, \
-                        d.project, \
+        select_clause = 's.name AS dataset, \
+                        s.citation, \
+                        s.DOI_dataset, \
+                        s.DOI_publication, \
+                        i.name AS institute, \
+                        p.name AS project, \
                         d.acq_year, \
-                        d.age, \
-                        d.age_unc, \
-                        d.var, \
+                        a.age, \
+                        a.age_unc, \
+                        v.name AS var, \
                         d.flight_id, \
-                        d.region, \
-                        d.IMBIE_basin, \
+                        r.region, \
+                        r.IMBIE_basin, \
                         d.radar_instrument \
         '
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
