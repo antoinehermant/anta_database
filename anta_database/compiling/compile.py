@@ -27,7 +27,8 @@ class CompileDatabase:
                  compute_IMBIE_basins: bool = True,
                  compute_IRH_density: bool = True,
                  set_attributes: bool = True,
-                 shapefiles: bool = True,
+                 shapefiles: bool = False,
+                 geopackages: bool = False,
                  break_transects: bool = False,
                  remove_tmp_files: bool = True,
                  var_attrs_json: Optional[str] = None) -> None:
@@ -41,6 +42,7 @@ class CompileDatabase:
         self.set_attributes = set_attributes
         self.hdf5 = hdf5
         self.shapefiles = shapefiles
+        self.geopackages = geopackages
         self.break_transects = break_transects
         self.remove_tmp_files = remove_tmp_files
         imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
@@ -211,7 +213,7 @@ class CompileDatabase:
                     for ds_dir in tqdm(self.dir_list, desc='Removing', unit='directory'):
                         self._cleanup(ds_dir)
 
-        if self.shapefiles is True:
+        if self.shapefiles:
             num_tasks = len(self.dir_list)
             num_workers = min(num_tasks, cpus)
 
@@ -226,6 +228,22 @@ class CompileDatabase:
             else:
                 for ds_dir in tqdm(self.dir_list, desc='Processing'):
                     self.make_shapefile(ds_dir)
+
+        if self.geopackages:
+            num_tasks = len(self.dir_list)
+            num_workers = min(num_tasks, cpus)
+
+            print('\n',
+                    'Will start creating the geopackages for', len(self.dir_list), 'datasets\n'
+                    '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
+
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(pool.imap_unordered(self.make_geopackage, self.dir_list), total=num_tasks):
+                        pass
+            else:
+                for ds_dir in tqdm(self.dir_list, desc='Processing'):
+                    self.make_geopackage(ds_dir)
 
         elapsed = time.time() - start_time
         print(f"\nCompilation completed in {elapsed:.2f} seconds")
@@ -633,7 +651,7 @@ class CompileDatabase:
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
 
-                flight_id_flag = ds.attrs["flight_id_flag"]
+                flight_id_flag = ds.attrs["flight ID flag"]
 
                 if flight_id_flag == 'not_provided':
                     x = ds['PSX'].values
@@ -645,7 +663,7 @@ class CompileDatabase:
                     for t in range(len(break_points) -1):
                         ds_flight_line = ds.isel(point=slice(break_points[t], break_points[t+1])).copy()
                         ds_flight_line['point'] = np.arange(len(ds_flight_line.point))
-                        ds_flight_line.attrs['flight_id'] += f'_{t}'
+                        ds_flight_line.attrs['flight ID'] += f'_{t}'
 
                         h5_flight_file = f'{h5_dir}/{file_}_{t}.h5'
 
@@ -820,6 +838,62 @@ class CompileDatabase:
         gdf = gpd.GeoDataFrame(df_all, geometry=geometry, crs="EPSG:3031")
         combined_gdf = gpd.GeoDataFrame(gdf, crs="EPSG:3031")
         dataset = os.path.basename(os.path.normpath(dataset_dir))
-        shape_dir = f"{dataset_dir}/shap/"
+        shape_dir = f"{dataset_dir}/shp/"
         os.makedirs(shape_dir, exist_ok=True)
         combined_gdf.to_file(f"{shape_dir}/{dataset}.shp")
+
+
+    def make_geopackage(self, dataset_dir: str) -> None:
+        h5files = glob.glob(f'{dataset_dir}/h5/*.h5')
+
+        all_points = []
+        all_md = []
+        for h5f in h5files:
+            with h5py.File(h5f, 'r') as f:
+                with xr.open_dataset(f, engine='h5netcdf') as ds:
+                    N = ds.IRH_NUM.values
+
+                    irh_depth = ds.IRH_DEPTH.values
+                    max_depth = np.full(len(N), np.nan)
+                    age_max_depth = np.full(len(N), np.nan)
+
+                    for i in range(len(N)):
+                        depth_slice = irh_depth[i, :]
+                        if not np.all(np.isnan(depth_slice)):  # Check if all values are NaN
+                            max_idx = np.nanargmax(depth_slice)
+                            max_depth[i] = depth_slice[max_idx]
+                            age_max_depth[i] = ds.IRH_AGE.values[max_idx]
+
+                    flight_id = ds.attrs["flight ID"]
+                    acq_year = ds.attrs["acquisition year"]
+                    project = ds.attrs["project"]
+                    instrument = ds.attrs["radar instrument"]
+
+                    points_gdf = gpd.GeoDataFrame({
+                        "flight_id": [flight_id] * len(N),
+                        "geometry": [Point(x, y) for x, y in zip(ds.PSX.values, ds.PSY.values)],
+                        "IRH_NUM": N,
+                        "IRH_DEPTH_MAX": max_depth,
+                        "IRHAGE_MAX": age_max_depth,
+                    }, crs="EPSG:3031")
+
+                    flights_df = gpd.GeoDataFrame({
+                        "flight_id": flight_id,
+                        "acquisition_year": [acq_year],
+                        "project": [project],
+                        "instrument": [instrument],
+                    })
+
+                    all_points.append(points_gdf)
+                    all_md.append(flights_df)
+
+
+        df_points = gpd.GeoDataFrame(pd.concat(all_points, ignore_index=True), crs="EPSG:3031")
+        df_md = gpd.GeoDataFrame(pd.concat(all_md, ignore_index=True))
+
+        dataset = os.path.basename(os.path.normpath(dataset_dir))
+        gpkg_dir = f"{dataset_dir}/gpkg/"
+        os.makedirs(gpkg_dir, exist_ok=True)
+
+        df_points.to_file(f"{gpkg_dir}/{dataset}.gpkg", layer='points', driver='GPKG')
+        df_md.to_file(f"{gpkg_dir}/{dataset}.gpkg", layer='flights', driver='GPKG')
