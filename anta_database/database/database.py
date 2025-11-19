@@ -9,13 +9,14 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from anta_database.plotting.plotting import Plotting
 
 class Database:
-    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', max_displayed_flight_ids: Optional[int] = 50) -> None:
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', include_BEDMAP: bool = False, max_displayed_flight_ids: Optional[int] = 50) -> None:
         self.db_dir = database_dir
         self.file_db = file_db
         self.file_db_path = os.path.join(self.db_dir, file_db)
         self.md = None
         self._plotting = None
         self.max_displayed_flight_ids = max_displayed_flight_ids
+        self.include_BM = include_BEDMAP
         self.excluded = {
             'dataset': [],
             'institute': [],
@@ -140,10 +141,30 @@ class Database:
                 if not_range_conditions:
                     conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
 
+        if not self.include_BM:
+            conditions.append("a.name NOT LIKE ?")
+            params.append('%BEDMAP%')
+
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
         query += ' ORDER BY CAST(d.age AS INTEGER) ASC'
         return query, params
+
+    def _is_year_in_range(self, year: str, range_str: str) -> bool:
+        """Check if a year is within a stored range (e.g., '2016-2020')."""
+        if '-' not in range_str:
+            return year == range_str  # Exact match for non-range values
+        start, end = map(int, range_str.split('-'))
+        return int(year) >= start and int(year) <= end
+
+    def _is_range_value(self, s: str) -> bool:
+        """Check if the string is a range value (e.g., '1999-2003')."""
+        return '-' in s and all(part.isdigit() for part in s.split('-'))
+
+    def _parse_range_value(self, s: str) -> Tuple[int, int]:
+        """Parse a range value string into start and end years."""
+        start, end = s.split('-')
+        return int(start), int(end)
 
     def _is_range_query(self, s: str) -> bool:
         """Check if the string is a range query (e.g., '>2000', '<=2010')."""
