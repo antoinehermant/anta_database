@@ -95,8 +95,36 @@ class Database:
                         params.append(field)
                     elif self._is_range_query(field):
                         op, val = self._parse_range_query(field)
-                        conditions.append(f"{column} {op} ?")
-                        params.append(val)
+                        if op == '>':
+                            conditions.append(f"("
+                                f"({column} > ?) OR "
+                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) > ?)"
+                                f")")
+                            params.extend([val, val])
+                        elif op == '<':
+                            conditions.append(f"("
+                                f"({column} < ?) OR "
+                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) < ?)"
+                                f")")
+                            params.extend([val, val])
+                        elif op == '>=':
+                            conditions.append(f"("
+                                f"({column} >= ?) OR "
+                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
+                                f")")
+                            params.extend([val, val])
+                        elif op == '<=':
+                            conditions.append(f"("
+                                f"({column} <= ?) OR "
+                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ?)"
+                                f")")
+                            params.extend([val, val])
+                        elif op == '=':
+                            conditions.append(f"("
+                                f"({column} = ?) OR "
+                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
+                                f")")
+                            params.extend([val, val, val])
                     else:
                         conditions.append(f"{column} = ?")
                         params.append(field)
@@ -114,32 +142,60 @@ class Database:
                 ('radar_instrument', 'd.radar_instrument')
         ]:
             if self.excluded[field]:
-                not_like_conditions = []
-                not_in_values = []
-                not_range_conditions = []
-                for item in self.excluded[field]:
-                    if '%' in item:
-                        not_like_conditions.append(f"{column} NOT LIKE ?")
-                        params.append(item)
-                    elif self._is_range_query(item):
-                        op, val = self._parse_range_query(item)
-                        inverted_op = self._invert_range_operator(op)
-                        not_range_conditions.append(f"{column} {inverted_op} ?")
-                        params.append(val)
-                    else:
-                        not_in_values.append(item)
-                if not_like_conditions:
-                    conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
-                if not_in_values:
-                    if len(not_in_values) == 1:
-                        conditions.append(f"{column} != ?")
-                        params.append(not_in_values[0])
-                    else:
-                        placeholders = ','.join(['?'] * len(not_in_values))
-                        conditions.append(f"{column} NOT IN ({placeholders})")
-                        params.extend(not_in_values)
-                if not_range_conditions:
-                    conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
+                    not_like_conditions = []
+                    not_in_values = []
+                    not_range_conditions = []
+                    for item in self.excluded[field]:
+                        if '%' in item:
+                            not_like_conditions.append(f"{column} NOT LIKE ?")
+                            params.append(item)
+                        elif self._is_range_query(item):
+                            op, val = self._parse_range_query(item)
+                            inverted_op = self._invert_range_operator(op)
+                            if inverted_op == '>':
+                                conditions.append(f"("
+                                    f"({column} > ?) OR "
+                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) > ?)"
+                                    f")")
+                                params.extend([val, val])
+                            elif inverted_op == '<':
+                                conditions.append(f"("
+                                    f"({column} < ?) OR "
+                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) < ?)"
+                                    f")")
+                                params.extend([val, val])
+                            elif inverted_op == '>=':
+                                conditions.append(f"("
+                                    f"({column} >= ?) OR "
+                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
+                                    f")")
+                                params.extend([val, val])
+                            elif inverted_op == '<=':
+                                conditions.append(f"("
+                                    f"({column} <= ?) OR "
+                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ?)"
+                                    f")")
+                                params.extend([val, val])
+                            elif inverted_op == '=':
+                                conditions.append(f"("
+                                    f"({column} = ?) OR "
+                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
+                                    f")")
+                                params.extend([val, val, val])
+                        else:
+                            not_in_values.append(item)
+                    if not_like_conditions:
+                        conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
+                    if not_in_values:
+                        if len(not_in_values) == 1:
+                            conditions.append(f"{column} != ?")
+                            params.append(not_in_values[0])
+                        else:
+                            placeholders = ','.join(['?'] * len(not_in_values))
+                            conditions.append(f"{column} NOT IN ({placeholders})")
+                            params.extend(not_in_values)
+                    if not_range_conditions:
+                        conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
 
         if not self.include_BM:
             conditions.append("a.name NOT LIKE ?")
