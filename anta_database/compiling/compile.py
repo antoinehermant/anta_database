@@ -609,7 +609,7 @@ class CompileDatabase:
             sorted_ages_int = [int(age) for age in sorted_ages]
             depth_data = merged_df[sorted_ages]
             data_vars['IRH_DEPTH'] = (['point', 'IRH_AGE'], depth_data)
-            ds = ds.assign_coords(age=sorted_ages_int)
+            ds = ds.assign_coords(IRH_AGE=sorted_ages_int)
             ds['IRH_DEPTH'] = (['point', 'IRH_AGE'], depth_data)
 
             if 'IRH_DEPTH' in ds.variables:
