@@ -361,6 +361,7 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
+        radar_list = []
         for dataset_name, citations, DOI_dataset, DOI_publication, institutes, projects, acq_years, ages, ages_unc, vars, flight_id, regions, basins, radar_instruments in results:
             metadata['dataset'].append(dataset_name)
             metadata['reference'].append(citations)
@@ -369,7 +370,6 @@ class Database:
             metadata['flight_id'].append(flight_id)
             metadata['region'].append(regions)
             metadata['IMBIE_basin'].append(basins)
-            metadata['radar_instrument'].append(radar_instruments)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
                 ages_list.append(int(ages))
@@ -383,6 +383,10 @@ class Database:
                 institutes_list.append(institutes)
             else:
                 institutes_list.append('-')
+            if radar_instruments is not None:
+                radar_list.append(radar_instruments)
+            else:
+                radar_list.append('-')
             if projects is not None:
                 projects_list.append(projects)
             else:
@@ -416,7 +420,7 @@ class Database:
         metadata['flight_id'] = list(set(metadata['flight_id']))
         metadata['region'] = list(set(metadata['region']))
         metadata['IMBIE_basin'] = list(set(metadata['IMBIE_basin']))
-        metadata['radar_instrument'] = list(set(metadata['radar_instrument']))
+        metadata['radar_instrument'] = sorted(set(radar_list))
 
         if retain_query:
             self.md = metadata
