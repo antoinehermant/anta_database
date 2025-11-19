@@ -67,7 +67,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = 0.1,
+            marker_size: Optional[float] = 0.2,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -175,7 +175,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = 0.1,
+            marker_size: Optional[float] = 0.3,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -188,6 +188,42 @@ class Plotting:
         """
         self._base_plot(
             color_by='var',
+            metadata=metadata,
+            downscale_factor=downscale_factor,
+            title=title,
+            xlim=xlim,
+            ylim=ylim,
+            scale_factor=scale_factor,
+            marker_size=marker_size,
+            latex=latex,
+            cmap=cmap,
+            grounding_line=grounding_line,
+            basins=basins,
+            stations=stations,
+            save=save,
+        )
+
+    def transect(
+            self,
+            metadata: Union[None, Dict, 'MetadataResult'] = None,
+            downscale_factor: Optional[int] = None,
+            title: str = '',
+            xlim: tuple = (None, None),
+            ylim: tuple = (3000, None),
+            scale_factor: float = 1.0,
+            marker_size: Optional[float] = 2,
+            latex: bool = False,
+            cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
+            save: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the color-coded values of the given variable on Antarcitic map
+        """
+        self._base_plot(
+            color_by='transect',
             metadata=metadata,
             downscale_factor=downscale_factor,
             title=title,
@@ -259,7 +295,7 @@ class Plotting:
         if basins:
             grounding_line = False
         # --- Plot Grounding Line ---
-        if True: # FIXME
+        if True and color_by != 'transect': # FIXME
             gl = pd.read_pickle(self.gl_path)
             ax.plot(gl.x/1000, gl.y/1000, linewidth=1, color='k')
 
@@ -457,8 +493,40 @@ class Plotting:
                 for age in metadata['age']:
                     scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[int(age)], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
-                #     all_dfs.append(df)
-                # combined_df = pd.concat(all_dfs, ignore_index=True)
+        if color_by == 'transect':
+            flight_id = list(metadata['flight_id'])
+            if len(flight_id) > 1:
+                flight_id = flight_id[0]
+                print('Found mutilple flight lines to plot, so will plot the first one: ', flight_id)
+            elif len(flight_id) < 1:
+                print('No flight line found to plot')
+                return
+
+            metadata_impl = self._db.query(flight_id=flight_id, dataset=metadata['dataset'], retain_query=False)
+            f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
+            full_path = os.path.join(self._db.db_dir, f)
+            import xarray as xr
+            ds = xr.open_dataset(full_path, engine='h5netcdf')
+
+            if 'Distance' not in ds.variables:
+                print('Distance not in varibles, cannot plot along transect')
+                return
+
+            cmap = self._custom_cmap_density()
+            colors = [cmap(i) for i in np.linspace(0.1, 0.9, ds.sizes['IRH_AGE'])]
+            for age, color in zip(ds.IRH_AGE, colors):
+                ax.scatter(ds.Distance/1000, ds.IRH_DEPTH.sel(IRH_AGE=age),
+                           color=color, s=marker_size, linewidths=0.1)
+                plt.plot([], [], color=color, label=age.values, linewidth=3)
+                # ds.IRH_DEPTH.sel(IRH_AGE=age).where(~np.isnan(ds.IRH_DEPTH.sel(IRH_AGE=age)), drop=True).plot()
+            scatter = ax.scatter(ds.Distance/1000, ds.ICE_THK, color='k', s=marker_size, linewidths=0.1)
+            plt.plot([], [], color='k', label='Bed Depth', linewidth=3)
+
+            if ncol == None:
+                if ds.sizes['IRH_AGE'] > 7:
+                    ncol = 2
+                if ds.sizes['IRH_AGE'] > 15:
+                    ncol = 3
 
         elif color_by == 'flight_id':
             flight_ids = list(metadata['flight_id'])
@@ -488,17 +556,19 @@ class Plotting:
 
         # --- Format Figure ---
         print('Formatting ...')
+
         x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
         y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
         x_extent = x1 - x0
         y_extent = y1 - y0
         aspect_ratio = y_extent / x_extent
-        plt.gcf().set_size_inches(10 * scale_factor, 10 * aspect_ratio * scale_factor)
-        ax.set_xlabel('x [km]')
-        ax.set_ylabel('y [km]')
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-        ax.set_aspect('equal')
+        if color_by != 'transect':
+            ax.set_xlabel('x [km]')
+            ax.set_ylabel('y [km]')
+            ax.set_aspect('equal')
+            plt.gcf().set_size_inches(10 * scale_factor, 10 * aspect_ratio * scale_factor)
         plt.title(title, fontsize=24*scale_factor)
 
         if ncol == None:
@@ -517,11 +587,16 @@ class Plotting:
             cbar.ax.xaxis.set_ticks_position('bottom')
             if label:
                 cbar.set_label(label)
+        elif color_by == 'transect':
+            ax.legend(ncols=2)
+            ax.set_xlabel('Distance [km]')
+            ax.set_ylabel('Depth below surface [m]')
+            plt.gcf().set_size_inches(10 * scale_factor, 10 * 2/3)
 
         plt.tight_layout()
 
         # --- Plot IMBIE basins ---
-        if basins:
+        if basins and color_by != 'transect':
             basins = gpd.read_file(self.imbie_path)
             basins.geometry = basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
             basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
@@ -534,7 +609,7 @@ class Plotting:
                         path_effects=[path_effects.withStroke(linewidth=5, foreground=(1,1,1,0.7))]
                         )
         # --- Plot ice core sites ---
-        if stations:
+        if stations and color_by != 'transect':
             site_coords = pd.read_pickle(self.site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
