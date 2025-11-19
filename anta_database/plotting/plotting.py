@@ -454,7 +454,8 @@ class Plotting:
                     all_dfs.append(ds)
 
                 df = pd.concat(all_dfs)
-                scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+                for age in metadata['age']:
+                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[int(age)], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
                 #     all_dfs.append(df)
                 # combined_df = pd.concat(all_dfs, ignore_index=True)

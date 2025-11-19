@@ -510,66 +510,46 @@ class Database:
         for file_path in file_paths:
             full_path = os.path.join(data_dir, file_path)
             file_md = self._get_file_metadata(file_path)
+            ds = h5py.File(full_path, 'r')
+            df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
+                                'PSY': ds['PSY'][::downscale_factor]})
+
+            if 'Distance' in ds.keys():
+                df['Distance'] = ds['Distance'][::downscale_factor]
+
             for var in md['var']:
                 if var == 'IRH_DEPTH':
                     for age in md['age']:
-                        ds = h5py.File(full_path, 'r')
                         irh_values = ds['IRH_AGE'][:]
                         irh_index = np.where(irh_values == int(age))[0]
                         if len(irh_index) == 0:
                             continue
                         irh_index = irh_index[0]
-                        df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
-                                        'PSY': ds['PSY'][::downscale_factor],
-                                        'Distance': ds['Distance'][::downscale_factor],
-                                        var: ds[var][::downscale_factor, irh_index]})
 
-                        metadata = {
-                            'dataset': file_md['dataset'],
-                            'var': var,
-                            'age': age,
-                            'flight_id': file_md['flight_id'],
-                            'institute': file_md['institute'],
-                            'project': file_md['project'],
-                            'acq_year': file_md['acq_year'],
-                            'age_unc': file_md['age'],
-                            'reference': file_md['reference'],
-                            'DOI_dataset': file_md['DOI_dataset'],
-                            'DOI_publication': file_md['DOI_publication'],
-                            'flight_id': file_md['flight_id'],
-                            'region': file_md['region'],
-                            'IMBIE_basin': file_md['IMBIE_basin'],
-                            'radar_instrument': file_md['radar_instrument'],
-                        }
-
-                        yield df, metadata
+                        df[int(age)] = ds[var][::downscale_factor, irh_index]
 
                 else:
-                    ds = h5py.File(full_path, 'r')
-                    df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
-                                    'PSY': ds['PSY'][::downscale_factor],
-                                    'Distance': ds['Distance'][::downscale_factor],
-                                    var: ds[var][::downscale_factor]})
+                    df[var] = ds[var][::downscale_factor]
 
-                    metadata = {
-                        'dataset': file_md['dataset'],
-                        'var': var,
-                        'age': None,
-                        'flight_id': file_md['flight_id'],
-                        'institute': file_md['institute'],
-                        'project': file_md['project'],
-                        'acq_year': file_md['acq_year'],
-                        'age_unc': file_md['age'],
-                        'reference': file_md['reference'],
-                        'DOI_dataset': file_md['DOI_dataset'],
-                        'DOI_publication': file_md['DOI_publication'],
-                        'flight_id': file_md['flight_id'],
-                        'region': file_md['region'],
-                        'IMBIE_basin': file_md['IMBIE_basin'],
-                        'radar_instrument': file_md['radar_instrument'],
-                    }
+            metadata = {
+                'dataset': file_md['dataset'],
+                'var': md['var'],
+                'age': md['age'],
+                'flight_id': file_md['flight_id'],
+                'institute': file_md['institute'],
+                'project': file_md['project'],
+                'acq_year': file_md['acq_year'],
+                'age_unc': md['age_unc'],
+                'reference': file_md['reference'],
+                'DOI_dataset': file_md['DOI_dataset'],
+                'DOI_publication': file_md['DOI_publication'],
+                'flight_id': file_md['flight_id'],
+                'region': file_md['region'],
+                'IMBIE_basin': file_md['IMBIE_basin'],
+                'radar_instrument': file_md['radar_instrument'],
+            }
 
-                    yield df, metadata
+            yield df, metadata
 
     def return_dataset(
         self,
