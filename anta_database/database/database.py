@@ -52,14 +52,37 @@ class Database:
                 datasets d
             JOIN
                 sources s ON d.dataset = s.id
-            LEFT JOIN
-                dataset_projects dp ON d.id = dp.dataset_id
-            LEFT JOIN
-                projects p ON dp.project_id = p.id
-            LEFT JOIN
-                dataset_institutes di ON d.id = di.dataset_id
-            LEFT JOIN
-                institutes i ON di.institute_id = i.id
+            INNER JOIN (
+                    SELECT
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS projects
+                    FROM
+                        dataset_projects di
+                    JOIN
+                        projects i ON di.project_id = i.id
+                    GROUP BY
+                        di.dataset_id
+                ) AS projects_list ON d.id = projects_list.dataset_id
+            INNER JOIN (
+                    SELECT
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS institutes
+                    FROM
+                        dataset_institutes di
+                    JOIN
+                        institutes i ON di.institute_id = i.id
+                    GROUP BY
+                        di.dataset_id
+                ) AS institutes_list ON d.id = institutes_list.dataset_id
+            INNER JOIN (
+                    SELECT
+                        id,
+                        GROUP_CONCAT(radar_instrument, ', ') AS radar_instruments
+                    FROM
+                        datasets
+                    GROUP BY
+                        id
+                ) AS radar_list ON d.id = radar_list.id
             LEFT JOIN
                 dataset_variables dv ON d.id = dv.dataset_id
             LEFT JOIN
@@ -73,17 +96,48 @@ class Database:
         '''
         conditions = []
         params = []
+
+        if institute:
+            if isinstance(institute, list):
+                like_conditions = []
+                for inst in institute:
+                    like_conditions.append("institutes_list.institutes LIKE ?")
+                    params.append(f'%{inst}%')
+                conditions.append('(' + ' OR '.join(like_conditions) + ')')
+            else:
+                conditions.append("institutes_list.institutes LIKE ?")
+                params.append(f'%{institute}%')
+
+        if project:
+            if isinstance(project, list):
+                like_conditions = []
+                for proj in project:
+                    like_conditions.append("projects_list.projects LIKE ?")
+                    params.append(f'%{proj}%')
+                conditions.append('(' + ' OR '.join(like_conditions) + ')')
+            else:
+                conditions.append("projects_list.projects LIKE ?")
+                params.append(f'%{project}%')
+
+        if radar_instrument:
+            if isinstance(radar_instrument, list):
+                like_conditions = []
+                for ri in radar_instrument:
+                    like_conditions.append("radar_list.radar_instruments LIKE ?")
+                    params.append(f'%{ri}%')
+                conditions.append('(' + ' OR '.join(like_conditions) + ')')
+            else:
+                conditions.append("radar_list.radar_instruments LIKE ?")
+                params.append(f'%{radar_instrument}%')
+
         for field, column in [
                     (age, 'a.age'),
                     (var, 'v.name'),
                     (dataset, 's.name'),
-                    (institute, 'i.name'),
-                    (project, 'p.name'),
                     (acq_year, 'd.acq_year'),
                     (line, 'd.flight_id'),
                     (region, 'r.region'),
-                    (IMBIE_basin, 'r.IMBIE_basin'),
-                    (radar_instrument, 'd.radar_instrument')
+                    (IMBIE_basin, 'r.IMBIE_basin')
         ]:
             if field is not None:
                 if isinstance(field, list):
@@ -145,6 +199,15 @@ class Database:
                                 f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
                                 f")")
                             params.extend([val, val, val])
+                    elif self._is_range_value(field):
+                            start, end = self._parse_range_value(field)
+                            conditions.append(f"("
+                                f"({column} BETWEEN ? AND ?) OR "
+                                f"({column} LIKE '%-%' AND "
+                                f"CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND "
+                                f"CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
+                                f")")
+                            params.extend([start, end, end, start])
                     else:
                         conditions.append(f"{column} = ?")
                         params.append(field)
@@ -153,13 +216,10 @@ class Database:
                 ('age', 'a.age'),
                 ('var', 'v.var'),
                 ('dataset', 's.name'),
-                ('institute', 'i.name'),
-                ('project', 'p.name'),
                 ('acq_year', 'd.acq_year'),
                 ('flight_id', 'd.flight_id'),
                 ('region', 'r.region'),
                 ('IMBIE_basin', 'r.IMBIE_basin'),
-                ('radar_instrument', 'd.radar_instrument')
         ]:
             if self.excluded[field]:
                     not_like_conditions = []
@@ -217,6 +277,39 @@ class Database:
                     if not_range_conditions:
                         conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
 
+        if self.excluded.get('institute'):
+            if isinstance(self.excluded['institute'], list):
+                not_like_conditions = []
+                for inst in self.excluded['institute']:
+                    not_like_conditions.append("institutes_list.institutes NOT LIKE ?")
+                    params.append(f'%{inst}%')
+                conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
+            else:
+                conditions.append("institutes_list.institutes NOT LIKE ?")
+                params.append(f'%{self.excluded["institute"]}%')
+
+        if self.excluded.get('project'):
+            if isinstance(self.excluded['project'], list):
+                not_like_conditions = []
+                for proj in self.excluded['project']:
+                    not_like_conditions.append("projects_list.projects NOT LIKE ?")
+                    params.append(f'%{proj}%')
+                conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
+            else:
+                conditions.append("projects_list.projects NOT LIKE ?")
+                params.append(f'%{self.excluded["project"]}%')
+
+        if self.excluded.get('radar_instrument'):
+            if isinstance(self.excluded['radar_instrument'], list):
+                not_like_conditions = []
+                for ri in self.excluded['radar_instrument']:
+                    not_like_conditions.append("radar_list.radar_instruments NOT LIKE ?")
+                    params.append(f'%{ri}%')
+                conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
+            else:
+                conditions.append("radar_list.radar_instruments NOT LIKE ?")
+                params.append(f'%{self.excluded["radar_instrument"]}%')
+
         if not self.include_BM:
             conditions.append("s.name NOT LIKE ?")
             params.append('%BEDMAP%')
@@ -239,8 +332,14 @@ class Database:
 
     def _parse_range_value(self, s: str) -> Tuple[int, int]:
         """Parse a range value string into start and end years."""
-        start, end = s.split('-')
-        return int(start), int(end)
+        start, end = map(int, s.split('-'))
+        return start, end
+
+    def _ranges_overlap(self, range1: str, range2: str) -> bool:
+        """Check if two ranges overlap."""
+        start1, end1 = self._parse_range_value(range1)
+        start2, end2 = self._parse_range_value(range2)
+        return start1 <= end2 and end1 >= start2
 
     def _is_range_query(self, s: str) -> bool:
         """Check if the string is a range query (e.g., '>2000', '<=2010')."""
@@ -316,8 +415,8 @@ class Database:
                         s.citation, \
                         s.DOI_dataset, \
                         s.DOI_publication, \
-                        i.name AS institute, \
-                        p.name AS project, \
+                        institutes_list.institutes, \
+                        projects_list.projects, \
                         d.acq_year, \
                         a.age, \
                         a.age_unc, \
@@ -325,7 +424,7 @@ class Database:
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        d.radar_instrument \
+                        radar_list.radar_instruments \
         '
         query = f'''
             SELECT {select_clause}
@@ -333,14 +432,37 @@ class Database:
                 datasets d
             JOIN
                 sources s ON d.dataset = s.id
-            LEFT JOIN
-                dataset_projects dp ON d.id = dp.dataset_id
-            LEFT JOIN
-                projects p ON dp.project_id = p.id
-            LEFT JOIN
-                dataset_institutes di ON d.id = di.dataset_id
-            LEFT JOIN
-                institutes i ON di.institute_id = i.id
+            INNER JOIN (
+                    SELECT
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS projects
+                    FROM
+                        dataset_projects di
+                    JOIN
+                        projects i ON di.project_id = i.id
+                    GROUP BY
+                        di.dataset_id
+                ) AS projects_list ON d.id = projects_list.dataset_id
+            INNER JOIN (
+                    SELECT
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS institutes
+                    FROM
+                        dataset_institutes di
+                    JOIN
+                        institutes i ON di.institute_id = i.id
+                    GROUP BY
+                        di.dataset_id
+                ) AS institutes_list ON d.id = institutes_list.dataset_id
+            INNER JOIN (
+                    SELECT
+                        id,
+                        GROUP_CONCAT(radar_instrument, ', ') AS radar_instruments
+                    FROM
+                        datasets
+                    GROUP BY
+                        id
+                ) AS radar_list ON d.id = radar_list.id
             LEFT JOIN
                 dataset_variables dv ON d.id = dv.dataset_id
             LEFT JOIN
@@ -412,8 +534,8 @@ class Database:
                         s.citation, \
                         s.DOI_dataset, \
                         s.DOI_publication, \
-                        i.name AS institute, \
-                        p.name AS project, \
+                        institutes_list.institutes, \
+                        projects_list.projects, \
                         d.acq_year, \
                         a.age, \
                         a.age_unc, \
@@ -421,7 +543,7 @@ class Database:
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        d.radar_instrument \
+                        radar_list.radar_instruments \
         '
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
 
@@ -458,14 +580,14 @@ class Database:
         projects_list = []
         acq_years_list = []
         radar_list = []
+        region_list = []
+        basin_list = []
         for dataset_name, citations, DOI_dataset, DOI_publication, institutes, projects, acq_years, ages, ages_unc, vars, flight_id, regions, basins, radar_instruments in results:
             metadata['dataset'].append(dataset_name)
             metadata['reference'].append(citations)
             metadata['DOI_dataset'].append(DOI_dataset)
             metadata['DOI_publication'].append(DOI_publication)
             metadata['flight_id'].append(flight_id)
-            metadata['region'].append(regions)
-            metadata['IMBIE_basin'].append(basins)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
                 ages_list.append(int(ages))
@@ -491,6 +613,14 @@ class Database:
                 acq_years_list.append(acq_years)
             else:
                 acq_years_list.append('-')
+            if regions is not None:
+                region_list.append(regions)
+            else:
+                region_list.append('-')
+            if basins is not None:
+                basin_list.append(basins)
+            else:
+                basin_list.append('-')
 
 
         paired = sorted(zip(ages_list, ages_unc_list), key=lambda x: x[0])
@@ -514,9 +644,9 @@ class Database:
         metadata['DOI_dataset'] = list(dict.fromkeys(metadata['DOI_dataset']))
         metadata['DOI_publication'] = list(dict.fromkeys(metadata['DOI_publication']))
         metadata['flight_id'] = list(set(metadata['flight_id']))
-        metadata['region'] = list(set(metadata['region']))
-        metadata['IMBIE_basin'] = list(set(metadata['IMBIE_basin']))
         metadata['radar_instrument'] = sorted(set(radar_list))
+        metadata['region'] = sorted(set(region_list))
+        metadata['IMBIE_basin'] = sorted(set(basin_list))
 
         if retain_query:
             self.md = metadata
@@ -765,7 +895,6 @@ class MetadataResult:
         """Pretty-print the metadata, truncating long flight_id lists."""
         md = self._metadata
         output = []
-        output.append("Metadata from query:")
 
         flight_ids = md['flight_id']
         if len(flight_ids) > self.max_displayed_flight_ids:
@@ -775,23 +904,32 @@ class MetadataResult:
         else:
             flight_id_str = ", ".join(flight_ids)
 
-        output.append(f"\n  - dataset: {', '.join(md['dataset'])}")
-        output.append(f"\n  - institute: {', '.join(md['institute'])}")
-        output.append(f"\n  - project: {', '.join(md['project'])}")
-        output.append(f"\n  - acq_year: {', '.join(md['acq_year'])}")
-        output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
-        output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
-        output.append(f"\n  - var: {', '.join(md['var'])}")
-        output.append(f"\n  - region: {', '.join(md['region'])}")
-        output.append(f"\n  - IMBIE_basin: {', '.join(md['IMBIE_basin'])}")
-        output.append(f"\n  - radar_instrument: {', '.join(md['radar_instrument'])}")
-        output.append(f"\n  - flight_id: {flight_id_str}")
-        output.append(f"\n  - reference: {', '.join(md['reference'])}")
-        output.append(f"  - dataset DOI: {', '.join(md['DOI_dataset'])}")
-        output.append(f"  - publication DOI: {', '.join(md['DOI_publication'])}")
-        output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
-        output.append(f"  - query params: {md['_query_params']}")
-        output.append(f"  - filter params: {md['_filter_params']}")
+        if not md['dataset']:
+            output.append(f"\nNo data found for this query")
+            output.append(f"Try something else:")
+            output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
+            output.append(f"  - query params: {md['_query_params']}")
+            output.append(f"  - filter params: {md['_filter_params']}")
+
+        else:
+            output.append("Metadata from query:")
+            output.append(f"\n  - dataset: {', '.join(md['dataset'])}")
+            output.append(f"\n  - institute: {', '.join(md['institute'])}")
+            output.append(f"\n  - project: {', '.join(md['project'])}")
+            output.append(f"\n  - acq_year: {', '.join(md['acq_year'])}")
+            output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
+            output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
+            output.append(f"\n  - var: {', '.join(md['var'])}")
+            output.append(f"\n  - region: {', '.join(md['region'])}")
+            output.append(f"\n  - IMBIE_basin: {', '.join(md['IMBIE_basin'])}")
+            output.append(f"\n  - radar_instrument: {', '.join(md['radar_instrument'])}")
+            output.append(f"\n  - flight_id: {flight_id_str}")
+            output.append(f"\n  - reference: {', '.join(md['reference'])}")
+            output.append(f"  - dataset DOI: {', '.join(md['DOI_dataset'])}")
+            output.append(f"  - publication DOI: {', '.join(md['DOI_publication'])}")
+            output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
+            output.append(f"  - query params: {md['_query_params']}")
+            output.append(f"  - filter params: {md['_filter_params']}")
 
         return "\n".join(output)
 
