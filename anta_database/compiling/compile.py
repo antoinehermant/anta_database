@@ -388,6 +388,9 @@ class CompileDatabase:
             project_flag = 'original'
             acq_year = raw_md['acquisition year']
             acq_year_flag = 'original'
+            doi_data = raw_md['DOI dataset']
+            doi_pub = raw_md['DOI publication']
+            acq_year = raw_md['acquisition year']
             if 'radar instrument' in raw_md.index:
                 radar_inst = raw_md['radar instrument']
             else:
@@ -455,7 +458,9 @@ class CompileDatabase:
                         'institute': [institute, institute_flag],
                         'project': [project, project_flag],
                         'acq_year': [acq_year, acq_year_flag],
-                        'radar_instrument': [radar_inst, None]
+                        'radar_instrument': [radar_inst, None],
+                        'doi_data': [doi_data, None],
+                        'doi_pub': [doi_pub, None],
                     })
                     trace_md.set_index('flight_id', inplace=True)
                     trace_md.to_csv(trace_metadata)
@@ -501,6 +506,8 @@ class CompileDatabase:
                     acq_year = row['acquisition year']
                     acq_year_flag = 'original'
                     flight_id_flag = 'original'
+                    doi_data = row['DOI dataset']
+                    doi_pub = row['DOI publication']
                     if 'radar instrument' in row.index:
                         radar_inst = row['radar instrument']
                     else:
@@ -523,7 +530,9 @@ class CompileDatabase:
                             'institute': [institute, institute_flag],
                             'project': [project, project_flag],
                             'acq_year': [acq_year, acq_year_flag],
-                            'radar_instrument': [radar_inst, None]
+                            'radar_instrument': [radar_inst, None],
+                            'doi_data': [doi_data, None],
+                            'doi_pub': [doi_pub, None],
                         })
                         trace_md.set_index('flight_id', inplace=True)
                         trace_md.to_csv(trace_metadata)
@@ -589,6 +598,8 @@ class CompileDatabase:
                 'acquisition year': str(trace_md.iloc[0]['acq_year']),
                 'flight ID': str(trace_md.iloc[0]['flight_id']),
                 'flight ID flag': str(trace_md.iloc[1]['flight_id']),
+                'DOI dataset': str(trace_md.iloc[0]['doi_data']),
+                'DOI publication': str(trace_md.iloc[0]['doi_pub']),
             }
         )
         point_shape = len(merged_df)
@@ -695,8 +706,9 @@ class CompileDatabase:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
 
                 if 'IRH_DEPTH' in ds.variables:
-                    ds['IRH_NUM'] = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='IRH_AGE')
-                    ds['IRH_NUM'] = ds['IRH_NUM'].where(ds['IRH_NUM'] != 0, np.nan)
+                    irh_num = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='IRH_AGE')
+                    irh_num = irh_num.where(irh_num != 0, np.nan)
+                    ds['IRH_NUM'] = irh_num.astype('int16')
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -816,31 +828,45 @@ class CompileDatabase:
         all_dfs = []
         for h5f in h5files:
             with h5py.File(h5f, 'r') as f:
-                x = f["PSX"][:]
-                y = f["PSY"][:]
-                N = f["IRH_NUM"][:]
-                depth = f["IRH_DEPTH"][:, -1]
-                flight_id = f.attrs["flight_id"]
+                with xr.open_dataset(f, engine='h5netcdf') as ds:
+                    N = ds.IRH_NUM.values
 
-            df = pd.DataFrame({
-                "PSX": x,
-                "PSY": y,
-                "IRH_NUM": N,
-                "DL": depth,
-                "flight_id": flight_id
-            })
+                    irh_depth = ds.IRH_DEPTH.values
+                    max_depth = np.full(len(N), np.nan)
+                    age_max_depth = np.full(len(N), np.nan)
 
-            all_dfs.append(df)
+                    for i in range(len(N)):
+                        depth_slice = irh_depth[i, :]
+                        if not np.all(np.isnan(depth_slice)):  # Check if all values are NaN
+                            max_idx = np.nanargmax(depth_slice)
+                            max_depth[i] = depth_slice[max_idx]
+                            age_max_depth[i] = ds.IRH_AGE.values[max_idx]
 
-        df_all = pd.concat(all_dfs, ignore_index=True)
+                    flight_id = ds.attrs["flight ID"]
+                    acq_year = ds.attrs["acquisition year"]
+                    project = ds.attrs["project"]
+                    instrument = ds.attrs["radar instrument"]
+                    doi_data = ds.attrs['DOI dataset']
 
-        geometry = [Point(xy) for xy in zip(df_all.x, df_all.y)]
-        gdf = gpd.GeoDataFrame(df_all, geometry=geometry, crs="EPSG:3031")
-        combined_gdf = gpd.GeoDataFrame(gdf, crs="EPSG:3031")
+                    df = gpd.GeoDataFrame({
+                        "geometry": [Point(x, y) for x, y in zip(ds.PSX.values, ds.PSY.values)],
+                        "irh_num": N.astype('int16'),
+                        "max_age": age_max_depth.astype('int16'),
+                        "max_depth": max_depth.astype('int16'),
+                        "flight_id": [flight_id] * len(N),
+                        "doi_data": [doi_data] * len(N),
+                    }, crs="EPSG:3031")
+
+                    all_dfs.append(df)
+
+        df_points = gpd.GeoDataFrame(pd.concat(all_dfs, ignore_index=True), crs="EPSG:3031")
+
         dataset = os.path.basename(os.path.normpath(dataset_dir))
-        shape_dir = f"{dataset_dir}/shp/"
-        os.makedirs(shape_dir, exist_ok=True)
-        combined_gdf.to_file(f"{shape_dir}/{dataset}.shp")
+        shp_dir = f"{dataset_dir}/shp/"
+        os.makedirs(shp_dir, exist_ok=True)
+
+        points_shp_path = f"{shp_dir}/{dataset}.shp"
+        df_points.to_file(points_shp_path)
 
 
     def make_geopackage(self, dataset_dir: str) -> None:
