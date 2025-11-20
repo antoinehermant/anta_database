@@ -60,7 +60,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
-            title: str = '',
+            title: Optional[str] = None,
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
@@ -96,7 +96,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
-            title: str = '',
+            title: Optional[str] = None,
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
@@ -132,7 +132,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
-            title: str = '',
+            title: Optional[str] = None,
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
@@ -168,7 +168,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
-            title: str = '',
+            title: Optional[str] = None,
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
@@ -204,7 +204,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
-            title: str = '',
+            title: Optional[str] = None,
             xlim: tuple = (None, None),
             ylim: tuple = (3000, None),
             scale_factor: float = 1.0,
@@ -250,7 +250,7 @@ class Plotting:
         self,
         metadata: Union[None, Dict, 'MetadataResult'] = None,
         downscale_factor: Optional[int] = None,
-        title: str = '',
+        title: Optional[str] = None,
         xlim: tuple = (None, None),
         ylim: tuple = (None, None),
         scale_factor: float = 1.0,
@@ -306,6 +306,8 @@ class Plotting:
         vmax = 10
 
         if color_by == 'dataset':
+            if not title:
+                title = f'AntADatabase by datasets'
             if downscale_factor == None:
                 downscale_factor = 1
             datasets = list(metadata['dataset'])
@@ -349,6 +351,8 @@ class Plotting:
                     ncol = 3
 
         if color_by == 'institute':
+            if not title:
+                title = f'AntADatabase by institutes'
             if downscale_factor == None:
                 downscale_factor = 1
             institutes = list(metadata['institute'])
@@ -393,6 +397,8 @@ class Plotting:
                 var = var[0]
 
             if var == 'IRH_NUM':
+                if not title:
+                    title = f'Number of traced IRHs per data point'
                 levels = np.linspace(1, 10, 10)
                 if cmap == None:
                     cmap = self._custom_cmap_density()
@@ -435,24 +441,32 @@ class Plotting:
                     extend = 'both'
                     vmin = -1000
                     vmax = 1000
+                    if not title:
+                        title = f'AntADatabase Bed Elevation'
                 elif var == 'ICE_THK':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
                     vmin = 0
                     vmax = 4000
+                    if not title:
+                        title = f'AntADatabase Ice Thickness'
                 elif var == 'SURF_ELEV':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
                     vmin = 2000
                     vmax = 4000
+                    if not title:
+                        title = f'AntADatabase Surface Elevation'
                 elif var == 'BASAL_UNIT':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
                     vmin = 2000
                     vmax = 4000
+                    if not title:
+                        title = f'AntADatabase Basal Unit'
                 elif var == 'IRH_DEPTH':
                     if cmap == None:
                         cmap = cmaps.torch_r
@@ -460,6 +474,8 @@ class Plotting:
                     vmin = None
                     vmax = None
                     age = list(metadata['age'])
+                    if not title:
+                        title = f'AntADatabase IRH Depth'
                     if len(age) > 1:
                         print('WARNING: Multiple layers provided: ', age,
                             '\nSelect a unique age for better results')
@@ -500,6 +516,9 @@ class Plotting:
                 return
 
             metadata_impl = self._db.query(flight_id=flight_id, dataset=metadata['dataset'], retain_query=False)
+            if not title:
+                title = f'Transect {metadata['flight_id'][0]} from {metadata['reference'][0]}'
+
             f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
             full_path = os.path.join(self._db._db_dir, f)
             import xarray as xr
@@ -526,6 +545,8 @@ class Plotting:
                     ncol = 3
 
         elif color_by == 'flight_id':
+            if not title:
+                title = f'AntADatabase by flight IDs'
             flight_ids = list(metadata['flight_id'])
             color_indices = np.linspace(0.1, 0.9, len(flight_ids))
             if cmap == None:
