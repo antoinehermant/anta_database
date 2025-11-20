@@ -1,10 +1,8 @@
 import os
 import h5py
-from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
 from matplotlib import patheffects as path_effects
@@ -20,11 +18,10 @@ if TYPE_CHECKING:
 class Plotting:
     def __init__(self, database_instance: 'Database') -> None:
         self._db = database_instance
-        module_dir = os.path.dirname(os.path.abspath(__file__))
-        self.gl_path = files('anta_database.data').joinpath('GL.pkl')
-        self.site_coords_path = files('anta_database.data').joinpath('site-coords.pkl')
-        self.imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
-        self.center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
+        self._gl_path = files('anta_database.data').joinpath('GL.pkl')
+        self._site_coords_path = files('anta_database.data').joinpath('site-coords.pkl')
+        self._imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
+        self._center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
 
     def _pre_plot_check(self,
                         metadata: Union[None, Dict, 'MetadataResult'] = None
@@ -67,7 +64,7 @@ class Plotting:
             xlim: tuple = (None, None),
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
-            marker_size: Optional[float] = 0.2,
+            marker_size: Optional[float] = 0.5,
             latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
@@ -269,8 +266,8 @@ class Plotting:
     ) -> None:
         # --- Setup ---
         if metadata is None:
-            if hasattr(self._db, 'md') and self._db.md:
-                metadata = self._db.md
+            if hasattr(self._db, '_md') and self._db._md:
+                metadata = self._db._md
             else:
                 print('Please provide metadata of the files you want to generate the data from...')
                 return
@@ -296,7 +293,7 @@ class Plotting:
             grounding_line = False
         # --- Plot Grounding Line ---
         if True and color_by != 'transect': # FIXME
-            gl = pd.read_pickle(self.gl_path)
+            gl = pd.read_pickle(self._gl_path)
             ax.plot(gl.x/1000, gl.y/1000, linewidth=1, color='k')
 
         # --- Plot Data ---
@@ -334,7 +331,7 @@ class Plotting:
 
                 all_x, all_y = [], []
                 for f in file_paths:
-                    full_path = os.path.join(self._db.db_dir, f)
+                    full_path = os.path.join(self._db._db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
                         all_x.append(ds['PSX'][::downscale_factor])
                         all_y.append(ds['PSY'][::downscale_factor])
@@ -369,7 +366,7 @@ class Plotting:
 
                 all_x, all_y = [], []
                 for f in file_paths:
-                    full_path = os.path.join(self._db.db_dir, f)
+                    full_path = os.path.join(self._db._db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
                         all_x.append(ds['PSX'][::downscale_factor])
                         all_y.append(ds['PSY'][::downscale_factor])
@@ -504,7 +501,7 @@ class Plotting:
 
             metadata_impl = self._db.query(flight_id=flight_id, dataset=metadata['dataset'], retain_query=False)
             f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
-            full_path = os.path.join(self._db.db_dir, f)
+            full_path = os.path.join(self._db._db_dir, f)
             import xarray as xr
             ds = xr.open_dataset(full_path, engine='h5netcdf')
 
@@ -543,7 +540,7 @@ class Plotting:
                 file_paths = np.unique(file_paths)
                 all_x, all_y = [], []
                 for f in file_paths:
-                    full_path = os.path.join(self._db.db_dir, f)
+                    full_path = os.path.join(self._db._db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
                         all_x.append(ds['PSX'][:])
                         all_y.append(ds['PSY'][:])
@@ -597,10 +594,10 @@ class Plotting:
 
         # --- Plot IMBIE basins ---
         if basins and color_by != 'transect':
-            basins = gpd.read_file(self.imbie_path)
+            basins = gpd.read_file(self._imbie_path)
             basins.geometry = basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
             basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
-            center_coords = gpd.read_file(self.center_coords)
+            center_coords = gpd.read_file(self._center_coords)
             center_coords.geometry = center_coords.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
             center_coords['x'] = center_coords['geometry'].x
             center_coords['y'] = center_coords['geometry'].y
@@ -610,7 +607,7 @@ class Plotting:
                         )
         # --- Plot ice core sites ---
         if stations and color_by != 'transect':
-            site_coords = pd.read_pickle(self.site_coords_path)
+            site_coords = pd.read_pickle(self._site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
                 ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5)

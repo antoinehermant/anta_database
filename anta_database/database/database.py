@@ -10,14 +10,14 @@ from anta_database.plotting.plotting import Plotting
 
 class Database:
     def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', include_BEDMAP: bool = False, max_displayed_flight_ids: Optional[int] = 50) -> None:
-        self.db_dir = database_dir
-        self.file_db = file_db
-        self.file_db_path = os.path.join(self.db_dir, file_db)
-        self.md = None
+        self._db_dir = database_dir
+        self._file_db = file_db
+        self._file_db_path = os.path.join(self._db_dir, file_db)
+        self._md = None
         self._plotting = None
-        self.max_displayed_flight_ids = max_displayed_flight_ids
-        self.include_BM = include_BEDMAP
-        self.excluded = {
+        self._max_displayed_flight_ids = max_displayed_flight_ids
+        self._include_BM = include_BEDMAP
+        self._excluded = {
             'dataset': [],
             'institute': [],
             'project': [],
@@ -221,11 +221,11 @@ class Database:
                 ('region', 'r.region'),
                 ('IMBIE_basin', 'r.IMBIE_basin'),
         ]:
-            if self.excluded[field]:
+            if self._excluded[field]:
                     not_like_conditions = []
                     not_in_values = []
                     not_range_conditions = []
-                    for item in self.excluded[field]:
+                    for item in self._excluded[field]:
                         if '%' in item:
                             not_like_conditions.append(f"{column} NOT LIKE ?")
                             params.append(item)
@@ -277,40 +277,40 @@ class Database:
                     if not_range_conditions:
                         conditions.append('(' + ' AND '.join(not_range_conditions) + ')')
 
-        if self.excluded.get('institute'):
-            if isinstance(self.excluded['institute'], list):
+        if self._excluded.get('institute'):
+            if isinstance(self._excluded['institute'], list):
                 not_like_conditions = []
-                for inst in self.excluded['institute']:
+                for inst in self._excluded['institute']:
                     not_like_conditions.append("institutes_list.institutes NOT LIKE ?")
                     params.append(f'%{inst}%')
                 conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
             else:
                 conditions.append("institutes_list.institutes NOT LIKE ?")
-                params.append(f'%{self.excluded["institute"]}%')
+                params.append(f'%{self._excluded["institute"]}%')
 
-        if self.excluded.get('project'):
-            if isinstance(self.excluded['project'], list):
+        if self._excluded.get('project'):
+            if isinstance(self._excluded['project'], list):
                 not_like_conditions = []
-                for proj in self.excluded['project']:
+                for proj in self._excluded['project']:
                     not_like_conditions.append("projects_list.projects NOT LIKE ?")
                     params.append(f'%{proj}%')
                 conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
             else:
                 conditions.append("projects_list.projects NOT LIKE ?")
-                params.append(f'%{self.excluded["project"]}%')
+                params.append(f'%{self._excluded["project"]}%')
 
-        if self.excluded.get('radar_instrument'):
-            if isinstance(self.excluded['radar_instrument'], list):
+        if self._excluded.get('radar_instrument'):
+            if isinstance(self._excluded['radar_instrument'], list):
                 not_like_conditions = []
-                for ri in self.excluded['radar_instrument']:
+                for ri in self._excluded['radar_instrument']:
                     not_like_conditions.append("radar_list.radar_instruments NOT LIKE ?")
                     params.append(f'%{ri}%')
                 conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
             else:
                 conditions.append("radar_list.radar_instruments NOT LIKE ?")
-                params.append(f'%{self.excluded["radar_instrument"]}%')
+                params.append(f'%{self._excluded["radar_instrument"]}%')
 
-        if not self.include_BM:
+        if not self._include_BM:
             conditions.append("s.name NOT LIKE ?")
             params.append('%BEDMAP%')
 
@@ -400,11 +400,11 @@ class Database:
         for field, value in field_mapping.items():
             if value is not None:
                 if isinstance(value, list):
-                    self.excluded[field] = value
+                    self._excluded[field] = value
                 else:
-                    self.excluded[field] = [value]
+                    self._excluded[field] = [value]
             else:
-                self.excluded[field] = []
+                self._excluded[field] = []
 
     def _get_file_metadata(self, file_path) -> Dict:
         """
@@ -489,7 +489,7 @@ class Database:
         if conditions:
             query += ' WHERE ' + ' AND '.join(conditions)
 
-        conn = sqlite3.connect(self.file_db_path)
+        conn = sqlite3.connect(self._file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -511,8 +511,8 @@ class Database:
             'radar_instrument': results[0][13],
             'reference': results[0][1],
             'file_path': file_path,
-            'database_path': self.db_dir,
-            'file_db': self.file_db,
+            'database_path': self._db_dir,
+            'file_db': self._file_db,
         }
         return metadata
 
@@ -547,7 +547,7 @@ class Database:
         '
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
 
-        conn = sqlite3.connect(self.file_db_path)
+        conn = sqlite3.connect(self._file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -569,9 +569,9 @@ class Database:
             'IMBIE_basin': [],
             'radar_instrument': [],
             '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id, 'region': region, 'IMBIE_basin': IMBIE_basin, 'radar_instrument': radar_instrument},
-            '_filter_params': {'dataset': self.excluded['dataset'], 'institute': self.excluded['institute'], 'project': self.excluded['project'], 'acq_year': self.excluded['acq_year'], 'age': self.excluded['age'], 'var': self.excluded['var'], 'flight_id': self.excluded['flight_id'], 'region': self.excluded['region'], 'IMBIE_basin': self.excluded['IMBIE_basin'], 'radar_instrument': self.excluded['radar_instrument']},
-            'database_path': self.db_dir,
-            'file_db': self.file_db,
+            '_filter_params': {'dataset': self._excluded['dataset'], 'institute': self._excluded['institute'], 'project': self._excluded['project'], 'acq_year': self._excluded['acq_year'], 'age': self._excluded['age'], 'var': self._excluded['var'], 'flight_id': self._excluded['flight_id'], 'region': self._excluded['region'], 'IMBIE_basin': self._excluded['IMBIE_basin'], 'radar_instrument': self._excluded['radar_instrument']},
+            'database_path': self._db_dir,
+            'file_db': self._file_db,
         }
         ages_list = []
         ages_unc_list = []
@@ -649,9 +649,9 @@ class Database:
         metadata['IMBIE_basin'] = sorted(set(basin_list))
 
         if retain_query:
-            self.md = metadata
+            self._md = metadata
 
-        return MetadataResult(metadata, self.max_displayed_flight_ids)
+        return MetadataResult(metadata, self._max_displayed_flight_ids)
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
 
@@ -670,7 +670,7 @@ class Database:
         select_clause = 'd.file_path'
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, line, region, basin, radar, select_clause)
 
-        conn = sqlite3.connect(self.file_db_path)
+        conn = sqlite3.connect(self._file_db_path)
         cursor = conn.cursor()
         cursor.execute(query, params)
         file_paths = [row[0] for row in cursor.fetchall()]
@@ -684,12 +684,12 @@ class Database:
         data_dir: Union[None, str] = None,
     ):
 
-        md = metadata or self.md
+        md = metadata or self._md
         if not md:
             print('Please provide metadata of the files you want to generate the data from. Exiting...')
             return
 
-        data_dir = data_dir or self.db_dir
+        data_dir = data_dir or self._db_dir
         if not data_dir:
             print('No data directory provided. Exiting...')
             return
@@ -719,13 +719,13 @@ class Database:
             Tuple[xr.Dataset, Dict]: A lazy-loaded xarray Dataset and its metadata.
         """
         # Resolve metadata
-        md = metadata or self.md
+        md = metadata or self._md
         if not md:
             print('Please provide metadata of the files you want to generate the data from. Exiting...')
             return
 
         # Resolve data directory
-        data_dir = data_dir or self.db_dir
+        data_dir = data_dir or self._db_dir
         if not data_dir:
             print('No data directory provided. Exiting...')
             return
@@ -777,104 +777,104 @@ class Database:
 
             yield df, metadata
 
-    def return_dataset(
-        self,
-        metadata: Union[None, Dict, 'MetadataResult'] = None,
-        data_dir: Optional[str] = None,
-        downscale_factor: Optional[str] = None,
-    ) -> Generator[Tuple[pd.DataFrame, Dict]]:
-        """
-        Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
+    # def return_dataset(
+    #     self,
+    #     metadata: Union[None, Dict, 'MetadataResult'] = None,
+    #     data_dir: Optional[str] = None,
+    #     downscale_factor: Optional[str] = None,
+    # ) -> Generator[Tuple[pd.DataFrame, Dict]]:
+    #     """
+    #     Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
 
-        Args:
-            metadata: Metadata for filtering files.
-            data_dir: Directory containing the data files.
-            vars_to_load: List of variables to load from each file.
+    #     Args:
+    #         metadata: Metadata for filtering files.
+    #         data_dir: Directory containing the data files.
+    #         vars_to_load: List of variables to load from each file.
 
-        Yields:
-            Tuple[xr.Dataset, Dict]: A lazy-loaded xarray Dataset and its metadata.
-        """
-        # Resolve metadata
-        md = metadata or self.md
-        if not md:
-            print('Please provide metadata of the files you want to generate the data from. Exiting...')
-            return
+    #     Yields:
+    #         Tuple[xr.Dataset, Dict]: A lazy-loaded xarray Dataset and its metadata.
+    #     """
+    #     # Resolve metadata
+    #     md = metadata or self._md
+    #     if not md:
+    #         print('Please provide metadata of the files you want to generate the data from. Exiting...')
+    #         return
 
-        # Resolve data directory
-        data_dir = data_dir or self.db_dir
-        if not data_dir:
-            print('No data directory provided. Exiting...')
-            return
+    #     # Resolve data directory
+    #     data_dir = data_dir or self._db_dir
+    #     if not data_dir:
+    #         print('No data directory provided. Exiting...')
+    #         return
 
-        if len(md['var']) > 1:
-            print(f'WARNING: you requested multiple variables ({md['var']}), this will return individual dataframes for each variable in each transect.')
+    #     if len(md['var']) > 1:
+    #         print(f'WARNING: you requested multiple variables ({md['var']}), this will return individual dataframes for each variable in each transect.')
 
-        file_paths = self._get_file_paths_from_metadata(metadata=md)
-        file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
+    #     file_paths = self._get_file_paths_from_metadata(metadata=md)
+    #     file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
 
-        for file_path in file_paths:
-            full_path = os.path.join(data_dir, file_path)
-            file_md = self._get_file_metadata(file_path)
-            for var in md['var']:
-                if var == 'IRH_DEPTH':
-                    for age in md['age']:
-                        with h5py.File(full_path, 'r') as ds:
-                            irh_values = ds['age'][:]
-                            irh_index = np.where(irh_values == int(age))[0]
-                            if len(irh_index) == 0:
-                                continue
-                            irh_index = irh_index[0]
-                            df = pd.DataFrame({'x': ds['x'][::downscale_factor],
-                                            'y': ds['y'][::downscale_factor],
-                                            'distance': ds['distance'][::downscale_factor],
-                                            var: ds[var][::downscale_factor, irh_index]})
+    #     for file_path in file_paths:
+    #         full_path = os.path.join(data_dir, file_path)
+    #         file_md = self._get_file_metadata(file_path)
+    #         for var in md['var']:
+    #             if var == 'IRH_DEPTH':
+    #                 for age in md['age']:
+    #                     with h5py.File(full_path, 'r') as ds:
+    #                         irh_values = ds['age'][:]
+    #                         irh_index = np.where(irh_values == int(age))[0]
+    #                         if len(irh_index) == 0:
+    #                             continue
+    #                         irh_index = irh_index[0]
+    #                         df = pd.DataFrame({'x': ds['x'][::downscale_factor],
+    #                                         'y': ds['y'][::downscale_factor],
+    #                                         'distance': ds['distance'][::downscale_factor],
+    #                                         var: ds[var][::downscale_factor, irh_index]})
 
-                            metadata = {
-                                'dataset': file_md['dataset'],
-                                'var': var,
-                                'age': age,
-                                'flight_id': file_md['flight_id'],
-                                'institute': file_md['institute'],
-                                'project': file_md['project'],
-                                'acq_year': file_md['acq_year'],
-                                'age_unc': file_md['age'],
-                                'reference': file_md['reference'],
-                                'DOI_dataset': file_md['DOI_dataset'],
-                                'DOI_publication': file_md['DOI_publication'],
-                                'flight_id': file_md['flight_id'],
-                                'region': file_md['region'],
-                                'IMBIE_basin': file_md['IMBIE_basin'],
-                                'radar_instrument': file_md['radar_instrument'],
-                            }
+    #                         metadata = {
+    #                             'dataset': file_md['dataset'],
+    #                             'var': var,
+    #                             'age': age,
+    #                             'flight_id': file_md['flight_id'],
+    #                             'institute': file_md['institute'],
+    #                             'project': file_md['project'],
+    #                             'acq_year': file_md['acq_year'],
+    #                             'age_unc': file_md['age'],
+    #                             'reference': file_md['reference'],
+    #                             'DOI_dataset': file_md['DOI_dataset'],
+    #                             'DOI_publication': file_md['DOI_publication'],
+    #                             'flight_id': file_md['flight_id'],
+    #                             'region': file_md['region'],
+    #                             'IMBIE_basin': file_md['IMBIE_basin'],
+    #                             'radar_instrument': file_md['radar_instrument'],
+    #                         }
 
-                            yield df, metadata
+    #                         yield df, metadata
 
-                    else:
-                        ds = h5py.File(full_path, 'r')
-                        df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
-                                        'PSY': ds['PSY'][::downscale_factor],
-                                        'Distance': ds['Distance'][::downscale_factor],
-                                        var: ds[var][::downscale_factor]})
+    #                 else:
+    #                     ds = h5py.File(full_path, 'r')
+    #                     df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
+    #                                     'PSY': ds['PSY'][::downscale_factor],
+    #                                     'Distance': ds['Distance'][::downscale_factor],
+    #                                     var: ds[var][::downscale_factor]})
 
-                        metadata = {
-                            'dataset': file_md['dataset'],
-                            'var': var,
-                            'age': None,
-                            'flight_id': file_md['flight_id'],
-                            'institute': file_md['institute'],
-                            'project': file_md['project'],
-                            'acq_year': file_md['acq_year'],
-                            'age_unc': file_md['age'],
-                            'reference': file_md['reference'],
-                            'DOI_dataset': file_md['DOI_dataset'],
-                            'DOI_publication': file_md['DOI_publication'],
-                            'flight_id': file_md['flight_id'],
-                            'region': file_md['region'],
-                            'IMBIE_basin': file_md['IMBIE_basin'],
-                            'radar_instrument': file_md['radar_instrument'],
-                        }
+    #                     metadata = {
+    #                         'dataset': file_md['dataset'],
+    #                         'var': var,
+    #                         'age': None,
+    #                         'flight_id': file_md['flight_id'],
+    #                         'institute': file_md['institute'],
+    #                         'project': file_md['project'],
+    #                         'acq_year': file_md['acq_year'],
+    #                         'age_unc': file_md['age'],
+    #                         'reference': file_md['reference'],
+    #                         'DOI_dataset': file_md['DOI_dataset'],
+    #                         'DOI_publication': file_md['DOI_publication'],
+    #                         'flight_id': file_md['flight_id'],
+    #                         'region': file_md['region'],
+    #                         'IMBIE_basin': file_md['IMBIE_basin'],
+    #                         'radar_instrument': file_md['radar_instrument'],
+    #                     }
 
-                        yield df, metadata
+    #                     yield df, metadata
 
     @property
     def plot(self):
@@ -886,7 +886,7 @@ class Database:
 class MetadataResult:
     def __init__(self, metadata, max_displayed_flight_ids):
         self._metadata = metadata
-        self.max_displayed_flight_ids = max_displayed_flight_ids
+        self._max_displayed_flight_ids = max_displayed_flight_ids
 
     def __getitem__(self, key):
         return self._metadata[key]
@@ -897,10 +897,10 @@ class MetadataResult:
         output = []
 
         flight_ids = md['flight_id']
-        if len(flight_ids) > self.max_displayed_flight_ids:
-            first_20 = flight_ids[:self.max_displayed_flight_ids//2]
-            last_20 = flight_ids[-self.max_displayed_flight_ids//2:]
-            flight_id_str = ", ".join(first_20) + f", [ ... ] , " + ", ".join(last_20) + f" (found {len(flight_ids)}, displayed {self.max_displayed_flight_ids})"
+        if len(flight_ids) > self._max_displayed_flight_ids:
+            first_20 = flight_ids[:self._max_displayed_flight_ids//2]
+            last_20 = flight_ids[-self._max_displayed_flight_ids//2:]
+            flight_id_str = ", ".join(first_20) + f", [ ... ] , " + ", ".join(last_20) + f" (found {len(flight_ids)}, displayed {self._max_displayed_flight_ids})"
         else:
             flight_id_str = ", ".join(flight_ids)
 

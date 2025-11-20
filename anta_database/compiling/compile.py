@@ -32,23 +32,23 @@ class CompileDatabase:
                  break_transects: bool = False,
                  remove_tmp_files: bool = True,
                  var_attrs_json: Optional[str] = None) -> None:
-        self.dir_list = dir_list
-        self.wave_speed = wave_speed
-        self.firn_correction = firn_correction
-        self.extract_data = extract_data
-        self.compute_distance = compute_distance
-        self.compute_IRH_density = compute_IRH_density
-        self.compute_IMBIE_basins = compute_IMBIE_basins
-        self.set_attributes = set_attributes
-        self.hdf5 = hdf5
-        self.shapefiles = shapefiles
-        self.geopackages = geopackages
-        self.break_transects = break_transects
-        self.remove_tmp_files = remove_tmp_files
+        self._dir_list = dir_list
+        self._wave_speed = wave_speed
+        self._firn_correction = firn_correction
+        self._extract_data = extract_data
+        self._compute_distance = compute_distance
+        self._compute_IRH_density = compute_IRH_density
+        self._compute_IMBIE_basins = compute_IMBIE_basins
+        self._set_attributes = set_attributes
+        self._hdf5 = hdf5
+        self._shapefiles = shapefiles
+        self._geopackages = geopackages
+        self._break_transects = break_transects
+        self._remove_tmp_files = remove_tmp_files
         imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
-        self.basins = gpd.read_file(imbie_path)
-        self.var_list = ['ICE_THK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']
-        self.var_attrs_json = var_attrs_json
+        self._basins = gpd.read_file(imbie_path)
+        self._var_list = ['ICE_THK', 'BED_ELEV', 'SURF_ELEV', 'BASAL_UNIT']
+        self._var_attrs_json = var_attrs_json
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -60,16 +60,16 @@ class CompileDatabase:
         return not missing
 
     def compile(self, cpus: int = cpu_count()-1) -> None:
-        if not isinstance(self.dir_list, list):
-            self.dir_list = [self.dir_list]
+        if not isinstance(self._dir_list, list):
+            self._dir_list = [self._dir_list]
 
         start_time = time.time()
-        if not self._pre_compile_checks(self.dir_list):
+        if not self._pre_compile_checks(self._dir_list):
             return
 
-        if self.extract_data is True:
+        if self._extract_data is True:
             all_files_list = []
-            for dir_ in self.dir_list:
+            for dir_ in self._dir_list:
                 files = glob.glob(f"{dir_}/raw/*.*")
                 for file_path in files:
                     all_files_list.append({
@@ -93,9 +93,9 @@ class CompileDatabase:
                 for file_dict in tqdm(all_files_list, desc="Processing", unit="file"):
                     self.extract(file_dict=file_dict)
 
-        if self.hdf5 is True:
+        if self._hdf5 is True:
             all_dirs = []
-            for dir_ in self.dir_list:
+            for dir_ in self._dir_list:
                 dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
                 all_dirs.extend(dirs)
 
@@ -116,14 +116,14 @@ class CompileDatabase:
 
 
         all_h5 = []
-        for dir_ in self.dir_list:
+        for dir_ in self._dir_list:
             h5_files = glob.glob(f"{dir_}/h5/*.h5")
             all_h5.extend(h5_files)
 
         num_tasks = len(all_h5)
         num_workers = min(num_tasks, cpus)
 
-        if self.break_transects:
+        if self._break_transects:
 
             print('\n',
                     'Breaking possible flight transects in separated h5 files for', num_tasks, 'h5 files\n'
@@ -138,14 +138,14 @@ class CompileDatabase:
                     self.do_break_transects(h5_file)
 
         all_h5 = []
-        for dir_ in self.dir_list:
+        for dir_ in self._dir_list:
             h5_files = glob.glob(f"{dir_}/h5/*.h5")
             all_h5.extend(h5_files)
 
         num_tasks = len(all_h5)
         num_workers = min(num_tasks, cpus)
 
-        if self.compute_distance:
+        if self._compute_distance:
 
             print('\n',
                     'Computing distances along transects for', num_tasks, 'h5 files\n'
@@ -159,7 +159,7 @@ class CompileDatabase:
                 for h5_file in tqdm(all_h5, desc='Processing'):
                     self.compute_distances(h5_file)
 
-        if self.compute_IRH_density:
+        if self._compute_IRH_density:
 
             print('\n',
                     'Computing IRH density in', num_tasks, 'h5 files\n'
@@ -173,7 +173,7 @@ class CompileDatabase:
                 for h5_file in tqdm(all_h5, desc='Processing'):
                     self.compute_irh_density(h5_file)
 
-        if self.compute_IMBIE_basins:
+        if self._compute_IMBIE_basins:
 
             print('\n',
                     'Computing IMBIE basins for', num_tasks, 'h5 files\n'
@@ -187,7 +187,7 @@ class CompileDatabase:
                 for h5_file in tqdm(all_h5, desc='Processing'):
                     self.compute_imbie_basins(h5_file)
 
-        if self.set_attributes:
+        if self._set_attributes:
 
             print('\n',
                     'Settings variable attributes in', num_tasks, 'h5 files\n'
@@ -201,48 +201,48 @@ class CompileDatabase:
                 for h5_file in tqdm(all_h5, desc='Processing'):
                     self.set_attrs(h5_file)
 
-            if self.remove_tmp_files:
+            if self._remove_tmp_files:
                 print('\nRemoving temporary directories ...')
-                num_tasks = len(self.dir_list)
+                num_tasks = len(self._dir_list)
                 num_workers = min(num_tasks, cpus)
                 if num_workers > 1:
                     with Pool(num_workers) as pool:
-                        for _ in tqdm(pool.imap_unordered(self._cleanup, self.dir_list), total=num_tasks, unit='directory'):
+                        for _ in tqdm(pool.imap_unordered(self._cleanup, self._dir_list), total=num_tasks, unit='directory'):
                             pass
                 else:
-                    for ds_dir in tqdm(self.dir_list, desc='Removing', unit='directory'):
+                    for ds_dir in tqdm(self._dir_list, desc='Removing', unit='directory'):
                         self._cleanup(ds_dir)
 
-        if self.shapefiles:
-            num_tasks = len(self.dir_list)
+        if self._shapefiles:
+            num_tasks = len(self._dir_list)
             num_workers = min(num_tasks, cpus)
 
             print('\n',
-                    'Will start creating the shapefiles for', len(self.dir_list), 'datasets\n'
+                    'Will start creating the shapefiles for', len(self._dir_list), 'datasets\n'
                     '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
 
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(pool.imap_unordered(self.make_shapefile, self.dir_list), total=num_tasks):
+                    for _ in tqdm(pool.imap_unordered(self.make_shapefile, self._dir_list), total=num_tasks):
                         pass
             else:
-                for ds_dir in tqdm(self.dir_list, desc='Processing'):
+                for ds_dir in tqdm(self._dir_list, desc='Processing'):
                     self.make_shapefile(ds_dir)
 
-        if self.geopackages:
-            num_tasks = len(self.dir_list)
+        if self._geopackages:
+            num_tasks = len(self._dir_list)
             num_workers = min(num_tasks, cpus)
 
             print('\n',
-                    'Will start creating the geopackages for', len(self.dir_list), 'datasets\n'
+                    'Will start creating the geopackages for', len(self._dir_list), 'datasets\n'
                     '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
 
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(pool.imap_unordered(self.make_geopackage, self.dir_list), total=num_tasks):
+                    for _ in tqdm(pool.imap_unordered(self.make_geopackage, self._dir_list), total=num_tasks):
                         pass
             else:
-                for ds_dir in tqdm(self.dir_list, desc='Processing'):
+                for ds_dir in tqdm(self._dir_list, desc='Processing'):
                     self.make_geopackage(ds_dir)
 
         elapsed = time.time() - start_time
@@ -318,14 +318,14 @@ class CompileDatabase:
         if 'SURF_ELEV' in ds.columns and 'BED_ELEV' in ds.columns and not 'ICE_THK' in ds.columns:
             ds['ICE_THK'] = ds['SURF_ELEV'] - ds['BED_ELEV']
 
-        if self.wave_speed:
+        if self._wave_speed:
             for var in ['ICE_THK', 'BED_ELEV']:
                 if var in ds.columns:
-                    ds[var] *= self.wave_speed
-        if self.firn_correction:
+                    ds[var] *= self._wave_speed
+        if self._firn_correction:
             for var in ['ICE_THK', 'BED_ELEV']:
                 if var in ds.columns:
-                    ds[var] += self.firn_correction
+                    ds[var] += self._firn_correction
 
         if 'PSX' not in ds.columns and 'PSY' not in ds.columns:
             if 'lon' in ds.columns and 'lat' in ds.columns:
@@ -349,10 +349,10 @@ class CompileDatabase:
                 age = raw_md['age']
             else:
                 age = pd.NA
-            if self.wave_speed:
-                ds['IRH_DEPTH'] *= self.wave_speed
-            if self.firn_correction:
-                ds['IRH_DEPTH'] += self.firn_correction
+            if self._wave_speed:
+                ds['IRH_DEPTH'] *= self._wave_speed
+            if self._firn_correction:
+                ds['IRH_DEPTH'] += self._firn_correction
 
             ds = ds.astype({'Flight_ID': str})
             ds['Flight_ID'] = ds['Flight_ID'].str.replace(r'/\s+', '_') # Replace slashes with underscores, otherwise the paths can get messy
@@ -483,12 +483,12 @@ class CompileDatabase:
                     })
 
                     ds_IRH[age] = self.convert_col_to_num(ds_IRH[age])
-                    if self.wave_speed:
-                        ds_IRH[age] *= self.wave_speed
-                    if self.firn_correction:
-                        ds_IRH[age] += self.firn_correction
+                    if self._wave_speed:
+                        ds_IRH[age] *= self._wave_speed
+                    if self._firn_correction:
+                        ds_IRH[age] += self._firn_correction
 
-                    for var in self.var_list:
+                    for var in self._var_list:
                         if var in ds.columns:
                             ds_IRH[var] = ds[var]
 
@@ -556,7 +556,7 @@ class CompileDatabase:
             merged_df.reset_index(inplace=True)
             merged_df.columns = merged_df.columns.astype(str)
 
-            for col in self.var_list:
+            for col in self._var_list:
                 matching_cols = [c for c in merged_df.columns if col.lower() in c.lower()]
                 if matching_cols:
                     temp_col = f"temp_{col}"
@@ -576,7 +576,7 @@ class CompileDatabase:
 
         ages = [col for col in merged_df.columns if str(col).isdigit()]
 
-        for var in self.var_list:
+        for var in self._var_list:
             if var in merged_df.columns:
                 data_vars[var] = (['point'], merged_df[var].values)
 
@@ -642,7 +642,7 @@ class CompileDatabase:
                 ds['IRH_AGE_UNC'] = age_uncertainties
 
 
-        for var in self.var_list:
+        for var in self._var_list:
             if var in ds.variables:
                 ds[var] = ds[var].chunk({'point': chunk_size_point})
                 encoding[var] = {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}
@@ -790,8 +790,8 @@ class CompileDatabase:
 
                 coords = np.column_stack((x, y))
                 geometry = [Point(xy) for xy in zip(x, y)]
-                points = gpd.GeoDataFrame(coords, geometry=geometry, crs=self.basins.crs)
-                joined = gpd.sjoin(points, self.basins, how="inner", predicate="within")
+                points = gpd.GeoDataFrame(coords, geometry=geometry, crs=self._basins.crs)
+                joined = gpd.sjoin(points, self._basins, how="inner", predicate="within")
                 lookup_df = joined[joined['Regions'] != 'Islands'][['Subregion', 'Regions']].drop_duplicates()
                 lookup_df.reset_index(drop=True, inplace=True)
                 basin_mapping = dict(zip(lookup_df['Subregion'], lookup_df['Regions']))
@@ -805,8 +805,8 @@ class CompileDatabase:
 
         with h5py.File(h5_file, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:
-                if self.var_attrs_json:
-                    var_attrs = pd.read_json(self.var_attrs_json)
+                if self._var_attrs_json:
+                    var_attrs = pd.read_json(self._var_attrs_json)
                     var_attrs.set_index('variable', inplace=True)
 
                     for var, row in var_attrs.iterrows():

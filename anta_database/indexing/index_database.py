@@ -11,21 +11,16 @@ import ast
 
 class IndexDatabase:
     def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index: str = 'references.json'):
-        self.db_dir = database_dir
-        self.file_db = os.path.join(self.db_dir, file_db)
-        self.file_index = index
-        with open(os.path.join(self.db_dir, self.file_index), 'r', encoding='utf-8') as f:
-            self.index = json.load(f)
-
-    def file_metadata(self, file_path) -> pd.DataFrame:
-        table = pd.read_csv(file_path, header=0, sep=',')
-        table.set_index('raw_file', inplace=True)
-        return table
+        self._db_dir = database_dir
+        self._file_db = os.path.join(self._db_dir, file_db)
+        self._file_index = index
+        with open(os.path.join(self._db_dir, self._file_index), 'r', encoding='utf-8') as f:
+            self._index = json.load(f)
 
     def index_database(self):
         h5_files = []
-        for ref in self.index:
-            found_files = glob.glob(f'{self.db_dir}/{ref['dataset']}/h5/*.h5', recursive=False)
+        for ref in self._index:
+            found_files = glob.glob(f'{self._db_dir}/{ref['dataset']}/h5/*.h5', recursive=False)
             if found_files:
                 h5_files.extend(found_files)
             else:
@@ -33,10 +28,10 @@ class IndexDatabase:
 
         print(f"\n Found {len(h5_files)} files to index")
 
-        if os.path.exists(self.file_db):
-            os.remove(self.file_db)
+        if os.path.exists(self._file_db):
+            os.remove(self._file_db)
 
-        conn = sqlite3.connect(self.file_db)
+        conn = sqlite3.connect(self._file_db)
         cursor = conn.cursor()
         # Create a table for original reference to datasets
         cursor.execute('''
@@ -49,7 +44,7 @@ class IndexDatabase:
             )
         ''')
 
-        for row in self.index:
+        for row in self._index:
             try:
                 cursor.execute(
                     'INSERT INTO sources (name, citation, DOI_dataset, DOI_publication) VALUES (?, ?, ?, ?)',
