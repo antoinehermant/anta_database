@@ -1,6 +1,7 @@
 import warnings
 import h5py
 import os
+import ast
 import shutil
 import time
 import pandas as pd
@@ -370,7 +371,7 @@ class CompileDatabase:
                     flight_id = raw_md['flight ID']
                     flight_id_flag = 'not_provided'
 
-            if 'flight_id_prefix' in raw_md.index:
+            if 'flight ID prefix' in raw_md.index:
                 if not pd.isna(raw_md['flight ID prefix']):
                     ds.index = [f"{raw_md['flight ID prefix']}_{x}" for x in ds.index]
                     flight_id_flag = 'project_acq-year_number'
@@ -584,6 +585,18 @@ class CompileDatabase:
         dataset_dir, pkl = os.path.split(pkl_dir)
         trace_md = pd.read_csv(f'{trace_dir}/metadata.csv')
         institute = str(trace_md.iloc[0]['institute'])
+        if isinstance(institute, str):
+            try:
+                institute = ast.literal_eval(institute)
+            except (ValueError, SyntaxError):
+                institute = [institute]
+        if not isinstance(institute, (list, np.ndarray)):
+            if institute in ['nan', 'none', None]:
+                institute = 'nan'
+            else:
+                institute = [institute]
+        else:
+            institute = list(institute)
         flight_id = str(trace_md.iloc[0]['flight_id'])
         ds = xr.Dataset(
             coords={
