@@ -32,7 +32,7 @@ This Python module provides SQL indexing for the AntADatabase, as well as quick 
 - institute
 - project
 - age
-- acq_year (year of radar acquisition)
+- acquisition_year (year of radar acquisition)
 - region
 - basin
 - var (variable)

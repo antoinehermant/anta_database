@@ -21,7 +21,7 @@ class Database:
             'dataset': [],
             'institute': [],
             'project': [],
-            'acq_year': [],
+            'acquisition_year': [],
             'age': [],
             'var': [],
             'flight_id': [],
@@ -36,7 +36,7 @@ class Database:
                                 dataset: Optional[Union[str, List[str]]] = None,
                                 institute: Optional[Union[str, List[str]]] = None,
                                 project: Optional[Union[str, List[str]]] = None,
-                                acq_year: Optional[Union[str, List[str]]] = None,
+                                acquisition_year: Optional[Union[str, List[str]]] = None,
                                 line: Optional[Union[str, List[str]]] = None,
                                 region: Optional[Union[str, List[str]]] = None,
                                 IMBIE_basin: Optional[Union[str, List[str]]] = None,
@@ -136,7 +136,7 @@ class Database:
                     (age, 'a.age'),
                     (var, 'v.name'),
                     (dataset, 's.name'),
-                    (acq_year, 'd.acq_year'),
+                    (acquisition_year, 'd.acq_year'),
                     (line, 'd.flight_id'),
                     (region, 'r.region'),
                     (IMBIE_basin, 'r.IMBIE_basin')
@@ -218,7 +218,7 @@ class Database:
                 ('age', 'a.age'),
                 ('var', 'v.var'),
                 ('dataset', 's.name'),
-                ('acq_year', 'd.acq_year'),
+                ('acquisition_year', 'd.acq_year'),
                 ('flight_id', 'd.flight_id'),
                 ('region', 'r.region'),
                 ('IMBIE_basin', 'r.IMBIE_basin'),
@@ -375,7 +375,7 @@ class Database:
             dataset: Optional[Union[str, List[str]]] = None,
             institute: Optional[Union[str, List[str]]] = None,
             project: Optional[Union[str, List[str]]] = None,
-            acq_year: Optional[Union[str, List[str]]] = None,
+            acquisition_year: Optional[Union[str, List[str]]] = None,
             flight_id: Optional[Union[str, List[str]]] = None,
             region: Optional[Union[str, List[str]]] = None,
             IMBIE_basin: Optional[Union[str, List[str]]] = None,
@@ -392,7 +392,7 @@ class Database:
             'dataset': dataset,
             'institute': institute,
             'project': project,
-            'acq_year': acq_year,
+            'acquisition_year': acquisition_year,
             'flight_id': flight_id,
             'region': region,
             'IMBIE_basin': IMBIE_basin,
@@ -508,7 +508,7 @@ class Database:
             'DOI_publication': results[0][3],
             'institute': results[0][4],
             'project': results[0][5],
-            'acq_year': results[0][6],
+            'acquisition_year': results[0][6],
             'age_unc': results[0][8],
             'region': results[0][11],
             'IMBIE_basin': results[0][12],
@@ -526,7 +526,7 @@ class Database:
               dataset: Optional[Union[str, List[str]]] = None,
               institute: Optional[Union[str, List[str]]] = None,
               project: Optional[Union[str, List[str]]] = None,
-              acq_year: Optional[Union[str, List[str]]] = None,
+              acquisition_year: Optional[Union[str, List[str]]] = None,
               flight_id: Optional[Union[str, List[str]]] = None,
               region: Optional[Union[str, List[str]]] = None,
               IMBIE_basin: Optional[Union[str, List[str]]] = None,
@@ -549,7 +549,7 @@ class Database:
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
         '
-        query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
+        query, params = self._build_query_and_params(age, var, dataset, institute, project, acquisition_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
 
         conn = sqlite3.connect(self._file_db_path)
         cursor = conn.cursor()
@@ -561,7 +561,7 @@ class Database:
             'dataset': [],
             'institute': [],
             'project': [],
-            'acq_year': [],
+            'acquisition_year': [],
             'age': [],
             'age_unc': [],
             'var': [],
@@ -572,8 +572,8 @@ class Database:
             'region': [],
             'IMBIE_basin': [],
             'radar_instrument': [],
-            '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acq_year': acq_year, 'age': age, 'var': var, 'flight_id': flight_id, 'region': region, 'IMBIE_basin': IMBIE_basin, 'radar_instrument': radar_instrument},
-            '_filter_params': {'dataset': self._excluded['dataset'], 'institute': self._excluded['institute'], 'project': self._excluded['project'], 'acq_year': self._excluded['acq_year'], 'age': self._excluded['age'], 'var': self._excluded['var'], 'flight_id': self._excluded['flight_id'], 'region': self._excluded['region'], 'IMBIE_basin': self._excluded['IMBIE_basin'], 'radar_instrument': self._excluded['radar_instrument']},
+            '_query_params': {'dataset': dataset, 'institute': institute, 'project': project, 'acquisition_year': acquisition_year, 'age': age, 'var': var, 'flight_id': flight_id, 'region': region, 'IMBIE_basin': IMBIE_basin, 'radar_instrument': radar_instrument},
+            '_filter_params': {'dataset': self._excluded['dataset'], 'institute': self._excluded['institute'], 'project': self._excluded['project'], 'acquisition_year': self._excluded['acquisition_year'], 'age': self._excluded['age'], 'var': self._excluded['var'], 'flight_id': self._excluded['flight_id'], 'region': self._excluded['region'], 'IMBIE_basin': self._excluded['IMBIE_basin'], 'radar_instrument': self._excluded['radar_instrument']},
             'database_path': self._db_dir,
             'file_db': self._file_db,
         }
@@ -642,7 +642,7 @@ class Database:
         metadata['var'] = sorted(set(vars_list))
         metadata['institute'] = sorted(set(institutes_list))
         metadata['project'] = sorted(set(projects_list))
-        metadata['acq_year'] = sorted(set(acq_years_list))
+        metadata['acquisition_year'] = sorted(set(acq_years_list))
         metadata['dataset'] = list(dict.fromkeys(metadata['dataset']))
         metadata['reference'] = list(dict.fromkeys(metadata['reference']))
         metadata['DOI_dataset'] = list(dict.fromkeys(metadata['DOI_dataset']))
@@ -665,7 +665,7 @@ class Database:
         dataset = query_params.get('dataset')
         institute = query_params.get('institute')
         project = query_params.get('project')
-        acq_year = query_params.get('acq_year')
+        acq_year = query_params.get('acquisition_year')
         line = query_params.get('flight_id')
         region = query_params.get('region')
         basin = query_params.get('IMBIE_basin')
@@ -768,7 +768,7 @@ class Database:
                 'flight_id': file_md['flight_id'],
                 'institute': file_md['institute'],
                 'project': file_md['project'],
-                'acq_year': file_md['acq_year'],
+                'acquisition_year': file_md['acquisition_year'],
                 'age_unc': md['age_unc'],
                 'reference': file_md['reference'],
                 'DOI_dataset': file_md['DOI_dataset'],
@@ -840,7 +840,7 @@ class Database:
     #                             'flight_id': file_md['flight_id'],
     #                             'institute': file_md['institute'],
     #                             'project': file_md['project'],
-    #                             'acq_year': file_md['acq_year'],
+    #                             'acquisition_year': file_md['acquisition_year'],
     #                             'age_unc': file_md['age'],
     #                             'reference': file_md['reference'],
     #                             'DOI_dataset': file_md['DOI_dataset'],
@@ -867,7 +867,7 @@ class Database:
     #                         'flight_id': file_md['flight_id'],
     #                         'institute': file_md['institute'],
     #                         'project': file_md['project'],
-    #                         'acq_year': file_md['acq_year'],
+    #                         'acquisition_year': file_md['acquisition_year'],
     #                         'age_unc': file_md['age'],
     #                         'reference': file_md['reference'],
     #                         'DOI_dataset': file_md['DOI_dataset'],
@@ -920,7 +920,7 @@ class MetadataResult:
             output.append(f"\n  - dataset: {', '.join(md['dataset'])}")
             output.append(f"\n  - institute: {', '.join(md['institute'])}")
             output.append(f"\n  - project: {', '.join(md['project'])}")
-            output.append(f"\n  - acq_year: {', '.join(md['acq_year'])}")
+            output.append(f"\n  - acquisition_year: {', '.join(md['acquisition_year'])}")
             output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
             output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
             output.append(f"\n  - var: {', '.join(md['var'])}")
