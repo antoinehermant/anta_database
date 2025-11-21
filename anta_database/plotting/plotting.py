@@ -396,6 +396,12 @@ class Plotting:
             else:
                 var = var[0]
 
+
+            all_dfs = []
+            for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+                all_dfs.append(ds)
+            df = pd.concat(all_dfs)
+
             if var == 'IRH_NUM':
                 if not title:
                     title = f'Number of traced IRHs per data point'
@@ -412,10 +418,7 @@ class Plotting:
                 label = f'{var} [N]'
                 extend = 'max'
                 all_dfs = []
-                for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    all_dfs.append(ds)
 
-                df = pd.concat(all_dfs)
                 df[var] = df[var].fillna(0)
                 df = df.sort_values(by=var)
                 unique_values = df[var].unique()
@@ -427,13 +430,14 @@ class Plotting:
                         subset['PSY'] / 1000,
                         c=subset[var],
                         cmap=discrete_cmap,
+
                         s=marker_size,
                         norm=norm,
                         linewidths=0,
                         zorder=i
                     )
 
-            elif var in ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_DEPTH', 'IRH_FRAC_DEPTH']:
+            elif var in ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT']:
                 label = f'{var} [m]'
                 if var == 'BED_ELEV':
                     if cmap == None:
@@ -467,7 +471,10 @@ class Plotting:
                     vmax = 4000
                     if not title:
                         title = f'AntADatabase Basal Unit'
-                elif var == 'IRH_DEPTH':
+                scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+
+            elif var in ['IRH_DEPTH', 'IRH_FRAC_DEPTH']:
+                if var == 'IRH_DEPTH':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
@@ -498,11 +505,6 @@ class Plotting:
                     age = age[0]
                     label = r'IRH Fractional Depth [\%]'
 
-                all_dfs = []
-                for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
-                    all_dfs.append(ds)
-
-                df = pd.concat(all_dfs)
                 for age in metadata['age']:
                     scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[int(age)], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
