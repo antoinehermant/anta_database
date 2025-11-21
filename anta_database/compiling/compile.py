@@ -373,7 +373,7 @@ class CompileDatabase:
 
             if 'flight ID prefix' in raw_md.index:
                 if not pd.isna(raw_md['flight ID prefix']):
-                    ds.index = [f"{raw_md['flight ID prefix']}_{x}" for x in ds.index]
+                    ds.index = [f"{raw_md['flight ID prefix']}{x}" for x in ds.index]
                     flight_id_flag = 'project_acq-year_number'
 
             dataset = raw_md['dataset']
@@ -430,12 +430,12 @@ class CompileDatabase:
                 if age is not pd.NA:
                     # age = str(age)
                     ds_trace = ds_trace.rename(columns={'IRH_DEPTH': age})
-                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
+                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan' and dataset in ['BEDMAP2', 'BEDMAP3']:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{age}.pkl' # if var instead of age, call the file as var.pkl
                 else:
-                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
+                    if not isinstance(institute, (list, tuple, set)) and institute != 'nan' and dataset in ['BEDMAP2', 'BEDMAP3']:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
                     else:
                         ds_trace_file = f'{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl' # else use the same file name.pkl
@@ -721,7 +721,14 @@ class CompileDatabase:
                 if 'IRH_DEPTH' in ds.variables:
                     irh_num = (~np.isnan(ds['IRH_DEPTH'])).sum(dim='IRH_AGE')
                     irh_num = irh_num.where(irh_num != 0, np.nan)
-                    ds['IRH_NUM'] = irh_num.astype('int16')
+                    has_nan = np.isnan(irh_num).any().values
+
+                    if has_nan:
+                        pass
+                    else:
+                        irh_num = irh_num.astype('int32')
+
+                    ds['IRH_NUM'] = irh_num
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -842,6 +849,7 @@ class CompileDatabase:
         for h5f in h5files:
             with h5py.File(h5f, 'r') as f:
                 with xr.open_dataset(f, engine='h5netcdf') as ds:
+                    ds = ds.dropna(dim='point', subset=['IRH_NUM'])
                     N = ds.IRH_NUM.values
 
                     irh_depth = ds.IRH_DEPTH.values
