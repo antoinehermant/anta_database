@@ -33,9 +33,9 @@ You can (re)compile the database, if for example you modify some data in the raw
 ```
 AntADatabase/
 ├── AntADatabase.db
-├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi
-├── Author_YYYY
-    ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
+├── database_index.csv #List of directories to index: FirstAuthor_YYYY,FirstAuthor et al. YYYY,doi
+├── FirstAuthor_YYYY
+    ├── raw_files_md.csv # file containing information about the dataset 
     ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
     ├── raw/ #Directory with the original files to process
     └── pkl/ #Directory were the processed files will be written (it will be created in the process)

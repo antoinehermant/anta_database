@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -416,9 +416,9 @@ document.write(`
 <p>You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset. For this, make sure to follow the structure:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>AntADatabase/
 ├── AntADatabase.db
-├── database_index.csv #List of directories to index: Author_YYYY,Author et al. YYYY,doi
-├── Author_YYYY
-    ├── IRH_ages.tab #IRH file names without .ext followed by there respective age in years
+├── database_index.csv #List of directories to index: FirstAuthor_YYYY,FirstAuthor et al. YYYY,doi
+├── FirstAuthor_YYYY
+    ├── raw_files_md.csv # file containing information about the dataset 
     ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
     ├── raw/ #Directory with the original files to process
     └── pkl/ #Directory were the processed files will be written (it will be created in the process)

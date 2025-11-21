@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -182,6 +182,7 @@
         </ul>
         <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
+
 <li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contributing</a></li>
@@ -380,8 +381,7 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sqlite-database">SQLite Database</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#datasets-currently-included">Datasets currently included:</a></li>
 </ul>
 </li>
@@ -401,43 +401,42 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="antadatabase">
 <h1>AntADatabase<a class="headerlink" href="#antadatabase" title="Link to this heading">#</a></h1>
-<p>AntADatabase in a SQLite database powered by Python for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.</p>
-<section id="sqlite-database">
-<h2>SQLite Database<a class="headerlink" href="#sqlite-database" title="Link to this heading">#</a></h2>
-<p>The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:</p>
-<ul class="simple">
-<li><p>Browsing by author (region), layer age, or trace ID.</p></li>
-<li><p>Memory efficiency: Only relevant data is read when needed.</p></li>
-<li><p>Fast read performance: Lightweight and optimized for speed.</p></li>
-</ul>
+<p>AntADatabase is a Python-powered SQLite database designed for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.</p>
 <section id="overview">
-<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h3>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p><img alt="Figure" src="_images/Overview_all.png" />
 <strong>Figures</strong> created using plotting functions from this module</p>
-</section>
 <section id="datasets-currently-included">
 <h3>Datasets currently included:<a class="headerlink" href="#datasets-currently-included" title="Link to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Franke et al. 2025, <a class="reference external" href="https://doi.org/10.1594/PANGAEA.973266">https://doi.org/10.1594/PANGAEA.973266</a></p></li>
-<li><p>Sanderson et al. 2024, <a class="reference external" href="https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316">https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316</a></p></li>
+<li><p>Ashmore et al. 2020, <a class="reference external" href="https://doi.org/10.1029/2019GL086663">https://doi.org/10.1029/2019GL086663</a></p></li>
+<li><p>BEDMAP1: Lythe et al. (2022), <a class="reference external" href="https://doi.org/10.5285/f64815ec-4077-4432-9f55-0ce230f46029">https://doi.org/10.5285/f64815ec-4077-4432-9f55-0ce230f46029</a></p></li>
+<li><p>BEDMAP2: Fretwell et al. (2022), <a class="reference external" href="https://doi.org/10.5285/2fd95199-365e-4da1-ae26-3b6d48b3e6ac">https://doi.org/10.5285/2fd95199-365e-4da1-ae26-3b6d48b3e6ac</a></p></li>
+<li><p>BEDMAP3: Frémand et al. (2022), <a class="reference external" href="https://doi.org/10.5285/91523ff9-d621-46b3-87f7-ffb6efcd1847">https://doi.org/10.5285/91523ff9-d621-46b3-87f7-ffb6efcd1847</a></p></li>
+<li><p>Beem et al. 2021, <a class="reference external" href="https://doi.org/10.15784/601437">https://doi.org/10.15784/601437</a></p></li>
+<li><p>Bodart et al. 2021, <a class="reference external" href="https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB">https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB</a></p></li>
+<li><p>Bodart and Sutter 2025a, <a class="reference external" href="https://doi.org/10.5281/zenodo.17348976">https://doi.org/10.5281/zenodo.17348976</a></p></li>
+<li><p>Bodart and Sutter 2025b, <a class="reference external" href="https://doi.org/10.5281/zenodo.17348094">https://doi.org/10.5281/zenodo.17348094</a></p></li>
+<li><p>Cavitte et al. 2020, <a class="reference external" href="https://doi.org/10.15784/601411">https://doi.org/10.15784/601411</a></p></li>
 <li><p>Chung et al. 2023 <a class="reference external" href="https://doi.pangaea.de/10.1594/PANGAEA.957176">https://doi.pangaea.de/10.1594/PANGAEA.957176</a></p></li>
+<li><p>Franke et al. 2025, <a class="reference external" href="https://doi.org/10.1594/PANGAEA.973266">https://doi.org/10.1594/PANGAEA.973266</a></p></li>
+<li><p>Jacobel and Welch 2005, <a class="reference external" href="https://doi.org/10.7265/N5R20Z9T">https://doi.org/10.7265/N5R20Z9T</a></p></li>
+<li><p>Leysinger-Vieli et al. 2011, <a class="reference external" href="https://doi.org/10.5281/zenodo.15516203">https://doi.org/10.5281/zenodo.15516203</a></p></li>
 <li><p>Muldoon et al. 2023, <a class="reference external" href="https://doi.org/10.15784/601673">https://doi.org/10.15784/601673</a></p></li>
 <li><p>Mulvaney et al. 2023, <a class="reference external" href="https://doi.pangaea.de/10.1594/PANGAEA.963470">https://doi.pangaea.de/10.1594/PANGAEA.963470</a></p></li>
+<li><p>Sanderson et al. 2024, <a class="reference external" href="https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316">https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316</a></p></li>
+<li><p>Siegert and Payne 2024, <a class="reference external" href="https://onlinelibrary.wiley.com/doi/10.1002/esp.1238">https://onlinelibrary.wiley.com/doi/10.1002/esp.1238</a></p></li>
 <li><p>Wang et al. 2023, <a class="reference external" href="https://doi.org/10.1594/PANGAEA.958462">https://doi.org/10.1594/PANGAEA.958462</a></p></li>
-<li><p>Bodart et al. 2021, <a class="reference external" href="https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB">https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB</a></p></li>
-<li><p>Beem et al. 2021, <a class="reference external" href="https://doi.org/10.15784/601437">https://doi.org/10.15784/601437</a></p></li>
-<li><p>Ashmore et al. 2020, <a class="reference external" href="https://doi.org/10.1029/2019GL086663">https://doi.org/10.1029/2019GL086663</a></p></li>
-<li><p>Cavitte et al. 2020, <a class="reference external" href="https://doi.org/10.15784/601411">https://doi.org/10.15784/601411</a></p></li>
 <li><p>Winter et al. 2018, <a class="reference external" href="https://doi.org/10.1594/PANGAEA.895528">https://doi.org/10.1594/PANGAEA.895528</a></p></li>
-<li><p>Leysinger et al. 2011, <a class="reference external" href="https://doi.org/10.1029/2010JF001785">https://doi.org/10.1029/2010JF001785</a></p></li>
-<li><p>Jacobel et al 2005, <a class="reference external" href="https://doi.org/10.7265/N5R20Z9T">https://doi.org/10.7265/N5R20Z9T</a></p></li>
+<li><p>Yan et al. 2025, <a class="reference external" href="https://doi.org/10.5281/zenodo.14962526">https://doi.org/10.5281/zenodo.14962526</a></p></li>
 </ul>
 </section>
 </section>
 <section id="key-features">
 <h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Efficient SQLite indexing</p></li>
+<li><p>Standardized HDF5 format</p></li>
+<li><p>SQLite indexing</p></li>
 <li><p>Quick visualization on Antarctica map</p></li>
 <li><p>Generate lazy data for later use</p></li>
 </ul>
@@ -454,6 +453,7 @@ If you used this tool for your work and this was useful, please cite this module
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html#pro-tips">Pro tips</a></li>
 <li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contributing</a></li>
@@ -517,8 +517,7 @@ If you used this tool for your work and this was useful, please cite this module
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sqlite-database">SQLite Database</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#datasets-currently-included">Datasets currently included:</a></li>
 </ul>
 </li>
