@@ -759,7 +759,8 @@ class Database:
                         df[int(age)] = ds[var][::downscale_factor, irh_index]
 
                 else:
-                    df[var] = ds[var][::downscale_factor]
+                    if var in ds.keys():
+                        df[var] = ds[var][::downscale_factor]
 
             metadata = {
                 'dataset': file_md['dataset'],

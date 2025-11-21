@@ -206,7 +206,7 @@ class Plotting:
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: tuple = (None, None),
-            ylim: tuple = (3000, None),
+            ylim: tuple = (3500, 0),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 2,
             latex: bool = False,
@@ -576,14 +576,14 @@ class Plotting:
         # --- Format Figure ---
         print('Formatting ...')
 
-        x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
-        y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
-        x_extent = x1 - x0
-        y_extent = y1 - y0
-        aspect_ratio = y_extent / x_extent
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
         if color_by != 'transect':
+            x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
+            y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
+            x_extent = x1 - x0
+            y_extent = y1 - y0
+            aspect_ratio = y_extent / x_extent
             ax.set_xlabel('x [km]')
             ax.set_ylabel('y [km]')
             ax.set_aspect('equal')
