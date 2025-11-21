@@ -624,9 +624,10 @@ class Plotting:
             center_coords['x'] = center_coords['geometry'].x
             center_coords['y'] = center_coords['geometry'].y
             for x, y, sub in zip(center_coords['x'], center_coords['y'], center_coords['Subregion']):
-                ax.text(x, y, sub, fontsize=12, color='k', ha='center',
-                        path_effects=[path_effects.withStroke(linewidth=5, foreground=(1,1,1,0.7))]
-                        )
+                if x0 <= x <= x1 and y0 <= y <= y1:  # Only plot if within current view
+                    ax.text(x, y, sub, fontsize=12, color='k', ha='center',
+                            path_effects=[path_effects.withStroke(linewidth=5, foreground=(1,1,1,0.7))]
+                            )
         # --- Plot ice core sites ---
         if stations and color_by != 'transect':
             site_coords = pd.read_pickle(self._site_coords_path)
