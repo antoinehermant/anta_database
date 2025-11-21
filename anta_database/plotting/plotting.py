@@ -417,7 +417,6 @@ class Plotting:
                 norm = BoundaryNorm(bounds, ncolors=discrete_cmap.N)
                 label = f'{var} [N]'
                 extend = 'max'
-                all_dfs = []
 
                 df[var] = df[var].fillna(0)
                 df = df.sort_values(by=var)

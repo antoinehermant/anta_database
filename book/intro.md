@@ -1,13 +1,6 @@
 # AntADatabase
 
-This Python module provides an efficient SQLite database for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
-
-## SQLite Database
-
-The database uses SQLite for efficient indexing. Data is sourced from the associated DOIs and stored as binary DataFrame files for each layer (IRH) and trace ID. This structure enables:
-- Browsing by dataset, layer age, flight ID, institute and/or project.
-- Memory efficiency: Only relevant data is read when needed.
-- Fast read performance: Lightweight and optimized for speed.
+AntADatabase is a Python-powered SQLite database designed for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
 
 ### Overview
 ![Figure](figures/Overview_all.png) 
@@ -27,8 +20,10 @@ The database uses SQLite for efficient indexing. Data is sourced from the associ
 - Winter et al. 2018, https://doi.org/10.1594/PANGAEA.895528
 - Leysinger et al. 2011, https://doi.org/10.1029/2010JF001785
 - Jacobel et al 2005, https://doi.org/10.7265/N5R20Z9T
+- BEDMAP version 1, 2 and 3
 
 ## Key Features
+- Standardized HDF5 format
 - Efficient SQLite indexing
 - Quick visualization on Antarctica map
 - Generate lazy data for later use
