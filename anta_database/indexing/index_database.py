@@ -61,8 +61,8 @@ class IndexDatabase:
                 dataset INTEGER,
                 institute TEXT,
                 project TEXT,
-                acq_year TEXT,
                 radar_instrument TEXT,
+                acq_year TEXT,
                 flight_id TEXT,
                 FOREIGN KEY (dataset) REFERENCES sources (id)
                 )
@@ -100,6 +100,13 @@ class IndexDatabase:
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS institutes (
+                id INTEGER PRIMARY KEY,
+                name TEXT UNIQUE
+                )
+            ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS radar_instruments (
                 id INTEGER PRIMARY KEY,
                 name TEXT UNIQUE
                 )
@@ -147,6 +154,16 @@ class IndexDatabase:
                 )
             ''')
 
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS dataset_radar_instruments (
+                dataset_id INTEGER,
+                radar_instrument_id INTEGER,
+                FOREIGN KEY (dataset_id) REFERENCES datasets (id),
+                FOREIGN KEY (radar_instrument_id) REFERENCES radar_instruments (id),
+                PRIMARY KEY (dataset_id, radar_instrument_id)
+                )
+            ''')
+
         for f in tqdm(h5_files, desc="Indexing files"):
             _, file_name = os.path.split(f)
 
@@ -191,9 +208,19 @@ class IndexDatabase:
                 if dataset in ['nan', 'none']:
                     dataset = None
 
-                radar = f.attrs['radar instrument']
-                if radar in ['nan', 'none']:
-                    radar = None
+                radar_instruments = f.attrs['radar instrument']
+                if isinstance(radar_instruments, str):
+                    try:
+                        radar_instruments = ast.literal_eval(radar_instruments)
+                    except (ValueError, SyntaxError):
+                        radar_instruments = [radar_instruments]
+                if not isinstance(radar_instruments, (list, np.ndarray)):
+                    if radar_instruments in ['nan', 'none', None]:
+                        radar_instruments = []
+                    else:
+                        radar_instruments = [radar_instruments]
+                else:
+                    radar_instruments = list(radar_instruments)
 
                 ds_vars = list(f.keys())
 
@@ -219,9 +246,9 @@ class IndexDatabase:
 
             # Insert into datasets and get the new row id
             cursor.execute('''
-                INSERT INTO datasets (file_path, dataset, acq_year, radar_instrument, flight_id)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (relative_file_path, dataset_id, str(acq_year), radar, flight_id))
+                INSERT INTO datasets (file_path, dataset, acq_year, flight_id)
+                VALUES (?, ?, ?, ?)
+            ''', (relative_file_path, dataset_id, str(acq_year), flight_id))
             dataset_row_id = cursor.lastrowid
 
             # Insert projects and link to dataset
@@ -241,6 +268,15 @@ class IndexDatabase:
                     INSERT OR IGNORE INTO dataset_institutes (dataset_id, institute_id)
                     VALUES (?, ?)
                 ''', (dataset_row_id, institute_id))
+
+            # Insert radar_instruments and link to dataset
+            for radar_instrument in radar_instruments:
+                cursor.execute('INSERT OR IGNORE INTO radar_instruments (name) VALUES (?)', (radar_instrument,))
+                radar_instrument_id = cursor.execute('SELECT id FROM radar_instruments WHERE name = ?', (radar_instrument,)).fetchone()[0]
+                cursor.execute('''
+                    INSERT OR IGNORE INTO dataset_radar_instruments (dataset_id, radar_instrument_id)
+                    VALUES (?, ?)
+                ''', (dataset_row_id, radar_instrument_id))
 
             # Insert variables
             var_list = ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_NUM', 'IRH_DEPTH']

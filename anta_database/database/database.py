@@ -76,13 +76,15 @@ class Database:
                 ) AS institutes_list ON d.id = institutes_list.dataset_id
             INNER JOIN (
                     SELECT
-                        id,
-                        GROUP_CONCAT(radar_instrument, ', ') AS radar_instruments
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS radar_instruments
                     FROM
-                        datasets
+                        dataset_radar_instruments di
+                    JOIN
+                        radar_instruments i ON di.radar_instrument_id = i.id
                     GROUP BY
-                        id
-                ) AS radar_list ON d.id = radar_list.id
+                        di.dataset_id
+                ) AS radar_instruments_list ON d.id = radar_instruments_list.dataset_id
             LEFT JOIN
                 dataset_variables dv ON d.id = dv.dataset_id
             LEFT JOIN
@@ -108,6 +110,17 @@ class Database:
                 conditions.append("institutes_list.institutes LIKE ?")
                 params.append(f'%{institute}%')
 
+        if radar_instrument:
+            if isinstance(radar_instrument, list):
+                like_conditions = []
+                for radar in radar_instrument:
+                    like_conditions.append("radar_instruments_list.radar_instruments LIKE ?")
+                    params.append(f'%{radar}%')
+                conditions.append('(' + ' OR '.join(like_conditions) + ')')
+            else:
+                conditions.append("radar_instruments_list.radar_instruments LIKE ?")
+                params.append(f'%{radar_instrument}%')
+
         if project:
             if isinstance(project, list):
                 like_conditions = []
@@ -118,17 +131,6 @@ class Database:
             else:
                 conditions.append("projects_list.projects LIKE ?")
                 params.append(f'%{project}%')
-
-        if radar_instrument:
-            if isinstance(radar_instrument, list):
-                like_conditions = []
-                for ri in radar_instrument:
-                    like_conditions.append("radar_list.radar_instruments LIKE ?")
-                    params.append(f'%{ri}%')
-                conditions.append('(' + ' OR '.join(like_conditions) + ')')
-            else:
-                conditions.append("radar_list.radar_instruments LIKE ?")
-                params.append(f'%{radar_instrument}%')
 
         for field, column in [
                     (age, 'a.age'),
@@ -303,11 +305,11 @@ class Database:
             if isinstance(self._excluded['radar_instrument'], list):
                 not_like_conditions = []
                 for ri in self._excluded['radar_instrument']:
-                    not_like_conditions.append("radar_list.radar_instruments NOT LIKE ?")
+                    not_like_conditions.append("radar_instruments_list.radar_instruments NOT LIKE ?")
                     params.append(f'%{ri}%')
                 conditions.append('(' + ' AND '.join(not_like_conditions) + ')')
             else:
-                conditions.append("radar_list.radar_instruments NOT LIKE ?")
+                conditions.append("radar_instruments_list.radar_instruments NOT LIKE ?")
                 params.append(f'%{self._excluded["radar_instrument"]}%')
 
         if not self._include_BM:
@@ -424,7 +426,7 @@ class Database:
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        radar_list.radar_instruments \
+                        radar_instruments_list.radar_instruments \
         '
         query = f'''
             SELECT {select_clause}
@@ -456,13 +458,15 @@ class Database:
                 ) AS institutes_list ON d.id = institutes_list.dataset_id
             INNER JOIN (
                     SELECT
-                        id,
-                        GROUP_CONCAT(radar_instrument, ', ') AS radar_instruments
+                        di.dataset_id,
+                        GROUP_CONCAT(i.name, ', ') AS radar_instruments
                     FROM
-                        datasets
+                        dataset_radar_instruments di
+                    JOIN
+                        radar_instruments i ON di.radar_instrument_id = i.id
                     GROUP BY
-                        id
-                ) AS radar_list ON d.id = radar_list.id
+                        di.dataset_id
+                ) AS radar_instruments_list ON d.id = radar_instruments_list.dataset_id
             LEFT JOIN
                 dataset_variables dv ON d.id = dv.dataset_id
             LEFT JOIN
@@ -543,7 +547,7 @@ class Database:
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        radar_list.radar_instruments \
+                        radar_instruments_list.radar_instruments \
         '
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acq_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
 
@@ -579,7 +583,7 @@ class Database:
         institutes_list = []
         projects_list = []
         acq_years_list = []
-        radar_list = []
+        radar_instruments_list = []
         region_list = []
         basin_list = []
         for dataset_name, citations, DOI_dataset, DOI_publication, institutes, projects, acq_years, ages, ages_unc, vars, flight_id, regions, basins, radar_instruments in results:
@@ -602,9 +606,9 @@ class Database:
             else:
                 institutes_list.append('-')
             if radar_instruments is not None:
-                radar_list.append(radar_instruments)
+                radar_instruments_list.append(radar_instruments)
             else:
-                radar_list.append('-')
+                radar_instruments_list.append('-')
             if projects is not None:
                 projects_list.append(projects)
             else:
@@ -644,7 +648,7 @@ class Database:
         metadata['DOI_dataset'] = list(dict.fromkeys(metadata['DOI_dataset']))
         metadata['DOI_publication'] = list(dict.fromkeys(metadata['DOI_publication']))
         metadata['flight_id'] = list(set(metadata['flight_id']))
-        metadata['radar_instrument'] = sorted(set(radar_list))
+        metadata['radar_instrument'] = sorted(set(radar_instruments_list))
         metadata['region'] = sorted(set(region_list))
         metadata['IMBIE_basin'] = sorted(set(basin_list))
 
