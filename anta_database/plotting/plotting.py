@@ -68,7 +68,6 @@ class Plotting:
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.5,
-            latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
             basins: Optional[bool] = True,
@@ -87,7 +86,6 @@ class Plotting:
             xlim=xlim,
             ylim=ylim,
             scale_factor=scale_factor,
-            latex=latex,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -104,7 +102,6 @@ class Plotting:
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.1,
-            latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
             basins: Optional[bool] = True,
@@ -123,7 +120,6 @@ class Plotting:
             xlim=xlim,
             ylim=ylim,
             scale_factor=scale_factor,
-            latex=latex,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -140,7 +136,6 @@ class Plotting:
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.1,
-            latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
             basins: Optional[bool] = True,
@@ -159,7 +154,6 @@ class Plotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
-            latex=latex,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -176,7 +170,6 @@ class Plotting:
             ylim: tuple = (None, None),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.3,
-            latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
             basins: Optional[bool] = True,
@@ -195,7 +188,6 @@ class Plotting:
             ylim=ylim,
             scale_factor=scale_factor,
             marker_size=marker_size,
-            latex=latex,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -212,7 +204,6 @@ class Plotting:
             ylim: tuple = (3500, 0),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 2,
-            latex: bool = False,
             cmap: Optional['LinearSegmentedColormap'] = None,
             grounding_line: Optional[bool] = True,
             basins: Optional[bool] = True,
@@ -231,7 +222,6 @@ class Plotting:
             ylim=ylim,
             scale_factor=scale_factor,
             marker_size=marker_size,
-            latex=latex,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -258,7 +248,6 @@ class Plotting:
         ylim: tuple = (None, None),
         scale_factor: float = 1.0,
         marker_size: Optional[float] = 0.1,
-        latex: bool = False,
         save: Optional[str] = None,
         color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
         cmap: Optional['LinearSegmentedColormap'] = None,
@@ -276,8 +265,6 @@ class Plotting:
                 return
 
         total_traces = len(metadata['flight_id'])
-
-        # if latex:
 
         if not self._pre_plot_check(metadata):
             return
