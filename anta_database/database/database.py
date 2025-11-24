@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 import h5py
 from typing import Union, List, Dict, Tuple, Optional, Generator
+from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
 
@@ -17,6 +18,7 @@ class Database:
         self._plotting = None
         self._max_displayed_flight_ids = max_displayed_flight_ids
         self._include_BM = include_BEDMAP
+        self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
         self._excluded = {
             'dataset': [],
             'institute': [],
@@ -710,6 +712,7 @@ class Database:
         metadata: Union[None, Dict, 'MetadataResult'] = None,
         data_dir: Optional[str] = None,
         downscale_factor: Optional[str] = None,
+        disable_tqdm: bool = False,
     ) -> Generator[Tuple[pd.DataFrame, Dict]]:
         """
         Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
@@ -737,7 +740,7 @@ class Database:
         file_paths = self._get_file_paths_from_metadata(metadata=md)
         file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
 
-        for file_path in file_paths:
+        for file_path in tqdm(file_paths, desc='Generating dataframes', total=len(file_paths), unit='file', disable=disable_tqdm):
             full_path = os.path.join(data_dir, file_path)
             file_md = self._get_file_metadata(file_path)
             ds = h5py.File(full_path, 'r')

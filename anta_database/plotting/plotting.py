@@ -1,10 +1,12 @@
 import os
 import h5py
 import pandas as pd
-import geopandas as gpd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
+import shapefile
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 from matplotlib import patheffects as path_effects
 import colormaps as cmaps
 from contextlib import contextmanager
@@ -22,6 +24,7 @@ class Plotting:
         self._site_coords_path = files('anta_database.data').joinpath('site-coords.pkl')
         self._imbie_path = files('anta_database.data').joinpath('ANT_Basins_IMBIE2_v1.6.shp')
         self._center_coords = files('anta_database.data').joinpath('centeroid_coords_basins.shp')
+        self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
 
     def _pre_plot_check(self,
                         metadata: Union[None, Dict, 'MetadataResult'] = None
@@ -274,10 +277,7 @@ class Plotting:
 
         total_traces = len(metadata['flight_id'])
 
-        if latex:
-            from matplotlib import rc
-            rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-            rc('text', usetex=True)
+        # if latex:
 
         if not self._pre_plot_check(metadata):
             return
@@ -325,7 +325,7 @@ class Plotting:
             colors.update(bedmap_colors)
 
             flight_ids = metadata['flight_id']
-            for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset'):
+            for dataset in tqdm(datasets, desc="Plotting", total=len(datasets), unit='dataset', disable=self._disable_tqdm):
                 metadata_impl = self._db.query(dataset=dataset, flight_id=flight_ids, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
@@ -363,7 +363,7 @@ class Plotting:
             colors = {dataset: cmap(i) for i, dataset in zip(color_indices, institutes)}
 
             flight_ids = metadata['flight_id']
-            for institute in tqdm(institutes, desc="Plotting", total=len(institutes), unit='institute'):
+            for institute in tqdm(institutes, desc="Plotting", total=len(institutes), unit='institute', disable=self._disable_tqdm):
                 metadata_impl = self._db.query(institute=institute, flight_id=flight_ids, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
@@ -398,7 +398,7 @@ class Plotting:
 
 
             all_dfs = []
-            for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor), desc="Plotting", total=total_traces, unit='trace'):
+            for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor, disable_tqdm=True), desc="Plotting", total=total_traces, unit='trace', disable=self._disable_tqdm):
                 all_dfs.append(ds)
             df = pd.concat(all_dfs)
 
@@ -474,6 +474,7 @@ class Plotting:
 
             elif var in ['IRH_DEPTH', 'IRH_FRAC_DEPTH']:
                 if var == 'IRH_DEPTH':
+                    label = f'IRH Depth [m]'
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
@@ -556,7 +557,7 @@ class Plotting:
 
             datasets = list(metadata['dataset'])
             flight_ids = metadata['flight_id']
-            for flight_id in tqdm(flight_ids, desc="Plotting", total=len(flight_ids), unit='flight_id'):
+            for flight_id in tqdm(flight_ids, desc="Plotting", total=len(flight_ids), unit='flight_id', disable=self._disable_tqdm):
                 metadata_impl = self._db.query(flight_id=flight_id, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
@@ -616,18 +617,55 @@ class Plotting:
 
         # --- Plot IMBIE basins ---
         if basins and color_by != 'transect':
-            basins = gpd.read_file(self._imbie_path)
-            basins.geometry = basins.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
-            basins.plot(ax=ax, color='none', edgecolor='black', linewidth=0.5)
-            center_coords = gpd.read_file(self._center_coords)
-            center_coords.geometry = center_coords.geometry.scale(xfact=0.001, yfact=0.001, origin=(0, 0))
-            center_coords['x'] = center_coords['geometry'].x
-            center_coords['y'] = center_coords['geometry'].y
-            for x, y, sub in zip(center_coords['x'], center_coords['y'], center_coords['Subregion']):
-                if x0 <= x <= x1 and y0 <= y <= y1:  # Only plot if within current view
-                    ax.text(x, y, sub, fontsize=12, color='k', ha='center',
-                            path_effects=[path_effects.withStroke(linewidth=5, foreground=(1,1,1,0.7))]
-                            )
+            sf_basins = shapefile.Reader(self._imbie_path)
+            basin_patches = []
+
+            for shape_rec in sf_basins.shapeRecords():
+                shp = shape_rec.shape
+                pts = shp.points
+                parts = list(shp.parts) + [len(pts)]  # add sentinel end index
+
+                # build one polygon per part
+                for i in range(len(parts) - 1):
+                    start, end = parts[i], parts[i + 1]
+                    ring = pts[start:end]
+
+                    # scale coordinates
+                    scaled = [(x * 0.001, y * 0.001) for x, y in ring]
+
+                    poly = Polygon(scaled, closed=True, fill=False)
+                    basin_patches.append(poly)
+
+            pc = PatchCollection(
+                basin_patches,
+                facecolor='none',
+                edgecolor='black',
+                linewidth=0.5,
+            )
+            ax.add_collection(pc)
+
+            # ---- CENTERS: read + scale + label ----
+            sf_centers = shapefile.Reader(self._center_coords)
+
+            # find the field index for "Subregion" in the DBF
+            fields = sf_centers.fields[1:]  # first is DeletionFlag
+            field_names = [f[0] for f in fields]
+            sub_idx = field_names.index('Subregion')
+
+            for shape_rec in sf_centers.shapeRecords():
+                # assuming center_coords are points
+                x_raw, y_raw = shape_rec.shape.points[0]
+                x = x_raw * 0.001
+                y = y_raw * 0.001
+                sub = shape_rec.record[sub_idx]
+
+                if x0 <= x <= x1 and y0 <= y <= y1:
+                    ax.text(
+                        x, y, sub, fontsize=12, color='k', ha='center',
+                        path_effects=[path_effects.withStroke(
+                            linewidth=5, foreground=(1, 1, 1, 0.7)
+                        )]
+                    )
         # --- Plot ice core sites ---
         if stations and color_by != 'transect':
             site_coords = pd.read_pickle(self._site_coords_path)

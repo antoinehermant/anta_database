@@ -25,6 +25,7 @@ dependencies = [
   "matplotlib",
   "colormaps",
   "tqdm",
+  "pyshp",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
