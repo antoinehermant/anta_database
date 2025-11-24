@@ -64,8 +64,10 @@ class Plotting:
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
+            vmin: Optional[float] = None,
+            vmax: Optional[float] = None,
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.5,
             cmap: Optional['LinearSegmentedColormap'] = None,
@@ -85,6 +87,8 @@ class Plotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
+            vmin=vmin,
+            vmax=vmax,
             scale_factor=scale_factor,
             cmap=cmap,
             grounding_line=grounding_line,
@@ -98,8 +102,10 @@ class Plotting:
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
+            vmin: Optional[float] = None,
+            vmax: Optional[float] = None,
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.1,
             cmap: Optional['LinearSegmentedColormap'] = None,
@@ -119,6 +125,8 @@ class Plotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
+            vmin=vmin,
+            vmax=vmax,
             scale_factor=scale_factor,
             cmap=cmap,
             grounding_line=grounding_line,
@@ -132,8 +140,10 @@ class Plotting:
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
+            vmin: Optional[float] = None,
+            vmax: Optional[float] = None,
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.1,
             cmap: Optional['LinearSegmentedColormap'] = None,
@@ -154,6 +164,8 @@ class Plotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
+            vmin=vmin,
+            vmax=vmax,
             cmap=cmap,
             grounding_line=grounding_line,
             basins=basins,
@@ -166,8 +178,10 @@ class Plotting:
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
-            xlim: tuple = (None, None),
-            ylim: tuple = (None, None),
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
+            vmin: Optional[float] = None,
+            vmax: Optional[float] = None,
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 0.3,
             cmap: Optional['LinearSegmentedColormap'] = None,
@@ -186,6 +200,8 @@ class Plotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
+            vmin=vmin,
+            vmax=vmax,
             scale_factor=scale_factor,
             marker_size=marker_size,
             cmap=cmap,
@@ -195,13 +211,13 @@ class Plotting:
             save=save,
         )
 
-    def transect(
+    def transect_1D(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
-            xlim: tuple = (None, None),
-            ylim: tuple = (3500, 0),
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
             scale_factor: float = 1.0,
             marker_size: Optional[float] = 2,
             cmap: Optional['LinearSegmentedColormap'] = None,
@@ -214,7 +230,7 @@ class Plotting:
         Plot the color-coded values of the given variable on Antarcitic map
         """
         self._base_plot(
-            color_by='transect',
+            color_by='transect_1D',
             metadata=metadata,
             downscale_factor=downscale_factor,
             title=title,
@@ -240,21 +256,23 @@ class Plotting:
                 plt.close()
 
     def _base_plot(
-        self,
-        metadata: Union[None, Dict, 'MetadataResult'] = None,
-        downscale_factor: Optional[int] = None,
-        title: Optional[str] = None,
-        xlim: tuple = (None, None),
-        ylim: tuple = (None, None),
-        scale_factor: float = 1.0,
-        marker_size: Optional[float] = 0.1,
-        save: Optional[str] = None,
-        color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
-        cmap: Optional['LinearSegmentedColormap'] = None,
-        grounding_line: Optional[bool] = True,
-        basins: Optional[bool] = True,
-        stations: Optional[bool] = True,
-        ncol: Optional[int] = None,
+            self,
+            metadata: Union[None, Dict, 'MetadataResult'] = None,
+            downscale_factor: Optional[int] = None,
+            title: Optional[str] = None,
+            xlim: Optional[tuple] = (None, None),
+            ylim: Optional[tuple] = (None, None),
+            vmin: Optional[float] = None,
+            vmax: Optional[float] = None,
+            scale_factor: float = 1.0,
+            marker_size: Optional[float] = 0.1,
+            save: Optional[str] = None,
+            color_by: str = 'dataset',  # 'dataset', 'flight_id', 'depth', 'density'
+            cmap: Optional['LinearSegmentedColormap'] = None,
+            grounding_line: Optional[bool] = True,
+            basins: Optional[bool] = True,
+            stations: Optional[bool] = True,
+            ncol: Optional[int] = None,
     ) -> None:
         # --- Setup ---
         if metadata is None:
@@ -279,7 +297,7 @@ class Plotting:
         if basins:
             grounding_line = False
         # --- Plot Grounding Line ---
-        if True and color_by != 'transect': # FIXME
+        if True and color_by != 'transect_1D': # FIXME
             gl = pd.read_pickle(self._gl_path)
             ax.plot(gl.x/1000, gl.y/1000, linewidth=1, color='k')
 
@@ -289,8 +307,6 @@ class Plotting:
         values = None
         label = None
         extend = None
-        vmin = 0
-        vmax = 10
 
         if color_by == 'dataset':
             if not title:
@@ -429,32 +445,32 @@ class Plotting:
                     if cmap == None:
                         cmap = cmaps.bukavu
                     extend = 'both'
-                    vmin = -1000
-                    vmax = 1000
+                    if not vmin: vmin = -1000
+                    if not vmax: vmax = 1000
                     if not title:
                         title = f'AntADatabase Bed Elevation'
                 elif var == 'ICE_THK':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
-                    vmin = 0
-                    vmax = 4000
+                    if not vmin: vmin = 0
+                    if not vmax: vmax = 4000
                     if not title:
                         title = f'AntADatabase Ice Thickness'
                 elif var == 'SURF_ELEV':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
-                    vmin = 2000
-                    vmax = 4000
+                    if not vmin: vmin = 2000
+                    if not vmax: vmax = 4000
                     if not title:
                         title = f'AntADatabase Surface Elevation'
                 elif var == 'BASAL_UNIT':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
-                    vmin = 2000
-                    vmax = 4000
+                    if not vmin: vmin = 2000
+                    if not vmax: vmax = 400
                     if not title:
                         title = f'AntADatabase Basal Unit'
                 scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
@@ -465,8 +481,6 @@ class Plotting:
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
-                    vmin = None
-                    vmax = None
                     age = list(metadata['age'])
                     if not title:
                         title = f'AntADatabase IRH Depth'
@@ -480,8 +494,6 @@ class Plotting:
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
-                    vmin = None
-                    vmax = None
                     age = list(metadata['age'])
                     if len(age) > 1:
                         print('WARNING: Multiple layers provided: ', age,
@@ -495,7 +507,7 @@ class Plotting:
                 for age in metadata['age']:
                     scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[int(age)], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
-        if color_by == 'transect':
+        if color_by == 'transect_1D':
             flight_id = list(metadata['flight_id'])
             if len(flight_id) > 1:
                 flight_id = flight_id[0]
@@ -566,7 +578,7 @@ class Plotting:
 
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-        if color_by != 'transect':
+        if color_by != 'transect_1D':
             x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
             y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
             x_extent = x1 - x0
@@ -594,7 +606,7 @@ class Plotting:
             cbar.ax.xaxis.set_ticks_position('bottom')
             if label:
                 cbar.set_label(label)
-        elif color_by == 'transect':
+        elif color_by == 'transect_1D':
             ax.legend(ncols=2)
             ax.set_xlabel('Distance [km]')
             ax.set_ylabel('Depth below surface [m]')
@@ -603,7 +615,7 @@ class Plotting:
         plt.tight_layout()
 
         # --- Plot IMBIE basins ---
-        if basins and color_by != 'transect':
+        if basins and color_by != 'transect_1D':
             sf_basins = shapefile.Reader(self._imbie_path)
             basin_patches = []
 
@@ -654,7 +666,7 @@ class Plotting:
                         )]
                     )
         # --- Plot ice core sites ---
-        if stations and color_by != 'transect':
+        if stations and color_by != 'transect_1D':
             site_coords = pd.read_pickle(self._site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
