@@ -214,6 +214,7 @@ class Plotting:
     def transect_1D(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
+            elevation: Optional[bool] = False,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
@@ -231,6 +232,7 @@ class Plotting:
         """
         self._base_plot(
             color_by='transect_1D',
+            elevation=elevation,
             metadata=metadata,
             downscale_factor=downscale_factor,
             title=title,
@@ -258,6 +260,7 @@ class Plotting:
     def _base_plot(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
+            elevation: Optional[bool] = False,
             downscale_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
@@ -529,19 +532,49 @@ class Plotting:
                 print('Distance not in varibles, cannot plot along transect')
                 return
 
+            if elevation:
+                if 'SURF_ELEV' in ds.variables:
+                    ds['IRH_DEPTH'] = ds.SURF_ELEV - ds.IRH_DEPTH
+
+                elif 'ICE_THK' in ds.variables and 'BED_ELEV' in ds.variables:
+                    ds['SURF_ELEV'] = (ds.ICE_THK + ds.BED_ELEV) - ds.IRH_DEPTH
+                    ds['IRH_DEPTH'] = ds.SURF_ELEV - ds.IRH_DEPTH
+                else:
+                    print('Cannot plot IRH Elevation from the variables in the file, missing either ICE_THK and BED_ELEV or SURF_ELEV')
+                    return
+
             cmap = self._custom_cmap_density()
             colors = [cmap(i) for i in np.linspace(0.1, 0.9, len(metadata_impl['age']))]
             for age, color in zip(list(map(int, metadata['age'])), colors):
                 if age not in ds.IRH_AGE:
                     print(f'{metadata_impl['flight_id'][0]} does not contain age {age}, skipping')
                     continue
+
                 ax.scatter(ds.Distance/1000, ds.IRH_DEPTH.sel(IRH_AGE=age),
-                           color=color, s=marker_size, linewidths=0.1)
+                        color=color, s=marker_size, linewidths=0.1)
                 plt.plot([], [], color=color, label=age, linewidth=3)
-                # ds.IRH_DEPTH.sel(IRH_AGE=age).where(~np.isnan(ds.IRH_DEPTH.sel(IRH_AGE=age)), drop=True).plot()
-            scatter = ax.scatter(ds.Distance/1000, ds.ICE_THK, color='k', s=marker_size, linewidths=0.1)
-            plt.plot([], [], color='k', label='Bed Depth', linewidth=3)
-            ylim = (ds.ICE_THK.max() + 200, 0) if ylim == (None, None) else ylim
+
+            if elevation:
+                if 'BED_ELEV' in ds.variables:
+                    scatter = ax.scatter(ds.Distance/1000, ds.BED_ELEV, color='k', s=marker_size, linewidths=0.1)
+                    plt.plot([], [], color='k', label='Bed Elevation', linewidth=3)
+                elif 'ICE_THK' in ds.variables and 'SURF_ELEV' in ds.variables:
+                    ds['BED_ELEV'] = ds.SURF_ELEV - ds.ICE_THK
+                    scatter = ax.scatter(ds.Distance/1000, ds.BED_ELEV, color='k', s=marker_size, linewidths=0.1)
+                    plt.plot([], [], color='k', label='Bed Elevation', linewidth=3)
+                else:
+                    print('Cannot plot Bed Elevation from the variables in the file')
+                ax.scatter(ds.Distance/1000, ds.SURF_ELEV, color='grey', s=marker_size, linewidths=0.1)
+                plt.plot([], [], color='grey', label='Surface Elevation', linewidth=3)
+
+            else:
+                scatter = ax.scatter(ds.Distance/1000, ds.ICE_THK, color='k', s=marker_size, linewidths=0.1)
+                plt.plot([], [], color='k', label='Bed Depth', linewidth=3)
+
+            if elevation:
+                ylim = (ds.BED_ELEV.min() - 200, ds.SURF_ELEV.max()+200) if ylim == (None, None) else ylim
+            else:
+                ylim = (ds.ICE_THK.max() + 200, 0) if ylim == (None, None) else ylim
 
             if ncol == None:
                 if ds.sizes['IRH_AGE'] > 7:
@@ -613,7 +646,10 @@ class Plotting:
         elif color_by == 'transect_1D':
             ax.legend(ncols=2)
             ax.set_xlabel('Distance along transect [km]')
-            ax.set_ylabel('Depth below surface [m]')
+            if elevation:
+                ax.set_ylabel('Elevation above sea level [m]')
+            else:
+                ax.set_ylabel('Depth below surface [m]')
             plt.gcf().set_size_inches(10 * scale_factor, 10 * 2/3)
 
         plt.tight_layout()
