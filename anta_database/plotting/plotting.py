@@ -518,7 +518,7 @@ class Plotting:
 
             metadata_impl = self._db.query(flight_id=flight_id, dataset=metadata['dataset'], retain_query=False)
             if not title:
-                title = f'Transect {metadata['flight_id'][0]} from {metadata['reference'][0]}'
+                title = f'Transect {metadata_impl['flight_id'][0]} from {metadata_impl['reference'][0]}'
 
             f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
             full_path = os.path.join(self._db._db_dir, f)
@@ -530,14 +530,18 @@ class Plotting:
                 return
 
             cmap = self._custom_cmap_density()
-            colors = [cmap(i) for i in np.linspace(0.1, 0.9, ds.sizes['IRH_AGE'])]
-            for age, color in zip(ds.IRH_AGE, colors):
+            colors = [cmap(i) for i in np.linspace(0.1, 0.9, len(metadata_impl['age']))]
+            for age, color in zip(list(map(int, metadata['age'])), colors):
+                if age not in ds.IRH_AGE:
+                    print(f'{metadata_impl['flight_id'][0]} does not contain age {age}, skipping')
+                    continue
                 ax.scatter(ds.Distance/1000, ds.IRH_DEPTH.sel(IRH_AGE=age),
                            color=color, s=marker_size, linewidths=0.1)
-                plt.plot([], [], color=color, label=age.values, linewidth=3)
+                plt.plot([], [], color=color, label=age, linewidth=3)
                 # ds.IRH_DEPTH.sel(IRH_AGE=age).where(~np.isnan(ds.IRH_DEPTH.sel(IRH_AGE=age)), drop=True).plot()
             scatter = ax.scatter(ds.Distance/1000, ds.ICE_THK, color='k', s=marker_size, linewidths=0.1)
             plt.plot([], [], color='k', label='Bed Depth', linewidth=3)
+            ylim = (ds.ICE_THK.max() + 200, 0) if ylim == (None, None) else ylim
 
             if ncol == None:
                 if ds.sizes['IRH_AGE'] > 7:
@@ -608,7 +612,7 @@ class Plotting:
                 cbar.set_label(label)
         elif color_by == 'transect_1D':
             ax.legend(ncols=2)
-            ax.set_xlabel('Distance [km]')
+            ax.set_xlabel('Distance along transect [km]')
             ax.set_ylabel('Depth below surface [m]')
             plt.gcf().set_size_inches(10 * scale_factor, 10 * 2/3)
 
