@@ -863,6 +863,8 @@ class CompileDatabase:
                             max_depth[i] = depth_slice[max_idx]
                             age_max_depth[i] = ds.IRH_AGE.values[max_idx]
 
+                    age_max_depth = np.abs(age_max_depth)
+                    max_depth = np.abs(max_depth)
                     flight_id = ds.attrs["flight ID"]
                     acq_year = ds.attrs["acquisition year"]
                     project = ds.attrs["project"]
@@ -872,10 +874,10 @@ class CompileDatabase:
                     df = gpd.GeoDataFrame({
                         "geometry": [Point(x, y) for x, y in zip(ds.PSX.values, ds.PSY.values)],
                         "irh_num": N.astype('int16'),
-                        "max_age": age_max_depth.astype('int16'),
+                        "max_age": age_max_depth.astype('int32'),
                         "max_depth": max_depth.astype('int16'),
-                        "flight_id": [flight_id] * len(N),
-                        "doi_data": [doi_data] * len(N),
+                        # "flight_id": [flight_id] * len(N),
+                        # "doi_data": [doi_data] * len(N),
                     }, crs="EPSG:3031")
 
                     all_dfs.append(df)
