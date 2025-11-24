@@ -690,18 +690,18 @@ class Database:
 
     def get_files(
         self,
-        metadata: Union[None, Dict, 'MetadataResult'] = None,
-        data_dir: Union[None, str] = None,
+        metadata: Optional[Union[None, Dict, 'MetadataResult']] = None,
+        data_dir: Optional[Union[None, str]] = None,
     ):
 
         md = metadata or self._md
         if not md:
-            print('Please provide metadata of the files you want to generate the data from. Exiting...')
+            print('Please provide metadata of the files you want to generate the data from.')
             return
 
         data_dir = data_dir or self._db_dir
         if not data_dir:
-            print('No data directory provided. Exiting...')
+            print('No data directory provided.')
             return
 
         file_paths = self._get_file_paths_from_metadata(metadata=md)

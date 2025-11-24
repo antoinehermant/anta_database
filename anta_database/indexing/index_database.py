@@ -289,7 +289,7 @@ class IndexDatabase:
             # Insert variables
             var_list = ['ICE_THK', 'SURF_ELEV', 'BED_ELEV', 'BASAL_UNIT', 'IRH_NUM', 'IRH_DEPTH']
             for var in var_list:
-                if var in ds_vars or var == 'IRH_DEPTH':
+                if var in ds_vars:
                     cursor.execute('INSERT OR IGNORE INTO variables (name) VALUES (?)', (var,))
                     var_id = cursor.execute('SELECT id FROM variables WHERE name = ?', (var,)).fetchone()[0]
                     cursor.execute('''
