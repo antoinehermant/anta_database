@@ -43,7 +43,7 @@ class Reconnect:
 
 
     def process(self, df_connect: pd.DataFrame, tree, file_path: str):
-        data_dir = self._db.db_dir
+        data_dir = self._db._db_dir
         full_path = os.path.join(data_dir, file_path)
         with h5py.File(full_path, 'a') as f:
             with xr.open_dataset(f, engine='h5netcdf') as ds:

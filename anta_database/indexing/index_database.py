@@ -126,11 +126,9 @@ class IndexDatabase:
             CREATE TABLE IF NOT EXISTS dataset_ages (
                 dataset_id INTEGER,
                 age_id INTEGER,
-                region_id INTEGER,
                 FOREIGN KEY (dataset_id) REFERENCES datasets (id),
                 FOREIGN KEY (age_id) REFERENCES ages (id),
-                FOREIGN KEY (region_id) REFERENCES regions (id),
-                PRIMARY KEY (dataset_id, age_id, region_id)
+                PRIMARY KEY (dataset_id, age_id)
                 )
             ''')
 
@@ -161,6 +159,16 @@ class IndexDatabase:
                 FOREIGN KEY (dataset_id) REFERENCES datasets (id),
                 FOREIGN KEY (radar_instrument_id) REFERENCES radar_instruments (id),
                 PRIMARY KEY (dataset_id, radar_instrument_id)
+                )
+            ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS dataset_regions (
+                dataset_id INTEGER,
+                region_id INTEGER,
+                FOREIGN KEY (dataset_id) REFERENCES datasets (id),
+                FOREIGN KEY (region_id) REFERENCES regions (id),
+                PRIMARY KEY (dataset_id, region_id)
                 )
             ''')
 
@@ -294,13 +302,18 @@ class IndexDatabase:
                 for age, age_unc in age_uncs.iterrows():
                     cursor.execute('INSERT OR IGNORE INTO ages (age, age_unc) VALUES (?, ?)', (str(age), str(age_unc['age_unc'])))
                     age_id = cursor.execute('SELECT id FROM ages WHERE age = ? AND age_unc = ?', (str(age), str(age_unc['age_unc']))).fetchone()[0]
-                    for basin, region in basin_mapping.items():
-                        cursor.execute('INSERT OR IGNORE INTO regions (region, IMBIE_basin) VALUES (?, ?)', (region, basin))
-                        region_id = cursor.execute('SELECT id FROM regions WHERE region = ? AND IMBIE_basin = ?', (region, basin)).fetchone()[0]
-                        cursor.execute('''
-                            INSERT OR IGNORE INTO dataset_ages (dataset_id, age_id, region_id)
-                            VALUES (?, ?, ?)
-                        ''', (dataset_row_id, age_id, region_id))
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO dataset_ages (dataset_id, age_id)
+                        VALUES (?, ?)
+                    ''', (dataset_row_id, age_id))
+
+            for basin, region in basin_mapping.items():
+                cursor.execute('INSERT OR IGNORE INTO regions (region, IMBIE_basin) VALUES (?, ?)', (region, basin))
+                region_id = cursor.execute('SELECT id FROM regions WHERE region = ? AND IMBIE_basin = ?', (region, basin)).fetchone()[0]
+                cursor.execute('''
+                    INSERT OR IGNORE INTO dataset_regions (dataset_id, region_id)
+                    VALUES (?, ?)
+                ''', (dataset_row_id, region_id))
 
         conn.commit()
         conn.close()

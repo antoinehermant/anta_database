@@ -92,11 +92,13 @@ class Database:
             LEFT JOIN
                 variables v ON dv.variable_id = v.id
             LEFT JOIN
-                dataset_ages da ON d.id = da.dataset_id
+                dataset_ages da ON d.id = da.dataset_id AND v.name = 'IRH_DEPTH'
             LEFT JOIN
                 ages a ON da.age_id = a.id
             LEFT JOIN
-                regions r ON da.region_id = r.id
+                dataset_regions dr ON d.id = dr.dataset_id
+            LEFT JOIN
+                regions r ON dr.region_id = r.id
         '''
         conditions = []
         params = []
@@ -415,21 +417,21 @@ class Database:
         Helper method to build the SQL query and parameters for filtering.
         Returns the query string and parameters list.
         """
-        select_clause = 's.name AS dataset, \
+        select_clause = "s.name AS dataset, \
                         s.citation, \
                         s.DOI_dataset, \
                         s.DOI_publication, \
                         institutes_list.institutes, \
                         projects_list.projects, \
                         d.acq_year, \
-                        a.age, \
-                        a.age_unc, \
+                        CASE WHEN v.name = 'IRH_DEPTH' THEN a.age ELSE NULL END AS age, \
+                        CASE WHEN v.name = 'IRH_DEPTH' THEN a.age_unc ELSE NULL END AS age_unc, \
                         v.name AS var, \
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
-        '
+        "
         query = f'''
             SELECT {select_clause}
             FROM
@@ -474,11 +476,13 @@ class Database:
             LEFT JOIN
                 variables v ON dv.variable_id = v.id
             LEFT JOIN
-                dataset_ages da ON d.id = da.dataset_id
+                dataset_ages da ON d.id = da.dataset_id AND v.name = 'IRH_DEPTH'
             LEFT JOIN
                 ages a ON da.age_id = a.id
             LEFT JOIN
-                regions r ON da.region_id = r.id
+                dataset_regions dr ON d.id = dr.dataset_id
+            LEFT JOIN
+                regions r ON dr.region_id = r.id
         '''
         conditions = []
         params = []
@@ -536,21 +540,21 @@ class Database:
               retain_query: Optional[bool] = True,
               ) -> 'MetadataResult':
 
-        select_clause = 's.name AS dataset, \
+        select_clause = "s.name AS dataset, \
                         s.citation, \
                         s.DOI_dataset, \
                         s.DOI_publication, \
                         institutes_list.institutes, \
                         projects_list.projects, \
                         d.acq_year, \
-                        a.age, \
-                        a.age_unc, \
+                        CASE WHEN v.name = 'IRH_DEPTH' THEN a.age ELSE NULL END AS age, \
+                        CASE WHEN v.name = 'IRH_DEPTH' THEN a.age_unc ELSE NULL END AS age_unc, \
                         v.name AS var, \
                         d.flight_id, \
                         r.region, \
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
-        '
+        "
         query, params = self._build_query_and_params(age, var, dataset, institute, project, acquisition_year, flight_id, region, IMBIE_basin, radar_instrument, select_clause)
 
         conn = sqlite3.connect(self._file_db_path)
