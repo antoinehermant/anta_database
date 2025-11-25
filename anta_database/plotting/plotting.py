@@ -448,32 +448,32 @@ class Plotting:
                     if cmap == None:
                         cmap = cmaps.bukavu
                     extend = 'both'
-                    if not vmin: vmin = -1000
-                    if not vmax: vmax = 1000
+                    if vmin is None: vmin = -1000
+                    if vmax is None: vmax = 1000
                     if not title:
                         title = f'AntADatabase Bed Elevation'
                 elif var == 'ICE_THK':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'max'
-                    if not vmin: vmin = 0
-                    if not vmax: vmax = 4000
+                    if vmin is None: vmin = 0
+                    if vmax is None: vmax = 4000
                     if not title:
                         title = f'AntADatabase Ice Thickness'
                 elif var == 'SURF_ELEV':
                     if cmap == None:
-                        cmap = cmaps.torch_r
+                        cmap = cmaps.ice_r
                     extend = 'max'
-                    if not vmin: vmin = 2000
-                    if not vmax: vmax = 4000
+                    if vmin is None: vmin = 1000
+                    if vmax is None: vmax = 4000
                     if not title:
                         title = f'AntADatabase Surface Elevation'
                 elif var == 'BASAL_UNIT':
                     if cmap == None:
                         cmap = cmaps.torch_r
                     extend = 'both'
-                    if not vmin: vmin = 2000
-                    if not vmax: vmax = 400
+                    if vmin is None: vmin = 2000
+                    if vmax is None: vmax = 400
                     if not title:
                         title = f'AntADatabase Basal Unit'
                 scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
