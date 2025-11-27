@@ -6,3 +6,5 @@ Maybe first contact me so I know that people are interested and on which feature
 
 The project is hosted on [GitHub](https://github.com/antoinehermant/anta_database). First you should fork the repository, create your own features branches and submit pull request.
 
+Check the [Roadmap](https://github.com/antoinehermant/anta_database/blob/main/ROADMAP.md).
+
