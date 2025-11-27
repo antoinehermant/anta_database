@@ -294,7 +294,7 @@ class CompileDatabase:
                             header=0,
                             sep=sep,
                             # usecols=original_new_columns.columns,
-                            na_values=['-9999', '-9999.0', 'NaN', 'nan', ''],
+                            # na_values=['-9999', '-9999.0', 'NaN', 'nan', ''],
                             dtype=str
                             )
 
@@ -303,6 +303,26 @@ class CompileDatabase:
 
         ds = ds[ds.columns.intersection(original_new_columns.columns)]
         ds.columns = original_new_columns[ds.columns].iloc[0].values  # renaming the columns
+
+        values_to_replace = ['-9999', '-9999.0', 'NaN', 'nan', '']
+
+        if 'PSX' in ds.columns and 'PSY' in ds.columns:
+            # Create a mask for rows where both PSX and PSY are in values_to_replace
+            mask = (
+                ds['PSX'].isin(values_to_replace) &
+                ds['PSY'].isin(values_to_replace)
+            )
+            if mask.any():
+                problematic_indices = ds.index[mask].tolist()
+                warnings.warn(
+                    f"Found {len(problematic_indices)} rows where both PSX and PSY are in {values_to_replace}. "
+                    f"Indices: {problematic_indices}. Dropping these rows."
+                )
+
+            ds = ds[~mask].copy()
+
+        cols_to_replace = [col for col in ds.columns if col not in ['PSX', 'PSY']]
+        ds[cols_to_replace] = ds[cols_to_replace].replace(values_to_replace, pd.NA)
 
         pattern_values = original_new_columns[1:]
         pattern_header = original_new_columns.iloc[0]
