@@ -744,6 +744,9 @@ class Database:
         file_paths = self._get_file_paths_from_metadata(metadata=md)
         file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
 
+        if disable_tqdm or self._disable_tqdm:
+            disable_tqdm = True
+
         for file_path in tqdm(file_paths, desc='Generating dataframes', total=len(file_paths), unit='file', disable=disable_tqdm):
             full_path = os.path.join(data_dir, file_path)
             file_md = self._get_file_metadata(file_path)
@@ -754,25 +757,30 @@ class Database:
             if 'Distance' in ds.keys():
                 df['Distance'] = ds['Distance'][::downscale_factor]
 
+            var_impl = []
+            age_impl = []
             for var in md['var']:
                 if var == 'IRH_DEPTH':
+                    var_impl.append(var)
                     for age in md['age']:
                         irh_values = ds['IRH_AGE'][:]
                         irh_index = np.where(irh_values == int(age))[0]
                         if len(irh_index) == 0:
                             continue
                         irh_index = irh_index[0]
+                        age_impl.append(age)
 
                         df[int(age)] = ds[var][::downscale_factor, irh_index]
 
                 else:
                     if var in ds.keys():
+                        var_impl.append(var)
                         df[var] = ds[var][::downscale_factor]
 
             metadata = {
                 'dataset': file_md['dataset'],
-                'var': md['var'],
-                'age': md['age'],
+                'var': var_impl,
+                'age': age_impl,
                 'flight_id': file_md['flight_id'],
                 'institute': file_md['institute'],
                 'project': file_md['project'],
@@ -788,105 +796,6 @@ class Database:
             }
 
             yield df, metadata
-
-    # def return_dataset(
-    #     self,
-    #     metadata: Union[None, Dict, 'MetadataResult'] = None,
-    #     data_dir: Optional[str] = None,
-    #     downscale_factor: Optional[str] = None,
-    # ) -> Generator[Tuple[pd.DataFrame, Dict]]:
-    #     """
-    #     Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
-
-    #     Args:
-    #         metadata: Metadata for filtering files.
-    #         data_dir: Directory containing the data files.
-    #         vars_to_load: List of variables to load from each file.
-
-    #     Yields:
-    #         Tuple[xr.Dataset, Dict]: A lazy-loaded xarray Dataset and its metadata.
-    #     """
-    #     # Resolve metadata
-    #     md = metadata or self._md
-    #     if not md:
-    #         print('Please provide metadata of the files you want to generate the data from. Exiting...')
-    #         return
-
-    #     # Resolve data directory
-    #     data_dir = data_dir or self._db_dir
-    #     if not data_dir:
-    #         print('No data directory provided. Exiting...')
-    #         return
-
-    #     if len(md['var']) > 1:
-    #         print(f'WARNING: you requested multiple variables ({md['var']}), this will return individual dataframes for each variable in each transect.')
-
-    #     file_paths = self._get_file_paths_from_metadata(metadata=md)
-    #     file_paths = np.unique(file_paths) # Be carefull as many pointers point to the same file
-
-    #     for file_path in file_paths:
-    #         full_path = os.path.join(data_dir, file_path)
-    #         file_md = self._get_file_metadata(file_path)
-    #         for var in md['var']:
-    #             if var == 'IRH_DEPTH':
-    #                 for age in md['age']:
-    #                     with h5py.File(full_path, 'r') as ds:
-    #                         irh_values = ds['age'][:]
-    #                         irh_index = np.where(irh_values == int(age))[0]
-    #                         if len(irh_index) == 0:
-    #                             continue
-    #                         irh_index = irh_index[0]
-    #                         df = pd.DataFrame({'x': ds['x'][::downscale_factor],
-    #                                         'y': ds['y'][::downscale_factor],
-    #                                         'distance': ds['distance'][::downscale_factor],
-    #                                         var: ds[var][::downscale_factor, irh_index]})
-
-    #                         metadata = {
-    #                             'dataset': file_md['dataset'],
-    #                             'var': var,
-    #                             'age': age,
-    #                             'flight_id': file_md['flight_id'],
-    #                             'institute': file_md['institute'],
-    #                             'project': file_md['project'],
-    #                             'acquisition_year': file_md['acquisition_year'],
-    #                             'age_unc': file_md['age'],
-    #                             'reference': file_md['reference'],
-    #                             'DOI_dataset': file_md['DOI_dataset'],
-    #                             'DOI_publication': file_md['DOI_publication'],
-    #                             'flight_id': file_md['flight_id'],
-    #                             'region': file_md['region'],
-    #                             'IMBIE_basin': file_md['IMBIE_basin'],
-    #                             'radar_instrument': file_md['radar_instrument'],
-    #                         }
-
-    #                         yield df, metadata
-
-    #                 else:
-    #                     ds = h5py.File(full_path, 'r')
-    #                     df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
-    #                                     'PSY': ds['PSY'][::downscale_factor],
-    #                                     'Distance': ds['Distance'][::downscale_factor],
-    #                                     var: ds[var][::downscale_factor]})
-
-    #                     metadata = {
-    #                         'dataset': file_md['dataset'],
-    #                         'var': var,
-    #                         'age': None,
-    #                         'flight_id': file_md['flight_id'],
-    #                         'institute': file_md['institute'],
-    #                         'project': file_md['project'],
-    #                         'acquisition_year': file_md['acquisition_year'],
-    #                         'age_unc': file_md['age'],
-    #                         'reference': file_md['reference'],
-    #                         'DOI_dataset': file_md['DOI_dataset'],
-    #                         'DOI_publication': file_md['DOI_publication'],
-    #                         'flight_id': file_md['flight_id'],
-    #                         'region': file_md['region'],
-    #                         'IMBIE_basin': file_md['IMBIE_basin'],
-    #                         'radar_instrument': file_md['radar_instrument'],
-    #                     }
-
-    #                     yield df, metadata
 
     @property
     def plot(self):
