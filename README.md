@@ -16,12 +16,12 @@ Visit the [Home Page](https://antoinehermant.github.io/anta_database/intro) for 
 
 The AntADatabase contains all traced and dated Internal Reflective Horizons (isochrones) that have been published at that date. All the data is organized by flight transect for each dataset. The data is encoded in HDF5 (Hierarchical Data Format) which provides convenient data structure and performant read speeds. 
 Variables per file (when exist):
-- x(point)
-- y(point)
-- distance(point)
+- PSX(point)
+- PSY(point)
+- Distance(point)
 - IRH_DEPTH(point, age)
-- IRH_DENS(point, age)
-- ICE_THCK(point, age)
+- IRH_NUM(point, age)
+- ICE_THK(point)
 - SURF_ELEV(point, age)
 - BED_ELEV(point, age)
 
@@ -34,7 +34,7 @@ This Python module provides SQL indexing for the AntADatabase, as well as quick 
 - age
 - acquisition_year (year of radar acquisition)
 - region
-- basin
+- IMBIE_basin
 - var (variable)
 - flight id
 
