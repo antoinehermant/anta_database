@@ -715,7 +715,7 @@ class Database:
         self,
         metadata: Union[None, Dict, 'MetadataResult'] = None,
         data_dir: Optional[str] = None,
-        downscale_factor: Optional[str] = None,
+        downsampling_factor: Optional[str] = None,
         disable_tqdm: bool = False,
     ) -> Generator[Tuple[pd.DataFrame, Dict]]:
         """
@@ -751,11 +751,11 @@ class Database:
             full_path = os.path.join(data_dir, file_path)
             file_md = self._get_file_metadata(file_path)
             ds = h5py.File(full_path, 'r')
-            df = pd.DataFrame({'PSX': ds['PSX'][::downscale_factor],
-                                'PSY': ds['PSY'][::downscale_factor]})
+            df = pd.DataFrame({'PSX': ds['PSX'][::downsampling_factor],
+                                'PSY': ds['PSY'][::downsampling_factor]})
 
             if 'Distance' in ds.keys():
-                df['Distance'] = ds['Distance'][::downscale_factor]
+                df['Distance'] = ds['Distance'][::downsampling_factor]
 
             var_impl = []
             age_impl = []
@@ -770,12 +770,12 @@ class Database:
                         irh_index = irh_index[0]
                         age_impl.append(age)
 
-                        df[int(age)] = ds[var][::downscale_factor, irh_index]
+                        df[int(age)] = ds[var][::downsampling_factor, irh_index]
 
                 else:
                     if var in ds.keys():
                         var_impl.append(var)
-                        df[var] = ds[var][::downscale_factor]
+                        df[var] = ds[var][::downsampling_factor]
 
             metadata = {
                 'dataset': file_md['dataset'],

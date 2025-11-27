@@ -62,7 +62,7 @@ class Plotting:
     def dataset(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -82,7 +82,7 @@ class Plotting:
         self._base_plot(
             color_by='dataset',
             metadata=metadata,
-            downscale_factor=downscale_factor,
+            downsampling_factor=downsampling_factor,
             marker_size=marker_size,
             title=title,
             xlim=xlim,
@@ -100,7 +100,7 @@ class Plotting:
     def institute(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -120,7 +120,7 @@ class Plotting:
         self._base_plot(
             color_by='institute',
             metadata=metadata,
-            downscale_factor=downscale_factor,
+            downsampling_factor=downsampling_factor,
             marker_size=marker_size,
             title=title,
             xlim=xlim,
@@ -138,7 +138,7 @@ class Plotting:
     def flight_id(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -158,7 +158,7 @@ class Plotting:
         self._base_plot(
             color_by='flight_id',
             metadata=metadata,
-            downscale_factor=downscale_factor,
+            downsampling_factor=downsampling_factor,
             scale_factor=scale_factor,
             marker_size=marker_size,
             title=title,
@@ -176,7 +176,7 @@ class Plotting:
     def var(
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -196,7 +196,7 @@ class Plotting:
         self._base_plot(
             color_by='var',
             metadata=metadata,
-            downscale_factor=downscale_factor,
+            downsampling_factor=downsampling_factor,
             title=title,
             xlim=xlim,
             ylim=ylim,
@@ -215,7 +215,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             elevation: Optional[bool] = False,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -234,7 +234,7 @@ class Plotting:
             color_by='transect_1D',
             elevation=elevation,
             metadata=metadata,
-            downscale_factor=downscale_factor,
+            downsampling_factor=downsampling_factor,
             title=title,
             xlim=xlim,
             ylim=ylim,
@@ -261,7 +261,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             elevation: Optional[bool] = False,
-            downscale_factor: Optional[int] = None,
+            downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -314,8 +314,8 @@ class Plotting:
         if color_by == 'dataset':
             if not title:
                 title = f'AntADatabase by datasets'
-            if downscale_factor == None:
-                downscale_factor = 1
+            if downsampling_factor == None:
+                downsampling_factor = 1
             datasets = list(metadata['dataset'])
             bedmap_entries = {'BEDMAP1', 'BEDMAP2', 'BEDMAP3'}
             bedmap_colors = {
@@ -341,8 +341,8 @@ class Plotting:
                 for f in file_paths:
                     full_path = os.path.join(self._db._db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
-                        all_x.append(ds['PSX'][::downscale_factor])
-                        all_y.append(ds['PSY'][::downscale_factor])
+                        all_x.append(ds['PSX'][::downsampling_factor])
+                        all_y.append(ds['PSY'][::downsampling_factor])
                 df = pd.DataFrame({'PSX': np.concatenate(all_x),
                                 'PSY': np.concatenate(all_y)})
                 plt.scatter(df['PSX']/1000, df['PSY']/1000, color=colors[dataset], s=marker_size, zorder=zorder, linewidths=0)
@@ -359,8 +359,8 @@ class Plotting:
         if color_by == 'institute':
             if not title:
                 title = f'AntADatabase by institutes'
-            if downscale_factor == None:
-                downscale_factor = 1
+            if downsampling_factor == None:
+                downsampling_factor = 1
             institutes = list(metadata['institute'])
 
             color_indices = np.linspace(0.1, 0.9, len(institutes))
@@ -378,8 +378,8 @@ class Plotting:
                 for f in file_paths:
                     full_path = os.path.join(self._db._db_dir, f)
                     with h5py.File(full_path, 'r') as ds:
-                        all_x.append(ds['PSX'][::downscale_factor])
-                        all_y.append(ds['PSY'][::downscale_factor])
+                        all_x.append(ds['PSX'][::downsampling_factor])
+                        all_y.append(ds['PSY'][::downsampling_factor])
                 df = pd.DataFrame({'PSX': np.concatenate(all_x),
                                 'PSY': np.concatenate(all_y)})
                 plt.scatter(df['PSX']/1000, df['PSY']/1000, color=colors[institute], s=marker_size, linewidths=0)
@@ -404,7 +404,7 @@ class Plotting:
 
 
             all_dfs = []
-            for ds, _ in tqdm(self._db.data_generator(metadata, downscale_factor=downscale_factor, disable_tqdm=True), desc="Plotting", total=total_traces, unit='trace', disable=self._disable_tqdm):
+            for ds, _ in tqdm(self._db.data_generator(metadata, downsampling_factor=downsampling_factor, disable_tqdm=True), desc="Plotting", total=total_traces, unit='trace', disable=self._disable_tqdm):
                 all_dfs.append(ds)
             df = pd.concat(all_dfs)
 
@@ -605,7 +605,7 @@ class Plotting:
                         all_y.append(ds['PSY'][:])
                 df = pd.DataFrame({'PSX': np.concatenate(all_x),
                                 'PSY': np.concatenate(all_y)})
-                plt.scatter(df['PSX'][::downscale_factor]/1000, df['PSY'][::downscale_factor]/1000, color=colors[flight_id], s=marker_size, linewidths=0)
+                plt.scatter(df['PSX'][::downsampling_factor]/1000, df['PSY'][::downsampling_factor]/1000, color=colors[flight_id], s=marker_size, linewidths=0)
 
                 plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
             ncol = 2 if len(flight_ids) > 40 else 1
