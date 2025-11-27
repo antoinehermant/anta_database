@@ -464,7 +464,7 @@ You can already have a look at this guide to have an idea of the features of thi
 
   - radar_instrument: AWI-UWB, EMR, DELORES, EMR, HICARS, HICARS, LDC-VHF, MCORDS, MCORDS, EMR, PASIN, PASIN, HICARS, MCORDS, EMR, SPRI-NSF-DTU-radar, nan
 
-  - flight_id: 19983408, 19993131, W32_cL, PEL_GCX0d_R45a_depth, 20181022_01_026_046, THW_SJB2_X51b, ASB_JKB1a_Y38a, W22_cL, VCD_JKB2g_X13a, MCM_JKB1a_EDMC01a, c22b, W57_cL, THW_SJB2_X69b, 20181222_01_001, 20181227_03_001, BH03B-BH03E_proc2, SPC_GCX0d_X112a, B11, B18, W36_cL, 20231129_01_018, RAID2-BV28B_proc2, 19972408, THW_SJB2_BB01a, W19_pL, [ ... ] , LDC-DC-PANO_proc2, 20173002, DMC_JKB1a_ATAL01e, W29_cL, 20181226_01_008, c29a, W08_cL, HRB7-HRB8, PNV03ETOB, SPC_GCX0e_X122a, BV30E-BV30B_proc2, IRH_20172047, 20181222_01_002, c31a, THW_SJB2_X09a, 20181226_01_011, IRH_20172029, BV26E-RAID2_proc2, IR2HI1B_2011354_3, W34_pL, THW_SJB2_Y21b, BH42E-BH42B_proc2, A67_DLRSAR_9MI, PEL_GCX0d_R39a_depth, c11a (found 888, displayed 50)
+  - flight_id: LINK_ROUTE_proc2, EPICA_II_08, 20181227_02_011, W17_pL, HRA2-HRA3_proc2, EPICA_IV_23, PNV05BTOE, 20250102_01, EPICA_VI_35, LSE_JKB2u_Y69b_depth, LSE_GCX0f_Y51a_depth, BH05E-BH05B_proc2, VCD_JKB2g_DVD01a, c21a, 19983201, 19993134, DC_PNV09B_proc2, THW_SJB2_X63b, IRH_20172040, THW_SJB2_X81a, 19972409, W19_pL, W16_pL, 19983206, c14a, [ ... ] , BH42E-BH42B_proc2, IRH_20172028, DoCo_2007_08_12, W24_pL, THW_SJB2_X59b, PEL_GCX0a_R50a_depth, B3, 20231211_01_020, 20231211_01_009, BV44E-BV44B_proc2, BH17M-BH17E_proc2, 20231211_02_020, A63_DLRSAR_9MI, THW_SJB2_X39a, 20231211_01_016, PEL_GCX0c_R51a_depth, LSE_JKB2u_Y114a_depth, W17_cL, 20201001, W53_cL, THW_SJB2_BB01a, THW_SJB2_GLAS0116a, W28_pL, 20231211_02_009, MCM_JKB1a_EDMC01a (found 887, displayed 50)
 
   - reference: Ashmore et al. (2020), Beem et al. (2021), Bodart et al. (2021), Bodart and Sutter (2025a), Bodart and Sutter (2025b), Cavitte et al. (2020), Chung et al. (2023), Franke et al. (2025), Jacobel and Welch (2005), Leysinger-Vieli et al. (2011), Muldoon et al. (2023), Mulvaney et al. (2023), Sanderson et al. (2024), Siegert and Payne (2024), Wang et al. (2023), Winter et al. (2018), Yan et al. (2025)
   - dataset DOI: https://doi.org/10.5281/zenodo.4945301, https://doi.org/10.15784/601437, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB, https://doi.org/10.5281/zenodo.17348976, https://doi.org/10.5281/zenodo.17348094, https://doi.org/10.15784/601411, https://doi.pangaea.de/10.1594/PANGAEA.957176, https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.7265/N5R20Z9T, https://doi.org/10.5281/zenodo.15516203, https://doi.org/10.15784/601673, https://doi.pangaea.de/10.1594/PANGAEA.963470, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238, https://doi.org/10.1594/PANGAEA.958462, https://doi.org/10.1594/PANGAEA.895528, https://doi.org/10.5281/zenodo.14962526
@@ -486,7 +486,7 @@ You can already have a look at this guide to have an idea of the features of thi
 <li><p>age: age(s) in yrs before present of the layer(s) of interest</p></li>
 <li><p>region: region(s) of interest. E.g.: ‘EAIS’, ‘WAIS’</p></li>
 <li><p>IMBIE_basin: IMBIE basin(s) of interest. E.g.: ‘G-H’, ‘Ap-B’.</p></li>
-<li><p>var: variables(s) of interest. Possible variables currently are: ‘IRH_DEPTH’, ‘IRH_DENS’, ‘ICE_THCK’, ‘BED_ELEV’, ‘SURF_ELEV’</p></li>
+<li><p>var: variables(s) of interest. Possible variables currently are: ‘IRH_DEPTH’, ‘IRH_DENS’, ‘ICE_THK’, ‘BED_ELEV’, ‘SURF_ELEV’</p></li>
 <li><p>flight_id: ID of a particular flight line. This is useful for explicit flight IDs such as ‘DC_LDC_DIVIDE’</p></li>
 </ul>
 <p>One can also combine field queries as well as providing lists. Use ‘%’ for searching by regular expressions. Here are a few examples:</p>
@@ -526,7 +526,7 @@ You can already have a look at this guide to have an idea of the features of thi
 
   - radar_instrument: AWI-UWB, EMR, EMR
 
-  - flight_id: 19983408, 19993131, 20231211_02_017, 20231129_01_015, 20231211_01_023, 19993104, 20231211_02_013, 19993106, 20231211_01_006, 20181222_01_001, 20181227_03_001, 19983207, 20181226_03_003, 19983406, 20022115, 20181226_01_012, EPICA_II_04, 20181226_02_004, 19983402, 20181227_03_005, 20231129_01_018, 19972408, 19972308, 20181226_01_002, 19972313, [ ... ] , 19993118, 20231211_01_024, 20231211_02_006, 20231211_01_015, 20053109, 20181226_01_008, 20013122, 20231129_01_010, 20231211_02_011, 20231211_02_015, 19972415, 19983102, 20181222_01_002, 19983206, 20181226_01_011, 20013012, 20231129_01_007, 20181227_02_002, 20023153, 20181227_02_004, 20231211_02_002, EPICA_II_08, 20023150, 20231211_02_012, 20181226_03_001 (found 215, displayed 50)
+  - flight_id: 20181226_01_001, EPICA_II_08, 20181227_02_011, EPICA_IV_23, EPICA_IV_15, 20023115, EPICA_VI_35, 20231211_01_023, 19993132, 20181226_03_001, 20231204_01_010, 19983202, 19983201, 19993134, 20181227_02_006, 20231211_02_004, 20231211_01_007, 20181226_03_003, 20181227_02_002, 20173004, 19972409, 19983206, 20181226_02_009, 20231211_02_019, 20023109, [ ... ] , 19983207, 20181226_01_012, 20231129_01_007, 20231129_01_018, 20181226_02_010, 20013124, EPICA_IV_12, 20231211_01_020, 19993112, 20231211_01_009, 19993115, 20181222_01_001, 19973310, 20231211_02_002, 20231211_02_020, 20022104, 20231129_01_004, EPICA_IV_22, 20231211_01_016, EPICA_IV_21, EPICA_IV_11, 20023111, 20173003, 20231211_02_009, 20181226_02_004 (found 215, displayed 50)
 
   - reference: Franke et al. (2025), Winter et al. (2018)
   - dataset DOI: https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.1594/PANGAEA.895528
@@ -624,7 +624,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/b23a03e953e6a5670bd26419a6c87219c47aebcca2adcf9c9342bba2b90eb0b5.png" src="_images/b23a03e953e6a5670bd26419a6c87219c47aebcca2adcf9c9342bba2b90eb0b5.png" />
+<img alt="_images/aa351575985d717d84abf8871a3a47af778e6265e46b04153a05362343389d34.png" src="_images/aa351575985d717d84abf8871a3a47af778e6265e46b04153a05362343389d34.png" />
 </div>
 </div>
 </section>
@@ -642,7 +642,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/53ac3ac23ca49733aa3c93ca480b1377e8f0dfa96b717957a201ad4768877d1e.png" src="_images/53ac3ac23ca49733aa3c93ca480b1377e8f0dfa96b717957a201ad4768877d1e.png" />
+<img alt="_images/8cbc168eeca65368712d32ddf766b0c2ae287c1f6f5ede6f950a48d2be74d48f.png" src="_images/8cbc168eeca65368712d32ddf766b0c2ae287c1f6f5ede6f950a48d2be74d48f.png" />
 </div>
 </div>
 </section>
