@@ -611,7 +611,8 @@ class Plotting:
             ncol = 2 if len(flight_ids) > 40 else 1
 
         # --- Format Figure ---
-        print('Formatting ...')
+        if not self._disable_tqdm:
+            print('Formatting ...')
 
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
@@ -710,7 +711,7 @@ class Plotting:
             site_coords = pd.read_pickle(self._site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
-                ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5)
+                ax.scatter(site['x']/1000, site['y']/1000, color='red', s=50, marker='^', edgecolor='black', linewidth=1.5, zorder=50)
         # --- Save/Show ---
         with self._plot_context():
             if save:
