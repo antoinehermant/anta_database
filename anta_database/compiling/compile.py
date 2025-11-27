@@ -894,8 +894,8 @@ class CompileDatabase:
                     df = gpd.GeoDataFrame({
                         "geometry": [Point(x, y) for x, y in zip(ds.PSX.values, ds.PSY.values)],
                         "irh_num": N.astype('int8'),
-                        "max_age": np.rint(age_max_depth).astype('int32'),
-                        "max_depth": max_depth.astype('int16'),
+                        "max_age": age_max_depth.astype('int32'),
+                        "max_depth": np.rint(max_depth).astype('int16'),
                         # "flight_id": [flight_id] * len(N),
                         # "doi_data": [doi_data] * len(N),
                     }, crs="EPSG:3031")
