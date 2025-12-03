@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Model-data comparison: Example using the Parallel Ice Sheet Model &#8212; AntADatabase</title>
+    <title>Model-data comparison (ex: PISM) &#8212; AntADatabase</title>
   
   
   
@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -182,7 +182,7 @@
         <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
 
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Model-data comparison: Example using the Parallel Ice Sheet Model</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Model-data comparison (ex: PISM)</a></li>
 
 
 <li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
@@ -373,7 +373,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Model-data comparison: Example using the Parallel Ice Sheet Model</h1>
+    <h1>Model-data comparison (ex: PISM)</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -383,7 +383,7 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison: Example using the Parallel Ice Sheet Model</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison (ex: PISM)</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-layer-mismatch">2D Layer mismatch</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM output</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#query-the-antadatabase">Query the AntADatabase</a></li>
@@ -408,17 +408,18 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="model-data-comparison-example-using-the-parallel-ice-sheet-model">
-<h1>Model-data comparison: Example using the Parallel Ice Sheet Model<a class="headerlink" href="#model-data-comparison-example-using-the-parallel-ice-sheet-model" title="Link to this heading">#</a></h1>
+  <section class="tex2jax_ignore mathjax_ignore" id="model-data-comparison-ex-pism">
+<h1>Model-data comparison (ex: PISM)<a class="headerlink" href="#model-data-comparison-ex-pism" title="Link to this heading">#</a></h1>
+<p>Example using the Parallel Ice Sheet Model</p>
 <p>PISM includes an englacial layer tracing scheme <a class="reference external" href="https://doi.org/10.5194/tc-15-4539-2021">(Born and Robinson 2021)</a> since its version 2.1 <a class="reference external" href="https://www.pism.io/docs/manual/modeling-choices/dynamics/age.html">(PISM docs)</a></p>
-<p>This notebook shows how to make direct use of the AntADabase and the anta_database module for comparing a model run with PISM and IRH data. It is not meant to be very efficient, but descriptive, and people should be able to take parts of the code to implement it in there diagnostic routines.</p>
+<p>This notebook shows how to make direct use of the AntADatabase and the anta_database module for comparing a model run with PISM and IRH data. It is not meant to be very efficient, but descriptive, and people should be able to take parts of the code to implement it in there diagnostic routines.</p>
 </section>
 <section class="tex2jax_ignore mathjax_ignore" id="d-layer-mismatch">
 <h1>2D Layer mismatch<a class="headerlink" href="#d-layer-mismatch" title="Link to this heading">#</a></h1>
 <section id="pism-output">
 <h2>PISM output<a class="headerlink" href="#pism-output" title="Link to this heading">#</a></h2>
 <p>This example is using output from a regional domain setup around Dome C, East Antarctica. Layers were traced to match the Cavitte et al. 2020 dataset.
-Note that PISM time is in second since year 0, while the dated IRHs are in years before 1950. So one has to make sure that the ages match.
+Note that PISM time is in second since year 0, while the dated IRHs are in years before 1950. So one has to be careful with the time reference between the dated IRH and the model time.
 PISM outputs the ‘isochronal_layer_thickness’ variable, which needs to be converted to isochronal depth. Then we select the layer of interest.
 Here is with xarray, but one can use netCDF4:</p>
 <div class="cell docutils container">
@@ -432,8 +433,8 @@ Here is with xarray, but one can use netCDF4:</p>
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pism_out</span><span class="o">.</span><span class="n">deposition_time</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
     <span class="n">pism_out</span><span class="p">[</span><span class="s1">&#39;isochronal_layer_depth&#39;</span><span class="p">][:,:,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_thickness</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s1">&#39;deposition_time&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
 
-<span class="n">age</span> <span class="o">=</span> <span class="mi">38000</span>
-<span class="n">age_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1950</span>
+<span class="n">age</span> <span class="o">=</span> <span class="mi">38000</span> <span class="c1"># note the age is different from the one used in Cavitte et al. 2020 due to different ice core age scale, please ignore</span>
+<span class="n">age_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1950</span> <span class="c1"># to account for difference between model time and age scale used for IRHs, the isochrones were seeded at age+1950, and the simulation ran until year 1950.</span>
 <span class="n">age_seconds</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span><span class="o">+</span><span class="n">age_offset</span><span class="p">)</span><span class="o">*</span><span class="mi">3600</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span>
 <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age_seconds</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
 <span class="n">X_pism</span><span class="p">,</span> <span class="n">Y_pism</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">pism_out</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
@@ -476,14 +477,15 @@ Here is with xarray, but one can use netCDF4:</p>
 
 <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">irh_files</span><span class="p">:</span>
     <span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;h5netcdf&#39;</span><span class="p">)</span>
-    <span class="n">irh_layer</span> <span class="o">=</span> <span class="n">irh</span><span class="o">.</span><span class="n">IRH_DEPTH</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">IRH_AGE</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">query</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
-    <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="p">,</span> <span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="p">))</span>
-    <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
-    <span class="n">depth_diff</span> <span class="o">=</span> <span class="n">pism_depth_interp</span> <span class="o">-</span> <span class="n">irh_layer</span>
+    <span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">query</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]:</span>
+        <span class="n">irh_layer</span> <span class="o">=</span> <span class="n">irh</span><span class="o">.</span><span class="n">IRH_DEPTH</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">IRH_AGE</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">age</span><span class="p">))</span>
+        <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="p">,</span> <span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="p">))</span>
+        <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+        <span class="n">depth_diff</span> <span class="o">=</span> <span class="n">pism_depth_interp</span> <span class="o">-</span> <span class="n">irh_layer</span>
 
-    <span class="n">all_psx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-    <span class="n">all_psy</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-    <span class="n">all_depth_diff</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">depth_diff</span><span class="p">)</span>
+        <span class="n">all_psx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">all_psy</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">all_depth_diff</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">depth_diff</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -502,17 +504,18 @@ Here is with xarray, but one can use netCDF4:</p>
 <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">irh_files</span><span class="p">:</span>
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">irh</span><span class="p">:</span>
         <span class="n">irh_values</span> <span class="o">=</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;IRH_AGE&#39;</span><span class="p">][:]</span>
-        <span class="n">irh_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">irh_values</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">query</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]))[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">irh_index</span> <span class="o">=</span> <span class="n">irh_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">irh_layer</span> <span class="o">=</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">][:,</span> <span class="n">irh_index</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">query</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]:</span>
+            <span class="n">irh_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">irh_values</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">age</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">irh_index</span> <span class="o">=</span> <span class="n">irh_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">irh_layer</span> <span class="o">=</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">][:,</span> <span class="n">irh_index</span><span class="p">]</span>
 
-        <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">][:],</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSY&#39;</span><span class="p">][:]))</span>
-        <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
-        <span class="n">depth_diff</span> <span class="o">=</span> <span class="n">pism_depth_interp</span> <span class="o">-</span> <span class="n">irh_layer</span>
+            <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">][:],</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSY&#39;</span><span class="p">][:]))</span>
+            <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+            <span class="n">depth_diff</span> <span class="o">=</span> <span class="n">pism_depth_interp</span> <span class="o">-</span> <span class="n">irh_layer</span>
 
-        <span class="n">all_psx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">][:])</span>
-        <span class="n">all_psy</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSY&#39;</span><span class="p">][:])</span>
-        <span class="n">all_depth_diff</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">depth_diff</span><span class="p">)</span>
+            <span class="n">all_psx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">][:])</span>
+            <span class="n">all_psy</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">irh</span><span class="p">[</span><span class="s1">&#39;PSY&#39;</span><span class="p">][:])</span>
+            <span class="n">all_depth_diff</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">depth_diff</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -551,7 +554,7 @@ Here is with xarray, but one can use netCDF4:</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/951647aaa38f920baaafa2e2239fc25425c7dc66dbc083c0dfae762ca3088bc8.png" src="_images/951647aaa38f920baaafa2e2239fc25425c7dc66dbc083c0dfae762ca3088bc8.png" />
+<img alt="_images/29303bb26e646f1a65afefde0bc6aceb0dfce0742802c433c57c617c6b6d0317.png" src="_images/29303bb26e646f1a65afefde0bc6aceb0dfce0742802c433c57c617c6b6d0317.png" />
 </div>
 </div>
 </section>
@@ -578,13 +581,13 @@ First we select a specific transect:</p>
 <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="p">,</span> <span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="p">))</span>
 
 <span class="n">pism_ages</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">29300</span><span class="p">,</span> <span class="mi">38000</span><span class="p">,</span> <span class="mi">46600</span><span class="p">,</span> <span class="mi">73100</span><span class="p">,</span> <span class="mi">97400</span><span class="p">,</span> <span class="mi">122800</span><span class="p">,</span> <span class="mi">165200</span><span class="p">,</span> <span class="mi">278000</span><span class="p">]</span> <span class="c1"># PISM ages differ slightly since I used a different ice core chronology for the dating than in the original Cavitte et al. 2020 paper</span>
-<span class="n">pism_layers</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=-</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pism_ages</span><span class="p">)</span><span class="o">+</span><span class="n">age_offset</span><span class="p">)</span><span class="o">*</span><span class="mi">3600</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">irh_layers</span><span class="o">.</span><span class="n">IRH_DEPTH</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">irh_layers</span><span class="o">.</span><span class="n">IRH_AGE</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">irh_layers</span><span class="o">.</span><span class="n">ICE_THK</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bed Depth&#39;</span><span class="p">)</span>
 
-<span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">pism_layers</span><span class="o">.</span><span class="n">deposition_time</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
-    <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_layers</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">pism_ages</span><span class="p">:</span>
+    <span class="n">age</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span><span class="o">+</span><span class="n">age_offset</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">3600</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span><span class="p">)</span>
+    <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
     <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pism_depth_interp</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;PISM Isochronal Layers&#39;</span><span class="p">)</span>    
@@ -602,7 +605,7 @@ First we select a specific transect:</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/c377aa9299c0c79c2a8c245b2bd80b81abe283d7c419ba355704e13856f4ed20.png" src="_images/c377aa9299c0c79c2a8c245b2bd80b81abe283d7c419ba355704e13856f4ed20.png" />
+<img alt="_images/f4e3939ba5f13eaa276c5a5e0eb796d4fc90009f8319a111c2ed0d2bcda53266.png" src="_images/f4e3939ba5f13eaa276c5a5e0eb796d4fc90009f8319a111c2ed0d2bcda53266.png" />
 </div>
 </div>
 </section>
@@ -671,7 +674,7 @@ First we select a specific transect:</p>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison: Example using the Parallel Ice Sheet Model</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison (ex: PISM)</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-layer-mismatch">2D Layer mismatch</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM output</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#query-the-antadatabase">Query the AntADatabase</a></li>

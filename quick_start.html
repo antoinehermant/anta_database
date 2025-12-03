@@ -60,7 +60,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'quick_start';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Advanced: Managing the database" href="advanced.html" />
+    <link rel="next" title="Model-data comparison (ex: PISM)" href="pism_example.html" />
     <link rel="prev" title="AntADatabase" href="intro.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -181,6 +181,9 @@
         </ul>
         <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Quick start</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="pism_example.html">Model-data comparison (ex: PISM)</a></li>
+
 
 <li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
@@ -386,16 +389,14 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-datasets">Plot datasets</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-variables">Plot variables</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Plot datasets</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-flight-ids">Plot flight IDs</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-layer-depths-along-transect">Plot layer depths along transect</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bedmap">BEDMAP</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-files-from-the-database">Get files from the database</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#downscale-the-data">Downscale the data</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#pro-tips">Pro tips</a></li>
@@ -419,7 +420,7 @@ document.write(`
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>pip install anta_database
 </pre></div>
 </div>
-<p>This Python module is designed to query and visualized data in a AntADatabase folder. The latter has to be first compiled using published IRH datasets, or you can contact for downloading it.
+<p>This Python module is designed to query and visualized data in a AntADatabase folder. The latter is not published yet, but you can contact me for access.
 You can already have a look at this guide to have an idea of the features of this tool. This Jupyter Notebook can be directly downloaded (top bar) and ran locally (assuming you had downloaded or compiled the AntADatabase folder).</p>
 </section>
 <section id="browsing-the-database">
@@ -434,7 +435,7 @@ You can already have a look at this guide to have an idea of the features of thi
 </div>
 </div>
 </div>
-<p>Use the query() function to browse the database. ‘query()’ without argument will return all metadata contained in the database:</p>
+<p>Use the query() function to browse the database. ‘query()’ without argument will return all the metadata from the database:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
@@ -444,17 +445,17 @@ You can already have a look at this guide to have an idea of the features of thi
 <div class="cell_output docutils container">
 <div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Metadata from query:
 
-  - dataset: Ashmore_2020, Beem_2021, Bodart_2021, Bodart_2025a, Bodart_2025b, Cavitte_2020, Chung_2023, Franke_2025, Jacobel_2005, Leysinger_Vieli_2011, Muldoon_2023, Mulvaney_2023, Sanderson_2024, Siegert_2004, Wang_2023, Winter_2018, Yan_2025
+  - dataset: Ashmore_2020, Beem_2021, Bodart_2021, Bodart_2025b, Cavitte_2020, Chung_2023, Franke_2025, Jacobel_2005, Leysinger_Vieli_2011, Muldoon_2023, Mulvaney_2023, Sanderson_2024, Siegert_2004, Wang_2023, Winter_2018, Yan_2025
 
   - institute: AWI, AWI, LDEO, BAS, BAS, AWI, NASA-CRESIS, UTIG-AAD, BAS, NASA-CRESIS, UTIG-AAD, NASA-CRESIS, PRIC-UTIG-AAD, SPRI-NSF-DTU, St-Olaf-College, UTIG, UTIG, PRIC, UTIG, UA
 
-  - project: AGAP-NORTH, POLARGAP, ANTR, ANTR, AGAP-SOUTH-GAMBIT, BBAS, BE-OI, CHARISO, ANTR, SNACC-DML, ICECAP2, IMAFI, OIB, OIB, ANTR, WISE_ISODYN, ICECAP, OIB, ICECAP-OIA, BE-OI, SOAR-CASERTZ, SOAR-DVD, ATRS, AGASEA, GIMBLE, SPC, PPT, US-ITASE, nan
+  - project: AGAP-NORTH, POLARGAP, ANTR, ANTR, AGAP-SOUTH-GAMBIT, BBAS, BE-OI, ICECAP2, IMAFI, OIB, OIB, ICECAP-OIA, BE-OI, OIB, WISE_ISODYN, ICECAP, ANTR, SOAR-CASERTZ, SOAR-DVD, ATRS, AGASEA, GIMBLE, SPC, PPT, US-ITASE, nan
 
-  - acquisition_year: 1970-1979, 1974-1978, 1998-2008, 1999-2025, 2001-2002, 2004, 2005, 2005-2019, 2007-2016, 2009, 2010, 2011, 2012, 2013, 2016, 2016-2018, 2016-2019, 2017, 2018, None
+  - acquisition_year: 1970-1979, 1974-1978, 1998-2008, 2001-2002, 2004, 2005, 2005-2019, 2007-2016, 2009, 2010, 2011, 2012, 2013, 2016, 2016-2018, 2016-2019, 2017, 2018, None
 
-  - age: 800, 2615, 3100, 4700, 4720, 4800, 5600, 6400, 6500, 6940, 7200, 7400, 8500, 9500, 10000, 10001, 10516, 10700, 11100, 12000, 13200, 13500, 15000, 15400, 16000, 16500, 16800, 17500, 17532, 18000, 23500, 25600, 29100, 29400, 30397, 31400, 36300, 36500, 37600, 38000, 38100, 38200, 38500, 39215, 43600, 46400, 47110, 48300, 51400, 52200, 62235, 62477, 64400, 72500, 73000, 73300, 73400, 73500, 74200, 75160, 75300, 80007, 82000, 82646, 84300, 90000, 90200, 90400, 91000, 93900, 95500, 96500, 97667, 106300, 108315, 117400, 118342, 121000, 121100, 127800, 128400, 128542, 129000, 132000, 135600, 160000, 160400, 161100, 161900, 166112, 166400, 169100, 170514, 179000, 200100, 202334, 203000, 215000, 220100, 239000, 240397, 243000, 244718, 254500, 262159, 277900, 304000, 320000, 326168, 327300, 336000, 341500, 345462, 352358, 365000, 366500, 381523, 395802, 396000, 399500, 414644, 419800, 473000, 482700, 516800, 560200, 611000, 708500
+  - age: 800, 2615, 3100, 4700, 4720, 4800, 5600, 6400, 6500, 6940, 7200, 8500, 9500, 10000, 10001, 10516, 10700, 11100, 12000, 13200, 13500, 15000, 15400, 16000, 16500, 16800, 17500, 17532, 18000, 23500, 25600, 29100, 29400, 30397, 31400, 36300, 36500, 37600, 38000, 38100, 38200, 38500, 39215, 43600, 46400, 47110, 48300, 51400, 52200, 62235, 62477, 64400, 72500, 73000, 73300, 73400, 73500, 74200, 75160, 75300, 80007, 82000, 82646, 84300, 90000, 90200, 90400, 91000, 93900, 95500, 96500, 97667, 106300, 108315, 113000, 117400, 118342, 121000, 121100, 127800, 128400, 128542, 129000, 132000, 135600, 160000, 160400, 161100, 161900, 166112, 166400, 169100, 170514, 179000, 200100, 202334, 203000, 215000, 220100, 239000, 240397, 243000, 244718, 254500, 262159, 277900, 304000, 320000, 326168, 327300, 336000, 341500, 345462, 352358, 365000, 366500, 381523, 395802, 396000, 399500, 414644, 419800, 473000, 482700, 516800, 560200, 611000, 708500
 
-  - age_unc: -, 305, -, -, 280, 600, -, -, 200, 310, 100, 800, 900, 800, 300, 800, -, -, 100, 800, 400, 900, 1000, 1190, -, 790, -, -, -, 900, 1700, 100, -, 900, -, 3000, 3600, -, -, 800, 100, 600, 2200, -, 4900, 900, -, 1200, -, 100, -, -, 3000, -, -, -, 900, 2200, 1700, -, 7000, -, 1600, -, -, -, 1900, 3570, 1100, -, 7500, 1800, -, 1900, -, 1200, -, -, 1800, 1800, 3600, -, -, -, 10300, -, 3900, 3500, 6760, -, 3600, 19000, -, -, 2600, -, -, -, 3300, -, -, -, -, 5500, -, 4900, -, -, -, 4100, -, 5600, -, -, -, 7900, -, -, -, 9700, -, 13700, -, 22100, 21900, 27200, 35400, 54000
+  - age_unc: -, 305, -, -, 280, 620, -, -, 200, 310, 100, 900, 800, 300, 800, -, -, 100, 800, 400, 900, 1000, 1190, -, 790, -, -, -, 900, 1700, 100, -, 900, -, 3000, 3600, -, -, 800, 700, 600, 2200, -, 4900, 900, -, 1200, -, 100, -, -, 3000, -, -, -, 2100, 2200, 1700, -, 7000, -, 1600, -, -, -, 1900, 3570, 1100, -, 7500, 1800, -, 1900, -, -, 1200, -, -, 1800, 1800, 3600, -, -, -, 10300, -, 3900, 3500, 6760, -, 3600, 19000, -, -, 2600, -, -, -, 3300, -, -, -, -, 5500, -, 4900, -, -, -, 4100, -, 5600, -, -, -, 7900, -, -, -, 9700, -, 13700, -, 22100, 21900, 27200, 35400, 54000
 
   - var: BASAL_UNIT, BED_ELEV, ICE_THK, IRH_DEPTH, IRH_NUM, SURF_ELEV
 
@@ -462,12 +463,12 @@ You can already have a look at this guide to have an idea of the features of thi
 
   - IMBIE_basin: A-Ap, Ap-B, B-C, C-Cp, Cp-D, D-Dp, Dp-E, E-Ep, Ep-F, G-H, J-Jpp, Jpp-K, K-A
 
-  - radar_instrument: AWI-UWB, EMR, DELORES, EMR, HICARS, HICARS, LDC-VHF, MCORDS, MCORDS, EMR, PASIN, PASIN, HICARS, MCORDS, EMR, SPRI-NSF-DTU-radar, nan
+  - radar_instrument: DELORES, EMR, EMR, AWI-UWB, HICARS, HICARS, LDC-VHF, MCORDS, MCORDS, EMR, PASIN, PASIN, HICARS, MCORDS, EMR, SPRI-NSF-DTU-radar, nan
 
-  - flight_id: c30a, RAID-2V11E, 20022116, 20201011, 20231211_02_003, 20201001, EPICA_VI_35, c08a, 20231203_04, IR2HI1B_2011354_3, 19993135, THW_SJB2_Y55b, 20231129_01_016, BV23E-BV23B5_proc2, PNV01BTOE, W37_cL, W56_cL, DC_LDC_DIVIDE, THW_SJB2_Y37b, c11g, c09b, A11ADLRSAR_9MI_11, IR2HI1B_2011030, B18, 20023154, [ ... ] , W32_pL, jacobel_usitase_2001_01-6_ellsworth, ASB_JKB1a_R09Ta, B15, RAID2-BV11E_proc2, ROUTE4_proc2, W28_cL, V03E-2V03B, PEL_GCX0d_R39a_depth, W58_pL, 19983204, A65D_DLRSAR_9MI, 19983403, W49_pL, c12c, W27_cL, 20033139, W19_pL, 19972307, c15b, 20231211_02_007, THW_SJB2_Y67a, VCD_JKB2g_X13a, OIA_JKB2n_Y78a, BH26BB-BH26E_proc2 (found 885, displayed 50)
+  - flight_id: B19, IRH_20172048, A08DLRSAR_9MI_3, PNH9E-PNH9B_proc2, RAID2-BV42B_proc2, THW_SJB2_X61a, LINK_ROUTE_proc2, RAID2-BH36E_proc2, 19972404, EPICA_VII_26, RAID2-DCR210-BH16B_proc2, 20181227_03_008, c08a, LSE_JKB2u_Y93b_depth, B31, 20201007, THW_SJB2_Y51b, THW_SJB2_X57b, THW_SJB2_Y29c, HRB8-RAID2, 20231129_01_005, c18d, B14, W52, LSE_JKB2u_X59a_depth, [ ... ] , EPICA_II_04, 19993136, THW_SJB2_Y35b, THW_SJB2_X43b, 20022107, PNV19___, THW_SJB2_X35a, THW_SJB2_BB01a, EPICA_VIII_22, 20023102, 20231211_01_021, BH03E-RAID2_proc2, THW_SJB2_Y49a, OIA_JKB2n_Y76a, ASB_JKB1a_R11Ta, BV34B-BV34E_proc2, W16, THW_SJB2_Y21b, W23, ASE1_SJB2_F06T02a, MCM_JKB1a_WLKX01a, c13d, 20023150, BV46B-E_proc2, c20b (found 827, displayed 50)
 
-  - reference: Ashmore et al. (2020), Beem et al. (2021), Bodart et al. (2021), Bodart and Sutter (2025a), Bodart and Sutter (2025b), Cavitte et al. (2020), Chung et al. (2023), Franke et al. (2025), Jacobel and Welch (2005), Leysinger-Vieli et al. (2011), Muldoon et al. (2023), Mulvaney et al. (2023), Sanderson et al. (2024), Siegert and Payne (2024), Wang et al. (2023), Winter et al. (2018), Yan et al. (2025)
-  - dataset DOI: https://doi.org/10.5281/zenodo.4945301, https://doi.org/10.15784/601437, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB, https://doi.org/10.5281/zenodo.17348976, https://doi.org/10.5281/zenodo.17348094, https://doi.org/10.15784/601411, https://doi.pangaea.de/10.1594/PANGAEA.957176, https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.7265/N5R20Z9T, https://doi.org/10.5281/zenodo.15516203, https://doi.org/10.15784/601673, https://doi.pangaea.de/10.1594/PANGAEA.963470, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238, https://doi.org/10.1594/PANGAEA.958462, https://doi.org/10.1594/PANGAEA.895528, https://doi.org/10.5281/zenodo.14962526
+  - reference: Ashmore et al. (2020), Beem et al. (2021), Bodart et al. (2021), Bodart and Sutter (2025b), Cavitte et al. (2020), Chung et al. (2023), Franke et al. (2025), Jacobel and Welch (2005), Leysinger-Vieli et al. (2011), Muldoon et al. (2023), Mulvaney et al. (2023), Sanderson et al. (2024), Siegert and Payne (2024), Wang et al. (2023), Winter et al. (2018), Yan et al. (2025)
+  - dataset DOI: https://doi.org/10.5281/zenodo.4945301, https://doi.org/10.15784/601437, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB, https://doi.org/10.5281/zenodo.17348094, https://doi.org/10.15784/601411, https://doi.pangaea.de/10.1594/PANGAEA.957176, https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.7265/N5R20Z9T, https://doi.org/10.5281/zenodo.15516203, https://doi.org/10.15784/601673, https://doi.pangaea.de/10.1594/PANGAEA.963470, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238, https://doi.org/10.1594/PANGAEA.958462, https://doi.org/10.1594/PANGAEA.895528, https://doi.org/10.5281/zenodo.14962526
   - publication DOI: https://doi.org/10.1029/2019GL086663, https://doi.org/10.5194/tc-15-1719-2021, https://doi.org/10.1029/2020JF005927, https://doi.org/10.5194/egusphere-2025-5381, https://doi.org/10.5194/essd-13-4759-2021, https://doi.org/10.5194/tc-17-3461-2023, https://doi.org/10.5194/tc-19-1153-2025, https://doi.org/10.1029/2003GL017210, https://doi.org/10.1029/2010JF001785, https://doi.org/10.1093/climatesystem/dzy004, https://doi.org/10.1017/jog.2024.60, https://doi.org/10.1029/2004GL020290, https://doi.org/10.5194/tc-17-4297-2023, https://doi.org/10.5194/essd-11-1069-2019, https://doi.org/10.1017/jog.2025.15
 
   - database: /home/anthe/documents/data/isochrones/AntADatabase//AntADatabase.db
@@ -486,7 +487,7 @@ You can already have a look at this guide to have an idea of the features of thi
 <li><p>age: age(s) in yrs before present of the layer(s) of interest</p></li>
 <li><p>region: region(s) of interest. E.g.: ‘EAIS’, ‘WAIS’</p></li>
 <li><p>IMBIE_basin: IMBIE basin(s) of interest. E.g.: ‘G-H’, ‘Ap-B’.</p></li>
-<li><p>var: variables(s) of interest. Possible variables currently are: ‘IRH_DEPTH’, ‘IRH_DENS’, ‘ICE_THK’, ‘BED_ELEV’, ‘SURF_ELEV’</p></li>
+<li><p>var: variables(s) of interest. Possible variables currently are: ‘IRH_DEPTH’, ‘IRH_NUM’, ‘ICE_THK’, ‘BED_ELEV’, ‘SURF_ELEV’</p></li>
 <li><p>flight_id: ID of a particular flight line. This is useful for explicit flight IDs such as ‘DC_LDC_DIVIDE’</p></li>
 </ul>
 <p>One can also combine field queries as well as providing lists. Use ‘%’ for searching by regular expressions. Here are a few examples:</p>
@@ -494,8 +495,10 @@ You can already have a look at this guide to have an idea of the features of thi
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1">#Examples of queries:</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">)</span> <span class="c1"># all data from Cavitte et al. 2020</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">institute</span><span class="o">=</span><span class="s1">&#39;BAS&#39;</span><span class="p">)</span> <span class="c1"># all data that was acquired by BAS</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="s1">&#39;OIB&#39;</span><span class="p">)</span> <span class="c1"># all data that was acquired during OIB campaigns</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span> <span class="c1"># all datasets with the 38.1ka isochrone</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;ICE_THK&#39;</span><span class="p">)</span> <span class="c1"># all datasets with IceThk variable</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;ICE_THK&#39;</span><span class="p">)</span> <span class="c1"># all datasets with ICE_THK variable</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">IMBIE_basin</span><span class="o">=</span><span class="s1">&#39;G-H&#39;</span><span class="p">)</span> <span class="c1"># all flight lines that cross the G-H basin</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span> <span class="c1"># all layers with the flight ID DC_LDC_DIVIDE</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;%WSB%&#39;</span><span class="p">)</span> <span class="c1"># all flight lines with WSB in the flight ID</span>
@@ -524,9 +527,9 @@ You can already have a look at this guide to have an idea of the features of thi
 
   - IMBIE_basin: A-Ap, B-C, Jpp-K, K-A
 
-  - radar_instrument: AWI-UWB, EMR, EMR
+  - radar_instrument: EMR, EMR, AWI-UWB
 
-  - flight_id: 19972409, 20181227_03_004, 20231211_02_017, 20181226_02_008, 20022116, 19993113, 20231211_02_018, 20181227_03_008, 20231211_02_003, 19983205, EPICA_VI_35, 20181226_01_002, 19983201, 20231211_01_015, EPICA_VI_34, 19993135, 20181227_03_003, 20181227_02_004, EPICA_VII_26, 20231211_01_013, 20231129_01_016, 20023149, 19993136, 20013010, 20231211_01_012, [ ... ] , 20231211_01_023, 20231211_01_010, 19993105, 19983407, 20181226_01_007, WEGAS_2010_11_33, 19993131, 19983204, 20023151, 19983403, 20022104, 19993109, 20033143, 20231129_01_018, 19983406, 19972307, 20231211_02_016, 20231129_01_011, 20181227_02_006, 20231211_02_007, 20231129_01_005, 20083126, 20053109, 20231211_02_004, 20231211_01_020 (found 215, displayed 50)
+  - flight_id: EPICA_IV_11, 20023119, 19983416, EPICA_VI_35, 19972404, 20023151, EPICA_VII_26, 20181227_03_008, 20231211_02_012, 20231211_01_018, 20231211_02_006, EPICA_IV_15, 20231211_02_018, 19993109, EPICA_VII_27, 20231129_01_005, 19972406, 20022112, 20231129_01_018, 20231129_01_010, 19993115, 20023152, 20181227_02_010, 20181226_01_002, 20181227_02_005, [ ... ] , 20181226_03_001, 19993134, 19993135, 19983401, 19993136, 20083126, EPICA_III_07, 20022107, 20231211_01_024, 20231211_01_022, EPICA_II_04, 20181227_02_011, EPICA_VIII_22, 20231211_01_021, 20231129_01_004, 20231211_01_009, 20231129_01_012, 19972402, 20023110, 20231211_01_011, 20022115, 19983407, 20023150, 20231211_02_007, 19983102 (found 215, displayed 50)
 
   - reference: Franke et al. (2025), Winter et al. (2018)
   - dataset DOI: https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.1594/PANGAEA.895528
@@ -558,9 +561,9 @@ You can already have a look at this guide to have an idea of the features of thi
 <p>Use the results of the query in the plotting functions:</p>
 <p>Current implemented plotting functions are:</p>
 <ul class="simple">
-<li><p>plot.dataset(): plots locations of the data, with different colors for the different datasets (example above)</p></li>
+<li><p>plot.dataset(): plots locations of the data, with different colors for the different datasets</p></li>
 <li><p>plot.institute(): plots locations of the data, with different colors for the different institutes</p></li>
-<li><p>plot.var(): color-coded scatter plot of the variable of insterest.</p></li>
+<li><p>plot.var(): color-coded scatter plot of the variable of interest.</p></li>
 <li><p>plot.flight_id(): color-coded trace IDs. Useful for identifying specific traces of interest.</p></li>
 <li><p>plot.transect_1D(): plots depths of the IRH and Bed along a single flight line</p></li>
 </ul>
@@ -570,7 +573,9 @@ Use ‘%matplotlib inline’ (default) to plot the figure in the notebook</p>
 <h3>Plot datasets<a class="headerlink" href="#plot-datasets" title="Link to this heading">#</a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">IMBIE_basin</span><span class="o">=</span><span class="s1">&#39;G-H&#39;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># %matplotlib widget</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">IMBIE_basin</span><span class="o">=</span><span class="s1">&#39;G-H&#39;</span><span class="p">)</span>
 <span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">dataset</span><span class="p">(</span><span class="n">results</span><span class="p">,</span>
                 <span class="n">title</span><span class="o">=</span><span class="s1">&#39;IRH data crossing the G-H IMBIE basin&#39;</span><span class="p">,</span>
                 <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2000</span><span class="p">,</span> <span class="o">-</span><span class="mi">500</span><span class="p">),</span> <span class="c1"># set the plot extent in km</span>
@@ -581,19 +586,18 @@ Use ‘%matplotlib inline’ (default) to plot the figure in the notebook</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/f6c56a28d86dc894c4c628670abf54b0dbac8b75e61d3371f87d1d9a7e883802.png" src="_images/f6c56a28d86dc894c4c628670abf54b0dbac8b75e61d3371f87d1d9a7e883802.png" />
+<img alt="_images/34bbc20a7b1e099d4e2915ba07fdef078076641f2c07f72686a31c18208eefe6.png" src="_images/34bbc20a7b1e099d4e2915ba07fdef078076641f2c07f72686a31c18208eefe6.png" />
 </div>
 </div>
 <p>Note: all flight lines in the database are associated with one or several IMBIE basin(s). This depends if the flight line crosses one or multiple basins. The plot above shows all the flight lines which have traced IRH data and that crosses at some point the G-H basin.</p>
 </section>
 <section id="plot-variables">
 <h3>Plot variables<a class="headerlink" href="#plot-variables" title="Link to this heading">#</a></h3>
+<p>Example of plotting the IRH depth of a specific layer found across multiple datasets. Here we still select multiple ages close from each other, which could be attributed to the same layer (but different dating method used maybe). Note the warning in the case, but we can ignore it:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># %matplotlib widget</span>
-<span class="o">%</span><span class="k">matplotlib</span> inline
-<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;37600&#39;</span><span class="p">,</span> <span class="s1">&#39;38000&#39;</span><span class="p">,</span> <span class="s1">&#39;38100&#39;</span><span class="p">,</span> <span class="s1">&#39;38200&#39;</span><span class="p">,</span> <span class="s1">&#39;38500&#39;</span><span class="p">],</span> <span class="n">var</span><span class="o">=</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">)</span>
-<span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;AntArchitecture 38(.1)ka isochrone depth&#39;</span><span class="p">,</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;37600&#39;</span><span class="p">,</span> <span class="s1">&#39;38000&#39;</span><span class="p">,</span> <span class="s1">&#39;38100&#39;</span><span class="p">,</span> <span class="s1">&#39;38200&#39;</span><span class="p">,</span> <span class="s1">&#39;38500&#39;</span><span class="p">],</span> <span class="n">var</span><span class="o">=</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;AntArchitecture 38ka isochrone depth&#39;</span><span class="p">,</span>
                 <span class="n">downsampling_factor</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="c1"># downscale the datasets n times, which makes little visual difference but lighter to plot</span>
                 <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">2400</span><span class="p">),</span>
                 <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2200</span><span class="p">,</span> <span class="mi">2200</span><span class="p">),</span>
@@ -609,9 +613,41 @@ Use ‘%matplotlib inline’ (default) to plot the figure in the notebook</p>
 Select a unique age for better results
 </pre></div>
 </div>
-<img alt="_images/3c4d81ebae28b76bfe9766d7baf5c050c75d9922f3dea86900e8189c7d67b8f3.png" src="_images/3c4d81ebae28b76bfe9766d7baf5c050c75d9922f3dea86900e8189c7d67b8f3.png" />
+<img alt="_images/d847c40e0b24fb1e2ffd272cb98d6bff583aa6797c879c8f2cb48e9ae768fd86.png" src="_images/d847c40e0b24fb1e2ffd272cb98d6bff583aa6797c879c8f2cb48e9ae768fd86.png" />
 </div>
 </div>
+<p>The above plot shows the absolute IRH depth relative to the ice surface as it is traced. It is often more informative to look at the IRH fraction depth: the depth of a layer relative to the ice thickness (IRH_DEPTH/ICE_THK*100). The fraction depth variable is not directly stored in the database to reduce disk usage. It is probably more efficient to compute it when needed. For this, use the option fraction_depth=True:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># %matplotlib widget</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;37600&#39;</span><span class="p">,</span> <span class="s1">&#39;38000&#39;</span><span class="p">,</span> <span class="s1">&#39;38100&#39;</span><span class="p">,</span> <span class="s1">&#39;38200&#39;</span><span class="p">,</span> <span class="s1">&#39;38500&#39;</span><span class="p">],</span> <span class="n">var</span><span class="o">=</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> 
+            <span class="n">fraction_depth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="s1">&#39;AntArchitecture 38ka isochrone fractional depth&#39;</span><span class="p">,</span>
+                <span class="n">downsampling_factor</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="c1"># downscale the datasets n times, which makes little visual difference but lighter to plot</span>
+                <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">2400</span><span class="p">),</span>
+                <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2200</span><span class="p">,</span> <span class="mi">2200</span><span class="p">),</span>
+                <span class="n">scale_factor</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="c1"># adjust the size of the plot </span>
+                <span class="n">marker_size</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span>
+                <span class="c1"># save=&#39;AntA_38ka_depth.png&#39;</span>
+                <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING: Multiple layers provided:  [&#39;37600&#39;, &#39;38000&#39;, &#39;38100&#39;, &#39;38200&#39;, &#39;38500&#39;] 
+Select a unique age for better results
+</pre></div>
+</div>
+<img alt="_images/6cf0b05ec9f24ef8ec10b34f35749910d6a6374e9c7ccd1c12ad141f0725d48d.png" src="_images/6cf0b05ec9f24ef8ec10b34f35749910d6a6374e9c7ccd1c12ad141f0725d48d.png" />
+</div>
+</div>
+<p>Note that if the variable ICE_THK is not present in a dataset, the fractional depth cannot be computed. In the case, NaN values will be generated instead without warning. So if you get a blank plot, please check if the dataset you queried contains the ICE_THK with db.query(dataset=’Author_YYYY’).</p>
+</section>
+<section id="id1">
+<h3>Plot datasets<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<p>The IRH_NUM variable shows the number of traced isochrones (layers) per data point:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;IRH_NUM&#39;</span><span class="p">)</span>
@@ -624,12 +660,13 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/53e9b9b7dd5e06ca53dc428f7edd5e64fe0a91f80bf7f263b264617c4d6fdc39.png" src="_images/53e9b9b7dd5e06ca53dc428f7edd5e64fe0a91f80bf7f263b264617c4d6fdc39.png" />
+<img alt="_images/e76f67dd5d699de581196a16154be2be00d2c8fc92d95a801588b361d492518e.png" src="_images/e76f67dd5d699de581196a16154be2be00d2c8fc92d95a801588b361d492518e.png" />
 </div>
 </div>
 </section>
 <section id="plot-flight-ids">
 <h3>Plot flight IDs<a class="headerlink" href="#plot-flight-ids" title="Link to this heading">#</a></h3>
+<p>This plot is useful when we want to identify a specific flight line. One can then identify a flight line of interest on the 2D map, then plot the traced IRHs along the transect (see below):</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Winter%&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;EPICA%&#39;</span><span class="p">])</span>
@@ -642,7 +679,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/9c0aea1f24bd18fef575dc8b1f20f743ce1d488dd6b0a19c5e9c2d0a24b95012.png" src="_images/9c0aea1f24bd18fef575dc8b1f20f743ce1d488dd6b0a19c5e9c2d0a24b95012.png" />
+<img alt="_images/45e96a819071586ebdcde5b642246d715514706d5b94b9659faa52322c3a1bb6.png" src="_images/45e96a819071586ebdcde5b642246d715514706d5b94b9659faa52322c3a1bb6.png" />
 </div>
 </div>
 </section>
@@ -656,7 +693,11 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/6830797989629619169b708e991ec5c315842f81a5ea15768ab7bfe64fb86ae4.png" src="_images/6830797989629619169b708e991ec5c315842f81a5ea15768ab7bfe64fb86ae4.png" />
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/IPython/core/pylabtools.py:170: UserWarning: Creating legend with loc=&quot;best&quot; can be slow with large amounts of data.
+  fig.canvas.print_figure(bytes_io, **kw)
+</pre></div>
+</div>
+<img alt="_images/ab26138a8a401b16446a54c30658732d0f20ceb74c0d528f6025ff8630dc8cfb.png" src="_images/ab26138a8a401b16446a54c30658732d0f20ceb74c0d528f6025ff8630dc8cfb.png" />
 </div>
 </div>
 <p>Use the elevation=True option to plot the transect in absolute elevation above sea level:</p>
@@ -667,7 +708,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/592c4f311dff9499df32d11382b8633913da4d0a13bbae02eedc46b812cc057a.png" src="_images/592c4f311dff9499df32d11382b8633913da4d0a13bbae02eedc46b812cc057a.png" />
+<img alt="_images/81d9490d69bd98f547c88507048c374b7d1dbba4205db9e4134e102104631e1e.png" src="_images/81d9490d69bd98f547c88507048c374b7d1dbba4205db9e4134e102104631e1e.png" />
 </div>
 </div>
 <p>Other possible arguments for the plot methods:</p>
@@ -735,7 +776,7 @@ Attributes:
     IMBIE_basins:      {&quot;E-Ep&quot;: &quot;EAIS&quot;, &quot;Cp-D&quot;: &quot;EAIS&quot;}
 </pre></div>
 </div>
-<img alt="_images/78808c645588a28142a006a2750b99e1f8e5cc7b1373533a12fbaec63ccd7b95.png" src="_images/78808c645588a28142a006a2750b99e1f8e5cc7b1373533a12fbaec63ccd7b95.png" />
+<img alt="_images/576c51fa84a723df50f7b8e7decb0cd9546708d76e0e37cc69127d356a5e038e.png" src="_images/576c51fa84a723df50f7b8e7decb0cd9546708d76e0e37cc69127d356a5e038e.png" />
 </div>
 </div>
 <p>xarray provides a nice interface for interacting with the data. This works great when dealing with one file, and for example quickly plot all the layers (see above). But xarray adds some overload, which feels slow when reading many files. h5py on the other hand reads the underlying data right away, which is much more efficient:</p>
@@ -753,13 +794,13 @@ Attributes:
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/c2e50d880eda121b527595854f772308c84d98f626185c3aacf1162598e28900.png" src="_images/c2e50d880eda121b527595854f772308c84d98f626185c3aacf1162598e28900.png" />
+<img alt="_images/291bfadf55f1dea89a66b022d5770b91b31ff045f27d6cff5a021876b79e2dd4.png" src="_images/291bfadf55f1dea89a66b022d5770b91b31ff045f27d6cff5a021876b79e2dd4.png" />
 </div>
 </div>
 </section>
 <section id="generate-data-from-the-database">
 <h2>Generate data from the database<a class="headerlink" href="#generate-data-from-the-database" title="Link to this heading">#</a></h2>
-<p>Note: This part could be developed further in the future if there is the need. But for now, I am designing a separate Python module for constraining my ice sheet model of use, which is tailored to this database and other parallel processing libraries.</p>
+<p>Note: This part could be developed further in the future if there is the need. But for now, I am designing a separate Python module for constraining my ice sheet model of use, which is tailored to this database and other parallel processing libraries. However, the <a class="reference external" href="https://antoinehermant.github.io/anta_database/pism_example.html">Model-comparison</a> section already give some bits of code about it.</p>
 <p>The data_generator() function reads the query and ‘yield’ the dataframes for later use. It uses h5py to read all the data efficiently, and creates pandas dataframes, including all the variables and ages from the query. Columns for IRH DEPTH are named after the age. Basically, it reads the data with h5py as shown above and restructure it as bit, which can be easier to manage layers than with h5py dimensions.
 Here is a quick example of how this can be used for computing the mean layer depth:</p>
 <div class="cell docutils container">
@@ -772,7 +813,7 @@ Here is a quick example of how this can be used for computing the mean layer dep
 <span class="n">min_depth</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
 <span class="n">max_depth</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">lazy_dfs</span><span class="p">:</span>
-    <span class="n">depth_values</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">])]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">depth_values</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
     <span class="n">mean_depth_trs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">depth_values</span><span class="p">))</span>
     <span class="n">min_depth</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">min_depth</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">depth_values</span><span class="p">))</span>
     <span class="n">max_depth</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">max_depth</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">depth_values</span><span class="p">))</span>
@@ -785,46 +826,13 @@ Here is a quick example of how this can be used for computing the mean layer dep
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>The mean depth of the 38ka isochrone across East Antarctica is 1122.95 m ranging from 210.9 m to 2352.19 m.
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>The mean depth of the 38ka isochrone across East Antarctica is 1094.1 m ranging from 210.9 m to 2352.19 m.
 </pre></div>
 </div>
 </div>
 </div>
-<p>In the for loop, ‘df’ is an individual dataframe from the database, corresponding to a single layer of a single trace from a single dataset. The ‘md’ stores the unique metadata from the current ‘df’. One can then associate the metadata with the current df, for example:</p>
-<section id="downscale-the-data">
-<h3>Downscale the data<a class="headerlink" href="#downscale-the-data" title="Link to this heading">#</a></h3>
-<p>The downsampling_factor argument in the data_generator reduces the size of the generated data by n times. This is useful when dealing with large data where the downscaling has a neglectable influence on the results.
-Another solution, probably more straightforward, is the downsample_distance option, which allows to provide a distance in meters by which the data should be average along the transects:</p>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-
-<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;277900&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
-<span class="n">original</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-<span class="n">downscale_10</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">downsampling_factor</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="c1"># downsampled_by_distance = db.data_generator(results, downsample_distance=5000)</span>
-
-<span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="n">original</span><span class="p">,</span> <span class="n">downscale_10</span><span class="p">]</span> <span class="c1">#, downsampled_by_distance]</span>
-<span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;original&#39;</span><span class="p">,</span> <span class="s1">&#39;downscale 100&#39;</span><span class="p">]</span> <span class="c1">#, &#39;downsample 5km&#39;]</span>
-
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lazy_dfs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">lazy_dfs</span><span class="p">:</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">Distance</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="mi">277900</span><span class="p">],</span><span class="n">label</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
-
-<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">2600</span><span class="p">,</span> <span class="mi">1800</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance along DC_LDC_DIVIDE (km)&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Depth (m)&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Different downscaling methods for Cavitte 2020 278ka along DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<img alt="_images/d8df8053b43cdcf7708955aa1f06dc4bf174c96460561f1fa6f391cecaa4a4a3.png" src="_images/d8df8053b43cdcf7708955aa1f06dc4bf174c96460561f1fa6f391cecaa4a4a3.png" />
-</div>
-</div>
-</section>
+<p>Note that the data_generator returns a simple pandas DataFrame for each flight line, containing all queried variables and ages (if exist). The IRH depth of each layer is stored by columns named by age (so the IRH_DEPTH of the layer 38000 is df[‘38000’]). As shown above, one can use the metadata (md) of the current dataframe (df) to get its age (md[‘age’]).
+Furthermore, if one needs the fraction depth, one can compute it using the ICE_THK (has to be included in the query), or the data_generator has this option: db.data_generator(results, fraction_depth=True). With this option, the layer columns will now be IRH fraction depth instead of absolute IRH_DEPTH.</p>
 </section>
 </section>
 <section class="tex2jax_ignore mathjax_ignore" id="pro-tips">
@@ -899,11 +907,11 @@ Example:</p>
       </div>
     </a>
     <a class="right-next"
-       href="advanced.html"
+       href="pism_example.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Advanced: Managing the database</p>
+        <p class="prev-next-title">Model-data comparison (ex: PISM)</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -929,16 +937,14 @@ Example:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-datasets">Plot datasets</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-variables">Plot variables</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Plot datasets</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-flight-ids">Plot flight IDs</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-layer-depths-along-transect">Plot layer depths along transect</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bedmap">BEDMAP</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-files-from-the-database">Get files from the database</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#downscale-the-data">Downscale the data</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-data-from-the-database">Generate data from the database</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#pro-tips">Pro tips</a></li>
