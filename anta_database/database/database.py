@@ -717,6 +717,7 @@ class Database:
         data_dir: Optional[str] = None,
         downsampling_factor: Optional[str] = None,
         disable_tqdm: bool = False,
+        fraction_depth: Optional[bool] = False,
     ) -> Generator[Tuple[pd.DataFrame, Dict]]:
         """
         Generates xarray Datasets from HDF5 files, one at a time, with lazy loading.
@@ -770,13 +771,21 @@ class Database:
                         irh_index = irh_index[0]
                         age_impl.append(age)
 
-                        df[int(age)] = ds[var][::downsampling_factor, irh_index]
+                        df[age] = ds[var][::downsampling_factor, irh_index]
+                        if fraction_depth:
+                            if 'ICE_THK' in ds.keys():
+                                df[age] *= 100/ds['ICE_THK'][::downsampling_factor]
+                            else:
+                                df[age] = np.nan
+                                # print(f'WARNING: flight line {file_md['flight_id']} in {file_md['dataset']} does not have ICE_THK, cannot compute fraction depth, will return NaN')
 
                 else:
                     if var in ds.keys():
                         var_impl.append(var)
                         df[var] = ds[var][::downsampling_factor]
 
+            if 0 < len(age_impl) <= 1:
+                age_impl = list(age_impl)[0]
             metadata = {
                 'dataset': file_md['dataset'],
                 'var': var_impl,

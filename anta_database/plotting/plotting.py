@@ -177,6 +177,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             downsampling_factor: Optional[int] = None,
+            fraction_depth: Optional[bool] = False,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
             ylim: Optional[tuple] = (None, None),
@@ -197,6 +198,7 @@ class Plotting:
             color_by='var',
             metadata=metadata,
             downsampling_factor=downsampling_factor,
+            fraction_depth=fraction_depth,
             title=title,
             xlim=xlim,
             ylim=ylim,
@@ -261,6 +263,7 @@ class Plotting:
             self,
             metadata: Union[None, Dict, 'MetadataResult'] = None,
             elevation: Optional[bool] = False,
+            fraction_depth: Optional[bool] = False,
             downsampling_factor: Optional[int] = None,
             title: Optional[str] = None,
             xlim: Optional[tuple] = (None, None),
@@ -402,9 +405,8 @@ class Plotting:
             else:
                 var = var[0]
 
-
             all_dfs = []
-            for ds, _ in tqdm(self._db.data_generator(metadata, downsampling_factor=downsampling_factor, disable_tqdm=True), desc="Plotting", total=total_traces, unit='trace', disable=self._disable_tqdm):
+            for ds, _ in tqdm(self._db.data_generator(metadata, downsampling_factor=downsampling_factor, disable_tqdm=True, fraction_depth=fraction_depth), desc="Plotting", total=total_traces, unit='trace', disable=self._disable_tqdm):
                 all_dfs.append(ds)
             df = pd.concat(all_dfs)
 
@@ -478,37 +480,31 @@ class Plotting:
                         title = f'AntADatabase Basal Unit'
                 scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[var], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
-            elif var in ['IRH_DEPTH', 'IRH_FRAC_DEPTH']:
-                if var == 'IRH_DEPTH':
-                    label = f'IRH Depth [m]'
-                    if cmap == None:
-                        cmap = cmaps.torch_r
-                    extend = 'both'
-                    age = list(metadata['age'])
-                    if not title:
+            elif var in ['IRH_DEPTH']:
+                if cmap == None:
+                    cmap = cmaps.torch_r
+                extend = 'both'
+                age = list(metadata['age'])
+                if not title:
+                    if fraction_depth:
+                        title = f'AntADatabase IRH Fraction Depth'
+                    else:
                         title = f'AntADatabase IRH Depth'
-                    if len(age) > 1:
-                        print('WARNING: Multiple layers provided: ', age,
-                            '\nSelect a unique age for better results')
-                    elif len(age) == 0:
-                        print('No layer provided, please provide a valid age.')
-                        return
-                elif var == 'IRH_FRAC_DEPTH':
-                    if cmap == None:
-                        cmap = cmaps.torch_r
-                    extend = 'both'
-                    age = list(metadata['age'])
-                    if len(age) > 1:
-                        print('WARNING: Multiple layers provided: ', age,
-                            '\nSelect a unique age for better results')
-                    elif len(age) == 0:
-                        print('No layer provided, please provide a valid age.')
-                        return
-                    age = age[0]
+                if len(age) > 1:
+                    print('WARNING: Multiple layers provided: ', age,
+                        '\nSelect a unique age for better results')
+                elif len(age) == 0:
+                    print('No layer provided, please provide a valid age.')
+                    return
+                if fraction_depth:
                     label = r'IRH Fractional Depth [\%]'
+                    if vmin is None: vmin = 0
+                    if vmax is None: vmax = 100
+                else:
+                    label = f'IRH Depth [m]'
 
                 for age in metadata['age']:
-                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[int(age)], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+                    scatter = plt.scatter(df['PSX']/1000, df['PSY']/1000, c=df[age], cmap=cmap, s=marker_size, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
 
         if color_by == 'transect_1D':
             flight_id = list(metadata['flight_id'])
