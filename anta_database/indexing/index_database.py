@@ -3,23 +3,41 @@ from tqdm import tqdm
 import glob
 import pandas as pd
 import numpy as np
-import xarray as xr
 import sqlite3
 import h5py
 import json
 import ast
 
 class IndexDatabase:
-    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index: str = 'references.json'):
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db') -> None:
         self._db_dir = database_dir
         self._file_db = os.path.join(self._db_dir, file_db)
-        self._file_index = index
-        with open(os.path.join(self._db_dir, self._file_index), 'r', encoding='utf-8') as f:
-            self._index = json.load(f)
 
     def index_database(self):
         h5_files = []
-        for ref in self._index:
+
+        dirs = glob.glob(f'{self._db_dir}/*/')
+        self._dataset_list = []
+
+        for d in dirs:
+            with open(f'{d}/raw_md.json', 'r', encoding='utf-8') as f:
+                unique_data = []
+                seen = set()
+                index = json.load(f)
+                for item in index:
+                    combo = (item['dataset'], item['DOI publication'], item['DOI dataset'])
+                    if combo not in seen:
+                        seen.add(combo)
+                        unique_data.append({
+                            "dataset": item['dataset'],
+                            "citation": item['citation'],
+                            "DOI publication": item['DOI publication'],
+                            "DOI dataset": item['DOI dataset']
+                        })
+                for unique in unique_data:
+                    self._dataset_list.append(unique)
+
+        for ref in self._dataset_list:
             found_files = glob.glob(f'{self._db_dir}/{ref['dataset']}/h5/*.h5', recursive=False)
             if found_files:
                 h5_files.extend(found_files)
@@ -44,11 +62,11 @@ class IndexDatabase:
             )
         ''')
 
-        for row in self._index:
+        for row in self._dataset_list:
             try:
                 cursor.execute(
                     'INSERT INTO sources (name, citation, DOI_dataset, DOI_publication) VALUES (?, ?, ?, ?)',
-                    (row['dataset'], row['citation'], row['DOI_dataset'], row['DOI_publication'])
+                    (row['dataset'], row['citation'], row['DOI dataset'], row['DOI publication'])
                 )
             except sqlite3.IntegrityError:
                 # dataset already exists, skip

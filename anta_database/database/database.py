@@ -8,9 +8,10 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
+from anta_database.indexing.index_database import IndexDatabase
 
 class Database:
-    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', include_BEDMAP: bool = False, max_displayed_flight_ids: Optional[int] = 50) -> None:
+    def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db', index_database: bool = False, include_BEDMAP: bool = False, max_displayed_flight_ids: Optional[int] = 50) -> None:
         self._db_dir = database_dir
         self._file_db = file_db
         self._file_db_path = os.path.join(self._db_dir, file_db)
@@ -18,6 +19,7 @@ class Database:
         self._plotting = None
         self._max_displayed_flight_ids = max_displayed_flight_ids
         self._include_BM = include_BEDMAP
+        self._include_BM = index_database
         self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
         self._excluded = {
             'dataset': [],
@@ -31,6 +33,10 @@ class Database:
             'IMBIE_basin': [],
             'radar_instrument': [],
         }
+
+        if index_database:
+            indexing = IndexDatabase(self._db_dir)
+            indexing.index_database()
 
     def _build_query_and_params(self,
                                 age: Optional[Union[str, List[str]]] = None,
