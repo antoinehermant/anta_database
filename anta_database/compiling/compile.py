@@ -23,7 +23,8 @@ class CompileDatabase:
                  wave_speed: Optional[float] = None,
                  firn_correction: Optional[float] = None,
                  extract_data: bool = True,
-                 hdf5: bool = True,
+                 hdf5: bool = False,
+                 netcdf: bool = True,
                  compute_distance: bool = True,
                  compute_IMBIE_basins: bool = True,
                  compute_IRH_density: bool = True,
@@ -42,6 +43,7 @@ class CompileDatabase:
         self._compute_IMBIE_basins = compute_IMBIE_basins
         self._set_attributes = set_attributes
         self._hdf5 = hdf5
+        self._netcdf = netcdf
         self._shapefiles = shapefiles
         self._geopackages = geopackages
         self._break_transects = break_transects
@@ -94,7 +96,7 @@ class CompileDatabase:
                 for file_dict in tqdm(all_files_list, desc="Processing", unit="file"):
                     self.extract(file_dict=file_dict)
 
-        if self._hdf5 is True:
+        if self._hdf5 is True or self._netcdf is True:
             all_dirs = []
             for dir_ in self._dir_list:
                 dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
@@ -104,7 +106,7 @@ class CompileDatabase:
             num_workers = min(num_tasks, cpus)
 
             print('\n',
-                    'Will start creating the hdf5 for', len(all_dirs), 'traces\n'
+                    'Will start creating the hdf5/netcdf for', len(all_dirs), 'traces\n'
                     '\n   ', num_workers, 'worker(s) allocated out of', cpu_count(), 'available cpus\n')
 
             if num_workers > 1:
@@ -680,14 +682,25 @@ class CompileDatabase:
                 ds[var] = ds[var].chunk({'point': chunk_size_point})
                 encoding[var] = {'zlib': True, 'complevel': 1, 'chunksizes': (chunk_size_point)}
 
-        h5_dir = os.path.join(dataset_dir, 'h5')
-        os.makedirs(h5_dir, exist_ok=True)
-        if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
-            h5_file = f'{h5_dir}/{institute}_{flight_id}.h5'
-        else:
-            h5_file = f'{h5_dir}/{flight_id}.h5'
+        if self._hdf5:
+            h5_dir = os.path.join(dataset_dir, 'h5')
+            os.makedirs(h5_dir, exist_ok=True)
+            if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
+                h5_file = f'{h5_dir}/{institute}_{flight_id}.h5'
+            else:
+                h5_file = f'{h5_dir}/{flight_id}.h5'
 
-        ds.to_netcdf(h5_file, engine='h5netcdf', encoding=encoding, mode='w')
+            ds.to_netcdf(h5_file, engine='h5netcdf', encoding=encoding, mode='w')
+
+        if self._netcdf:
+            nc_dir = os.path.join(dataset_dir, 'nc')
+            os.makedirs(nc_dir, exist_ok=True)
+            if not isinstance(institute, (list, tuple, set)) and institute != 'nan':
+                nc_file = f'{nc_dir}/{institute}_{flight_id}.nc'
+            else:
+                nc_file = f'{nc_dir}/{flight_id}.nc'
+
+            ds.to_netcdf(nc_file, engine='netcdf4', encoding=encoding, mode='w')
 
     def do_break_transects(self, h5_file: str) -> None:
         h5_dir, name = os.path.split(h5_file)
