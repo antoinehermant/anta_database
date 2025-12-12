@@ -183,38 +183,40 @@ class Database:
                         op, val = self._parse_range_query(field)
                         if op == '>':
                             conditions.append(f"("
-                                f"({column} > ?) OR "
-                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) > ?)"
-                                f")")
+                                            f"CAST({column} AS INTEGER) > ? OR "
+                                            f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-') + 1) AS INTEGER) > ?"
+                                            f")")
                             params.extend([val, val])
                         elif op == '<':
                             conditions.append(f"("
-                                f"({column} < ?) OR "
-                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) < ?)"
-                                f")")
+                                            f"CAST({column} AS INTEGER) < ? OR "
+                                            f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-') - 1) AS INTEGER) < ?"
+                                            f")")
                             params.extend([val, val])
                         elif op == '>=':
                             conditions.append(f"("
-                                f"({column} >= ?) OR "
-                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
-                                f")")
+                                            f"CAST({column} AS INTEGER) >= ? OR "
+                                            f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-') + 1) AS INTEGER) >= ?"
+                                            f")")
                             params.extend([val, val])
                         elif op == '<=':
                             conditions.append(f"("
-                                f"({column} <= ?) OR "
-                                f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ?)"
-                                f")")
+                                            f"CAST({column} AS INTEGER) <= ? OR "
+                                            f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-') - 1) AS INTEGER) <= ?"
+                                            f")")
                             params.extend([val, val])
                         elif op == '=':
                             conditions.append(f"("
-                                f"({column} = ?) OR "
+                                f"CAST({column} AS INTEGER) = ? OR "
                                 f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
                                 f")")
                             params.extend([val, val, val])
                     elif self._is_range_value(field):
                             start, end = self._parse_range_value(field)
+                            start = int(start)
+                            end = int(end)
                             conditions.append(f"("
-                                f"({column} BETWEEN ? AND ?) OR "
+                                f"CAST({column} AS INTEGER) >= ? AND CAST({column} AS INTEGER) <= ? OR "
                                 f"({column} LIKE '%-%' AND "
                                 f"CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND "
                                 f"CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
@@ -246,31 +248,31 @@ class Database:
                             inverted_op = self._invert_range_operator(op)
                             if inverted_op == '>':
                                 conditions.append(f"("
-                                    f"({column} > ?) OR "
-                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) > ?)"
-                                    f")")
+                                                f"CAST({column} AS INTEGER) > ? OR "
+                                                f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-') + 1) AS INTEGER) > ?"
+                                                f")")
                                 params.extend([val, val])
                             elif inverted_op == '<':
                                 conditions.append(f"("
-                                    f"({column} < ?) OR "
-                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) < ?)"
-                                    f")")
+                                                f"CAST({column} AS INTEGER) < ? OR "
+                                                f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-') - 1) AS INTEGER) < ?"
+                                                f")")
                                 params.extend([val, val])
                             elif inverted_op == '>=':
                                 conditions.append(f"("
-                                    f"({column} >= ?) OR "
-                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
-                                    f")")
+                                                f"CAST({column} AS INTEGER) >= ? OR "
+                                                f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, INSTR({column}, '-') + 1) AS INTEGER) >= ?"
+                                                f")")
                                 params.extend([val, val])
                             elif inverted_op == '<=':
                                 conditions.append(f"("
-                                    f"({column} <= ?) OR "
-                                    f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ?)"
-                                    f")")
+                                                f"CAST({column} AS INTEGER) <= ? OR "
+                                                f"{column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-') - 1) AS INTEGER) <= ?"
+                                                f")")
                                 params.extend([val, val])
                             elif inverted_op == '=':
                                 conditions.append(f"("
-                                    f"({column} = ?) OR "
+                                    f"CAST({column} AS INTEGER) = ? OR "
                                     f"({column} LIKE '%-%' AND CAST(SUBSTR({column}, 1, INSTR({column}, '-')-1) AS INTEGER) <= ? AND CAST(SUBSTR({column}, INSTR({column}, '-')+1) AS INTEGER) >= ?)"
                                     f")")
                                 params.extend([val, val, val])
@@ -648,21 +650,48 @@ class Database:
                 seen.add(age)
                 unique_pairs.append((age, unc))
 
+        unique_institutes = set()
+        for institutes in institutes_list:
+            for institute in institutes.split(', '):
+                unique_institutes.add(institute.strip())
+
+        unique_projects = set()
+        for projects in projects_list:
+            for project in projects.split(', '):
+                unique_projects.add(project.strip())
+
+        unique_radar_instruments = set()
+        for radar_instruments in radar_instruments_list:
+            for radar_instrument in radar_instruments.split(', '):
+                unique_radar_instruments.add(radar_instrument.strip())
+
+        unique_basins = set()
+        for basins in basin_list:
+            for basin in basins.split(', '):
+                unique_basins.add(basin.strip())
+
+        df_dataset_sorted = pd.DataFrame({
+            'dataset': metadata['dataset'],
+            'reference': metadata['reference'],
+            'DOI_dataset': metadata['DOI_dataset'],
+            'DOI_publication': metadata['DOI_publication']
+        }).sort_values('dataset')
+
         sorted_ages, sorted_age_unc = zip(*unique_pairs) if unique_pairs else ([], [])
         metadata['age'] = [str(age) for age in sorted_ages]
         metadata['age_unc'] = [str(age_unc) for age_unc in sorted_age_unc]
         metadata['var'] = sorted(set(vars_list))
-        metadata['institute'] = sorted(set(institutes_list))
-        metadata['project'] = sorted(set(projects_list))
+        metadata['institute'] = sorted(set(unique_institutes))
+        metadata['project'] = sorted(set(unique_projects))
         metadata['acquisition_year'] = sorted(set(acq_years_list))
-        metadata['dataset'] = list(dict.fromkeys(metadata['dataset']))
-        metadata['reference'] = list(dict.fromkeys(metadata['reference']))
-        metadata['DOI_dataset'] = list(dict.fromkeys(metadata['DOI_dataset']))
-        metadata['DOI_publication'] = list(dict.fromkeys(metadata['DOI_publication']))
+        metadata['dataset'] = list(dict.fromkeys(df_dataset_sorted['dataset']))
+        metadata['reference'] = list(dict.fromkeys(df_dataset_sorted['reference']))
+        metadata['DOI_dataset'] = list(dict.fromkeys(df_dataset_sorted['DOI_dataset']))
+        metadata['DOI_publication'] = list(dict.fromkeys(df_dataset_sorted['DOI_publication']))
         metadata['flight_id'] = list(set(metadata['flight_id']))
-        metadata['radar_instrument'] = sorted(set(radar_instruments_list))
+        metadata['radar_instrument'] = sorted(set(unique_radar_instruments))
         metadata['region'] = sorted(set(region_list))
-        metadata['IMBIE_basin'] = sorted(set(basin_list))
+        metadata['IMBIE_basin'] = sorted(set(unique_basins))
 
         if retain_query:
             self._md = metadata
