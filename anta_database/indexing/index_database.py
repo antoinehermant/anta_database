@@ -12,6 +12,7 @@ class IndexDatabase:
     def __init__(self, database_dir: str, file_db: str = 'AntADatabase.db') -> None:
         self._db_dir = database_dir
         self._file_db = os.path.join(self._db_dir, file_db)
+        self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
 
     def index_database(self):
         h5_files = []
@@ -190,7 +191,7 @@ class IndexDatabase:
                 )
             ''')
 
-        for f in tqdm(h5_files, desc="Indexing files"):
+        for f in tqdm(h5_files, desc="Indexing files", disable=self._disable_tqdm):
             _, file_name = os.path.split(f)
 
             with h5py.File(f, 'r') as f:
