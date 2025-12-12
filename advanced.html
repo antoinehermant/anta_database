@@ -385,6 +385,8 @@ document.write(`
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-json-file">The JSON file</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-csv-column-file">The CSV column file</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
@@ -405,12 +407,19 @@ document.write(`
 <h1>Advanced: Managing the database<a class="headerlink" href="#advanced-managing-the-database" title="Link to this heading">#</a></h1>
 <section id="reindexing">
 <h2>Reindexing<a class="headerlink" href="#reindexing" title="Link to this heading">#</a></h2>
-<p>You may want for example to update the age of the layers in a particular dataset. For this, you just need to modify the ages in the file called ‘IRH_ages.tab’ located under a dataset directory. Then, reindex with the IndexDatabase class:</p>
+<p>You may want for example to update the age of the layers in a particular dataset. For this, you just need to modify the ages in the file called <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> located under a dataset directory. Then, reindex with the <code class="docutils literal notranslate"><span class="pre">IndexDatabase</span></code> class:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexDatabase</span>
 
 <span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span> 
 <span class="n">indexing</span> <span class="o">=</span> <span class="n">IndexDatabase</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
 <span class="n">indexing</span><span class="o">.</span><span class="n">index_database</span><span class="p">()</span> 
+</pre></div>
+</div>
+<p>Or simply use the <code class="docutils literal notranslate"><span class="pre">index_database=True</span></code> argument when initializing the <code class="docutils literal notranslate"><span class="pre">Database</span></code>, which runs the IndexDatabase class itself:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
+
+<span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span> 
+<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="n">db_path</span><span class="p">,</span> <span class="n">index_database</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -419,15 +428,15 @@ document.write(`
 <p>You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset. For this, make sure to follow the structure:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>AntADatabase/
 ├── AntADatabase.db
-├── database_index.csv #List of directories to index: FirstAuthor_YYYY,FirstAuthor et al. YYYY,doi
 ├── FirstAuthor_YYYY
-    ├── raw_files_md.csv # file containing information about the dataset 
-    ├── original_new_column_names.csv #first row: names of columns to keep from raw files, second row: how the columns should be renamed
+    ├── raw_md.json # file containing information about the dataset, take example on an existing dataset and see the section below
+    ├── original_new_column_names.csv # first row: names of columns to keep from raw files, second row: how the columns should be renamed (see section below)
     ├── raw/ #Directory with the original files to process
-    └── pkl/ #Directory were the processed files will be written (it will be created in the process)
+    └── h5/ # Directory were the processed files will be written (it will be created in the process)
 </pre></div>
 </div>
-<p>Then use the CompileDatabase class to compile the database:</p>
+<p>Note that the header information in the raw files should be commented out with ‘#’. The column names of the dataframe should be kept.
+Then use the `CompileDatabase class to compile the database:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompileDatabase</span>
 
 <span class="n">dir_path_list</span> <span class="o">=</span> <span class="p">[</span> <span class="c1"># list of the dataset subdirectories to compile</span>
@@ -445,12 +454,159 @@ document.write(`
 <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Then reindex (see above). By default, it assumes that the files in raw/ are sorted by IRH (one file = one layer and multiple traces). If the files are sorted the other way around (one file = one trace and multiple layers), you can set file_type=’trace’ in CompileDatabase(). Furthermore, if the depth is not given in meters but TWT, you should set the wave_speed (units should match values in the file) for conversion and firn_correction (meters):</p>
+<p>Then reindex (see above). Furthermore, if the depth is not given in meters but TWT, you should set the wave_speed (units should match values in the file) for conversion and firn_correction (meters):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dir_path</span> <span class="o">=</span> <span class="s1">&#39;./Wang_2023&#39;</span>
-<span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">file_type</span><span class="o">=</span><span class="s1">&#39;trace&#39;</span><span class="p">,</span> <span class="n">wave_speed</span><span class="o">=</span><span class="mf">0.1685</span><span class="p">,</span> <span class="n">firn_correction</span><span class="o">=</span><span class="mf">15.5</span><span class="p">)</span>
+<span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">wave_speed</span><span class="o">=</span><span class="mf">0.1685</span><span class="p">,</span> <span class="n">firn_correction</span><span class="o">=</span><span class="mf">15.5</span><span class="p">)</span>
 <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
+</section>
+<section id="the-json-file">
+<h2>The JSON file<a class="headerlink" href="#the-json-file" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> defines all the metadata of a raw file which we be associated to the corresponding data in the database. This will allow to query the database with all the implemented filters. One should provide all the information that exists if possible:
+One important field is the <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>, which specifies if the raw files are organised per layers or per flight lines. There are then two possibilities:</p>
+<p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>: “layer”</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>field</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Example Values</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">layer</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'layer'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">raw</span> <span class="pre">file</span></code></p></td>
+<td><p>Name of the raw file in the raw folder with the correct extension (csv, txt, tab).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'OIA_EDC_IRH1.csv'</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code></p></td>
+<td><p>Name of the dataset corresponding dataset (usually same as the folder name)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'Cavitte_2020'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">institute</span></code></p></td>
+<td><p>Institute(s) that produced the data.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'BAS'</span></code>, <code class="docutils literal notranslate"><span class="pre">['AWI',</span> <span class="pre">'NASA']</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">project</span></code></p></td>
+<td><p>Project(s) under which the data were collected.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'OIB'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">acquisition</span> <span class="pre">year</span></code></p></td>
+<td><p>Year(s) in which the radar data were acquired. Can be a range.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'2000-2010'</span></code>, <code class="docutils literal notranslate"><span class="pre">'2005'</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">age</span></code></p></td>
+<td><p>Age in years before present of the layer.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'10000'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">age</span> <span class="pre">uncertainty</span></code></p></td>
+<td><p>Uncertainty on the age of the layer</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'800'</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">citation</span></code></p></td>
+<td><p>How the dataset should be cited</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'Cavitte</span> <span class="pre">et</span> <span class="pre">al.</span> <span class="pre">2020'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">dataset</span></code></p></td>
+<td><p>DOI that directly links to the original dataset (e.g zenodo, USAP-DC…)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.15784/601411'</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">publication</span></code></p></td>
+<td><p>DOI of the associated publication that published the data</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.5194/essd-13-4759-2021'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Example of such a dataset is Cavitte_2020</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>: “flight line”
+Replace the <code class="docutils literal notranslate"><span class="pre">raw</span> <span class="pre">file</span></code> entry by <code class="docutils literal notranslate"><span class="pre">IRH</span> <span class="pre">name</span></code> as they are named in the raw files. Then the compilation will use the file name for flight ID.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>field</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Example Values</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">flight</span> <span class="pre">line</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'flight</span> <span class="pre">line'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IRH</span> <span class="pre">name</span></code></p></td>
+<td><p>Name of the IRH layer as is it named in the raw file (e.g. column name)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'IRH1'</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">age</span></code></p></td>
+<td><p>Age in years before present of the layer.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'10000'</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Example of such a dataset is Wang_2023</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="the-csv-column-file">
+<h2>The CSV column file<a class="headerlink" href="#the-csv-column-file" title="Link to this heading">#</a></h2>
+<p>The original_new_column_names.csv pairs the columns in the raw file with associated variables in the database. The minimal information in the file should be:</p>
+<ul class="simple">
+<li><p>Polar Stereographic coordinates PSX and PSY or lon, lat (will be converted to PSX, PSY)</p></li>
+<li><p>The IRH depth</p></li>
+</ul>
+<p>More information can be provided such as flight ID, Ice thickness, acquisition year etc. But the columns should be renamed following the database convention:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>variable</p></th>
+<th class="head"><p>variable name convention in the Database</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>IRH depth</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IRH_DEPTH</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Ice thickness</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ICE_THK</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Surface elevation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SURF_ELEV</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Bed elevation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">BED_ELEV</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Distance along transect</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DIST</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">acquisition</span> <span class="pre">year</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">acq_year</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Flight</span> <span class="pre">ID</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Flight_ID</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Note if the acquisition year column is not directly a year YYYY but a string that contains the year, add a third row to provide the pattern to extract the acquisition year from the string.</p>
+<p>Example of original_new_column_names.csv file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">timestamp</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">thk_m</span><span class="p">,</span><span class="n">bedelv_mABSL</span><span class="p">,</span><span class="n">IRHdepth_m</span><span class="p">,</span><span class="n">line</span>
+<span class="n">acq_year</span><span class="p">,</span><span class="n">PSX</span><span class="p">,</span><span class="n">PSY</span><span class="p">,</span><span class="n">ICE_THK</span><span class="p">,</span><span class="n">BED_ELEV</span><span class="p">,</span><span class="n">IRH_DEPTH</span><span class="p">,</span><span class="n">Flight_ID</span>
+<span class="n">YYYYxxxxxxxxxxxxxxxxxxxxxx</span>
+</pre></div>
+</div>
+<p>For a dataset organized by flight lines, so many IRH depth in the raw files, the original_new_column_names.csv should look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Longitude</span><span class="p">,</span><span class="n">Latitude</span><span class="p">,</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">bed</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H1</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H2</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H3</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H4</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H5</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H6</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H7</span><span class="p">)</span>
+<span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">,</span><span class="n">ICE_THK</span><span class="p">,</span><span class="n">IRH1</span><span class="p">,</span><span class="n">IRH2</span><span class="p">,</span><span class="n">IRH3</span><span class="p">,</span><span class="n">IRH4</span><span class="p">,</span><span class="n">IRH5</span><span class="p">,</span><span class="n">IRH6</span><span class="p">,</span><span class="n">IRH7</span>
+</pre></div>
+</div>
+<p>Where the new column names for the layers correspond to the names you provided in the JSON file.</p>
 </section>
 <section id="notes">
 <h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">#</a></h2>
@@ -464,16 +620,7 @@ To manually fix the number of cpus used during the compilation:</p>
 </section>
 <section id="compilation-process">
 <h3>Compilation process<a class="headerlink" href="#compilation-process" title="Link to this heading">#</a></h3>
-<p>The compilation is divided into 2 processes. First it compiles the database by ordering the data in individual trace and individual age. Then a post compilation process loop through all the new pickle files and currently performs the following:</p>
-<ul class="simple">
-<li><p>If variables such as IceThk, SurfElev and BedElev were not given in a distinct file in the raw directory but are present along the IRH, extract them from the IRH files and save it as a separate file. This allows to treat those variables as layers (convenient for visualization, interpolation etc.)</p></li>
-<li><p>Compute the IRH density (IRHDensity) and save it per trace</p></li>
-</ul>
-<p>This structure makes it easy to add post compilation operations on the database, if one wants to add features to the data. One can then perform the post compilation only without having to recompile the database:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">comp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">post</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># They are both True by default</span>
-<span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-</pre></div>
-</div>
+<p>Needs to be updated.</p>
 </section>
 </section>
 </section>
@@ -544,6 +691,8 @@ To manually fix the number of cpus used during the compilation:</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-json-file">The JSON file</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-csv-column-file">The CSV column file</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
