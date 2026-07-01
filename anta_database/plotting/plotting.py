@@ -500,6 +500,12 @@ class Plotting:
 
                 # Use the unified coordinate extraction method
                 df = self._get_coordinates_for_plotting(file_paths, downsampling_factor)
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(f"Warning: No coordinate data found for dataset {dataset}")
+                    continue
+
                 plt.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
@@ -548,6 +554,14 @@ class Plotting:
 
                 # Use the unified coordinate extraction method
                 df = self._get_coordinates_for_plotting(file_paths, downsampling_factor)
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(
+                        f"Warning: No coordinate data found for institute {institute}"
+                    )
+                    continue
+
                 plt.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
@@ -858,6 +872,14 @@ class Plotting:
                 df = self._get_coordinates_for_plotting(
                     file_paths, None
                 )  # No downsampling here
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(
+                        f"Warning: No coordinate data found for flight_id {flight_id}"
+                    )
+                    continue
+
                 plt.scatter(
                     df["PSX"][::downsampling_factor] / 1000,
                     df["PSY"][::downsampling_factor] / 1000,
