@@ -1,0 +1,28 @@
+--8<-- [start:requirements]
+# Binder requirements
+
+# Core dependencies
+numpy
+pandas
+xarray
+matplotlib
+cartopy
+netcdf4
+h5py
+zarr
+s3fs
+fsspec
+boto3
+tqdm
+ipykernel
+jupyterlab
+
+# Additional dependencies
+colormaps
+pyshp
+pyproj
+shapely
+
+# Install the package in development mode
+-e ..
+--8<-- [end:requirements]

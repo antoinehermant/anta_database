@@ -1,0 +1,27 @@
+name: anta-database-binder
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.13
+  - pip
+  - numpy
+  - pandas
+  - xarray
+  - matplotlib
+  - cartopy
+  - netcdf4
+  - h5py
+  - zarr
+  - s3fs
+  - fsspec
+  - boto3
+  - tqdm
+  - ipykernel
+  - jupyterlab
+  - pip:
+    - colormaps
+    - pyshp
+    - pyproj
+    - shapely
+    - git+https://github.com/antoinehermant/anta_database.git  # Install from git
