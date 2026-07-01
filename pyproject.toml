@@ -26,6 +26,9 @@ dependencies = [
   "colormaps",
   "tqdm",
   "pyshp",
+  "s3fs",
+  "fsspec",
+  "boto3",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
