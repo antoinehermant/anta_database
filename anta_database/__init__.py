@@ -10,13 +10,13 @@ from .database.cloud_database import CloudDatabase
 
 # Compiling modules
 from .compiling.zarr_converter_simple import FlightLineZarrConverter
-from .compiling.compile import compile_database
+from .compiling.compile import CompileDatabase
 
 # Indexing modules
-from .indexing.index_database import index_database
+from .indexing.index_database import IndexDatabase
 
 # Plotting modules
-from .plotting.plotting import plot_database
+from .plotting.plotting import Plotting
 
 __all__ = [
     # Database classes
@@ -24,11 +24,11 @@ __all__ = [
     "CloudDatabase",
     # Compiling classes
     "FlightLineZarrConverter",
-    "compile_database",
+    "CompileDatabase",
     # Indexing functions
-    "index_database",
+    "IndexDatabase",
     # Plotting functions
-    "plot_database",
+    "Plotting",
 ]
 
 
