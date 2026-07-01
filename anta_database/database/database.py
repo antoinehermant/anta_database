@@ -750,7 +750,8 @@ class Database:
         self,
         metadata: Union[None, Dict, 'MetadataResult'] = None,
         data_dir: Optional[str] = None,
-        downsampling_factor: Optional[str] = None,
+        downsampling_factor: Optional[int] = None,
+        rolling_distance: Optional[int] = None,
         disable_tqdm: bool = False,
         fraction_depth: Optional[bool] = False,
     ) -> Generator[Tuple[pd.DataFrame, Dict]]:
@@ -789,7 +790,6 @@ class Database:
             ds = h5py.File(full_path, 'r')
             df = pd.DataFrame({'PSX': ds['PSX'][::downsampling_factor],
                                 'PSY': ds['PSY'][::downsampling_factor]})
-
             if 'Distance' in ds.keys():
                 df['Distance'] = ds['Distance'][::downsampling_factor]
 
@@ -821,6 +821,15 @@ class Database:
 
             if 0 < len(age_impl) <= 1:
                 age_impl = list(age_impl)[0]
+
+            if rolling_distance:
+                if 'Distance' not in df.columns:
+                    print('Distance not in dataset, cannot do rolling mean on distance')
+                else:
+                    df['bin'] = np.floor(df['Distance'] / rolling_distance) * rolling_distance
+                    df = df.groupby('bin').mean().reset_index()
+                    df.drop(columns=['bin'], inplace=True)
+
             metadata = {
                 'dataset': file_md['dataset'],
                 'var': var_impl,
