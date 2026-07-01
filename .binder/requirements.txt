@@ -11,9 +11,9 @@ netcdf4
 h5py
 zarr
 # Cloud dependencies (with minimum versions to avoid warnings)
-s3fs>=2022.5.0
-fsspec>=2022.5.0
-boto3>=1.24.0
+s3fs>=2026.6.0
+fsspec>=2026.6.0
+boto3>=1.43.37
 tqdm
 ipykernel
 jupyterlab
