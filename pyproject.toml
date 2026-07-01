@@ -26,6 +26,10 @@ dependencies = [
   "colormaps",
   "tqdm",
   "pyshp",
+  # Cloud dependencies
+  "s3fs>=2022.5.0",
+  "fsspec>=2022.5.0",
+  "boto3>=1.24.0",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
