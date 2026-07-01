@@ -44,7 +44,7 @@ class Plotting:
 
     def _is_cloud_database(self) -> bool:
         """Check if the database instance is a CloudDatabase."""
-        from anta_database.cloud_database import CloudDatabase
+        from anta_database.database.cloud_database import CloudDatabase
 
         return isinstance(self._db, CloudDatabase)
 
@@ -60,44 +60,21 @@ class Plotting:
         if self._is_cloud_database():
             # For CloudDatabase, we need to create temporary metadata to get coordinates
             # This is a bit hacky but necessary to avoid duplicating the coordinate extraction logic
+
             all_x, all_y = [], []
+            for f in file_paths:
+                s3_zarr_path = self._db._get_s3_zarr_path(f)
 
-            # Create a minimal metadata dict for coordinate extraction
-            temp_metadata = {
-                "_query_params": {
-                    "flight_id": [],
-                    "dataset": [],
-                    "institute": [],
-                    "project": [],
-                    "acquisition_year": [],
-                    "age": [],
-                    "var": ["PSX", "PSY"],
-                    "region": [],
-                    "IMBIE_basin": [],
-                    "radar_instrument": [],
-                },
-                "_filter_params": {
-                    "flight_id": [],
-                    "dataset": [],
-                    "institute": [],
-                    "project": [],
-                    "acquisition_year": [],
-                    "age": [],
-                    "var": [],
-                    "region": [],
-                    "IMBIE_basin": [],
-                    "radar_instrument": [],
-                },
-            }
+                ds = self._db._open_zarr_dataset(s3_zarr_path)
+                if ds is None:
+                    continue
 
-            # Use the zarr data generator to get coordinates
-            for df, _ in self._db.zarr_data_generator(
-                metadata=temp_metadata,
-                downsampling_factor=downsampling_factor,
-                disable_tqdm=True,
-            ):
-                all_x.append(df["PSX"])
-                all_y.append(df["PSY"])
+                all_x.append(ds["PSX"][::downsampling_factor])
+                all_y.append(ds["PSY"][::downsampling_factor])
+
+            # Handle case where no data was found
+            if not all_x or not all_y:
+                return pd.DataFrame({"PSX": [], "PSY": []})
 
             return pd.DataFrame(
                 {"PSX": np.concatenate(all_x), "PSY": np.concatenate(all_y)}
@@ -492,6 +469,12 @@ class Plotting:
 
                 # Use the unified coordinate extraction method
                 df = self._get_coordinates_for_plotting(file_paths, downsampling_factor)
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(f"Warning: No coordinate data found for dataset {dataset}")
+                    continue
+
                 plt.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
@@ -540,6 +523,14 @@ class Plotting:
 
                 # Use the unified coordinate extraction method
                 df = self._get_coordinates_for_plotting(file_paths, downsampling_factor)
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(
+                        f"Warning: No coordinate data found for institute {institute}"
+                    )
+                    continue
+
                 plt.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
@@ -850,6 +841,14 @@ class Plotting:
                 df = self._get_coordinates_for_plotting(
                     file_paths, None
                 )  # No downsampling here
+
+                # Debug: Check if we got any data
+                if df.empty:
+                    print(
+                        f"Warning: No coordinate data found for flight_id {flight_id}"
+                    )
+                    continue
+
                 plt.scatter(
                     df["PSX"][::downsampling_factor] / 1000,
                     df["PSY"][::downsampling_factor] / 1000,

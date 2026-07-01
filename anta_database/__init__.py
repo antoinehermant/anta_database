@@ -2,7 +2,6 @@ from .database import *
 from .indexing import *
 from .compiling import *
 from .plotting import *
-from .cloud_database import CloudDatabase
 
 __all__ = ["Database", "CloudDatabase"]
 
