@@ -5,23 +5,7 @@ channels:
 dependencies:
   - python=3.13
   - pip
-  - numpy
-  - pandas
-  - xarray
-  - matplotlib
-  - cartopy
-  - netcdf4
-  - h5py
-  - zarr
-  # Cloud dependencies (with minimum versions to avoid warnings)
-  - s3fs>=2022.5.0
-  - fsspec>=2022.5.0
-  - boto3>=1.24.0
-  - tqdm
   - ipykernel
   - jupyterlab
   - pip:
-    - colormaps
-    - pyshp
-    - pyproj
-    - shapely
+    - git+https://github.com/antoinehermant/anta_database.git  # Install from git

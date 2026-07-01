@@ -1,18 +1,16 @@
-# Anta Database Jupyter Notebooks
+# AntADatabase Jupyter Notebooks
 
-This directory contains Jupyter notebooks demonstrating how to use the Anta Database package.
+This directory contains Jupyter notebooks demonstrating how to use the anta_database package.
 
 ## Binder Access
 
 Launch these notebooks in Binder:
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/your-username/anta_database/main?urlpath=lab/tree/notebooks)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/antoinehermant/anta_database/binder?urlpath=lab/tree/notebooks/)
 
 ## Available Notebooks
 
-- `cloud_database_example.ipynb`: Example using CloudDatabase with S3 zarr data
-- `local_database_example.ipynb`: Example using local Database with HDF5 data
-- `advanced_plotting.ipynb`: Advanced plotting examples
+- `cloud_database.ipynb`: Example using CloudDatabase with S3 zarr data
 
 ## Setup for Local Use
 
@@ -27,7 +25,7 @@ jupyter lab
 
 ## CloudDatabase Example
 
-The `cloud_database_example.ipynb` notebook shows how to:
+The `cloud_database.ipynb` notebook shows how to:
 1. Connect to the cloud database on S3
 2. Query for specific flight lines
 3. Plot transect data using zarr files from S3
