@@ -99,6 +99,14 @@ class Plotting:
                 all_x.append(df["PSX"])
                 all_y.append(df["PSY"])
 
+            # Handle case where no data was found
+            if not all_x or not all_y:
+                return pd.DataFrame({"PSX": [], "PSY": []})
+
+            # Handle case where no data was found
+            if not all_x or not all_y:
+                return pd.DataFrame({"PSX": [], "PSY": []})
+
             return pd.DataFrame(
                 {"PSX": np.concatenate(all_x), "PSY": np.concatenate(all_y)}
             )
