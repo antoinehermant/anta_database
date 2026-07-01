@@ -79,6 +79,12 @@ class FlightLineZarrConverter:
                 flight_line = h5_file.replace(".h5", "")
                 zarr_path = os.path.join(zarr_dataset_dir, f"{flight_line}.zarr")
 
+                # Remove existing zarr directory if it exists
+                if os.path.exists(zarr_path):
+                    import shutil
+
+                    shutil.rmtree(zarr_path)
+
                 ds.to_zarr(zarr_path)
 
                 converted_files.append(
