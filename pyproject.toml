@@ -20,6 +20,7 @@ dependencies = [
   "xarray",
   "h5netcdf",
   "h5py",
+  "zarr",
   "pyproj",
   "scipy",
   "matplotlib",
