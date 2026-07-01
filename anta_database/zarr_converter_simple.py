@@ -36,8 +36,9 @@ class FlightLineZarrConverter:
         all_converted = {}
 
         for dir_path in self.dir_path_list:
+            # Extract dataset name and ensure proper path format
             dataset_name = os.path.basename(dir_path.rstrip("/"))
-            converted = self._convert_dataset(dir_path, dataset_name)
+            converted = self._convert_dataset(dataset_name, dir_path)
             if converted:
                 all_converted[dataset_name] = converted
 
@@ -48,6 +49,10 @@ class FlightLineZarrConverter:
 
     def _convert_dataset(self, dir_path, dataset_name):
         """Convert all flight lines in a dataset."""
+        # Handle both "Chung_2023" and "Chung_2023/" formats
+        if not dir_path.endswith("/"):
+            dir_path += "/"
+
         h5_dir = os.path.join(self.base_dir, dir_path, "h5")
         zarr_dataset_dir = os.path.join(self.output_dir, dataset_name)
 
