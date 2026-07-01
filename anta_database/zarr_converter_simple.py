@@ -111,21 +111,26 @@ class FlightLineZarrConverter:
 
         metadata = []
 
-        for dataset in os.listdir(self.output_dir):
-            dataset_dir = os.path.join(self.output_dir, dataset)
-            if not os.path.isdir(dataset_dir):
+        # Find all converted files in all dataset directories
+        for dir_path in self.dir_path_list:
+            # Handle both "Chung_2023" and "Chung_2023/" formats
+            if not dir_path.endswith("/"):
+                dir_path += "/"
+
+            zarr_dir = os.path.join(self.base_dir, dir_path, "zarr")
+            if not os.path.exists(zarr_dir):
                 continue
 
-            for zarr_file in os.listdir(dataset_dir):
+            for zarr_file in os.listdir(zarr_dir):
                 if zarr_file.endswith(".zarr"):
                     flight_line = zarr_file.replace(".zarr", "")
-                    zarr_path = os.path.join(dataset_dir, zarr_file)
+                    zarr_path = os.path.join(zarr_dir, zarr_file)
 
                     try:
                         ds = xr.open_zarr(zarr_path)
                         metadata.append(
                             {
-                                "dataset": dataset,
+                                "dataset": os.path.basename(dir_path.rstrip("/")),
                                 "flight_line": flight_line,
                                 "zarr_path": zarr_path,
                                 "dimensions": dict(ds.sizes),
@@ -136,7 +141,8 @@ class FlightLineZarrConverter:
                         print(f"Error reading {zarr_path}: {e}")
                         continue
 
-        metadata_path = os.path.join(self.output_dir, "zarr_metadata.json")
+        # Save metadata in base directory
+        metadata_path = os.path.join(self.base_dir, "zarr_metadata.json")
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
