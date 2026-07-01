@@ -28,8 +28,7 @@ class FlightLineZarrConverter:
         """
         self.base_dir = base_dir
         self.dir_path_list = dir_path_list or []
-        self.output_dir = os.path.join(base_dir, "zarr")
-        os.makedirs(self.output_dir, exist_ok=True)
+        # Output will be created per dataset to avoid conflicts
 
     def convert(self):
         """Convert all specified directories."""
@@ -54,7 +53,8 @@ class FlightLineZarrConverter:
             dir_path += "/"
 
         h5_dir = os.path.join(self.base_dir, dir_path, "h5")
-        zarr_dataset_dir = os.path.join(self.output_dir, dataset_name)
+        # Create zarr directory within the dataset directory
+        zarr_dataset_dir = os.path.join(self.base_dir, dir_path, "zarr")
 
         if not os.path.exists(h5_dir):
             print(f"Warning: HDF5 directory not found: {h5_dir}")
