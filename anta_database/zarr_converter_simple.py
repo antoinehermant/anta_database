@@ -3,8 +3,12 @@ Simplified Zarr converter with intuitive directory list interface.
 """
 
 import os
+import warnings
 import xarray as xr
 from tqdm import tqdm
+
+# Suppress zarr consolidated metadata warnings
+warnings.filterwarnings("ignore", message="Consolidated metadata is currently not part")
 
 
 class FlightLineZarrConverter:
