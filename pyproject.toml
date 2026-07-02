@@ -17,6 +17,8 @@ requires-python = ">=3.11"
 dependencies = [
   "pandas",
   "geopandas",
+  "fastparquet",
+  "pyarrow",
   "xarray",
   "h5netcdf",
   "h5py",
