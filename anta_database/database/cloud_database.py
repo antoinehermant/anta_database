@@ -237,7 +237,7 @@ class CloudDatabase(Database):
         rolling_distance: Optional[int] = None,
         disable_tqdm: bool = False,
         fraction_depth: Optional[bool] = False,
-    ) -> Generator[Tuple[pd.DataFrame, Dict]]:
+    ) -> Generator[Tuple[pd.DataFrame, Dict], None, None]:
         """
         Override the data_generator to use zarr data from S3 instead of local HDF5 files.
 
@@ -259,7 +259,7 @@ class CloudDatabase(Database):
         rolling_distance: Optional[int] = None,
         disable_tqdm: bool = False,
         fraction_depth: Optional[bool] = False,
-    ) -> Generator[Tuple[pd.DataFrame, Dict]]:
+    ) -> Generator[Tuple[pd.DataFrame, Dict], None, None]:
         """
         Generates DataFrames from Zarr files on S3, one at a time.
 
