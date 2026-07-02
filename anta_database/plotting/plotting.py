@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 class Plotting:
     def __init__(self, database_instance: "Database") -> None:
         self._db = database_instance
-        self._gl_path = files("anta_database.data").joinpath("GL.pkl")
-        self._site_coords_path = files("anta_database.data").joinpath("site-coords.pkl")
+        self._gl_path = files("anta_database.data").joinpath("GL.parquet")
+        self._site_coords_path = files("anta_database.data").joinpath(
+            "site-coords.parquet"
+        )
         self._imbie_path = files("anta_database.data").joinpath(
             "ANT_Basins_IMBIE2_v1.6.shp"
         )
@@ -419,7 +421,7 @@ class Plotting:
             grounding_line = False
         # --- Plot Grounding Line ---
         if True and color_by != "transect_1D":  # FIXME
-            gl = pd.read_pickle(self._gl_path)
+            gl = pd.read_parquet(self._gl_path)
             ax.plot(gl.x / 1000, gl.y / 1000, linewidth=1, color="k")
 
         # --- Plot Data ---
@@ -989,7 +991,7 @@ class Plotting:
                     )
         # --- Plot ice core sites ---
         if stations and color_by != "transect_1D":
-            site_coords = pd.read_pickle(self._site_coords_path)
+            site_coords = pd.read_parquet(self._site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
                 ax.scatter(
