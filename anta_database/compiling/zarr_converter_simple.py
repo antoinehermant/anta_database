@@ -5,10 +5,11 @@ Simplified Zarr converter with intuitive directory list interface.
 import os
 import warnings
 import xarray as xr
+import zarr
 from tqdm import tqdm
 
 # Suppress zarr consolidated metadata warnings
-warnings.filterwarnings("ignore", message="Consolidated metadata is currently not part")
+# warnings.filterwarnings("ignore", message="Consolidated metadata is currently not part")
 
 
 class FlightLineZarrConverter:
@@ -89,7 +90,13 @@ class FlightLineZarrConverter:
 
                     shutil.rmtree(zarr_path)
 
+                # Write to Zarr with encoding
                 ds.to_zarr(zarr_path)
+
+                # Consolidate metadata
+                zarr.consolidate_metadata(zarr_path)
+
+                ds.close()
 
                 converted_files.append(
                     {
