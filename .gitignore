@@ -6,3 +6,8 @@ venv/
 .env
 dist/
 archives/
+
+.agent-shell/
+example*.py
+test*.py
+site/

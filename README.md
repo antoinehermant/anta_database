@@ -5,6 +5,7 @@
 [![PyPi](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
 [![Downloads](https://img.shields.io/pypi/dm/anta_database)](https://pypi.org/project/anta_database)
 [![GitHub issues](https://img.shields.io/badge/issue_tracking-github-blue.svg)](https://github.com/antoinehermant/anta_database/issues)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/antoinehermant/anta_database/binder?urlpath=lab/tree/notebooks/cloud_database.ipynb)
 <!-- [![Contributing](https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?)](https://matplotlib.org/stable/devel/index.html) -->
 <!-- [![Conda](https://img.shields.io/conda/vn/conda-forge/anta_database)](https://anaconda.org/conda-forge/anta_database) -->
 

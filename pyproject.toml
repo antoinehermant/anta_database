@@ -17,15 +17,21 @@ requires-python = ">=3.11"
 dependencies = [
   "pandas",
   "geopandas",
+  "fastparquet",
+  "pyarrow",
   "xarray",
   "h5netcdf",
   "h5py",
+  "zarr",
   "pyproj",
   "scipy",
   "matplotlib",
   "colormaps",
   "tqdm",
   "pyshp",
+  "s3fs",
+  "fsspec",
+  "boto3",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
