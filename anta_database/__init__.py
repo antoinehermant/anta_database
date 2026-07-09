@@ -3,7 +3,7 @@ from .indexing import *
 from .compiling import *
 from .plotting import *
 
-__all__ = ["Database", "CloudDatabase"]
+__all__ = ["Database", "CloudDatabase", "MetadataResult"]
 
 
 def get_database(cloud=False, s3_bucket="anta-database", **kwargs):
