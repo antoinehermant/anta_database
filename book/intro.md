@@ -22,6 +22,7 @@ AntADatabase a Python-powered SQLite database designed for browsing, visualizing
 - Leysinger-Vieli et al. 2011, https://doi.org/10.5281/zenodo.15516203
 - Muldoon et al. 2023, https://doi.org/10.15784/601673
 - Mulvaney et al. 2023, https://doi.pangaea.de/10.1594/PANGAEA.963470
+- Napoleoni et al. 2026, https://doi.org/10.5194/tc-20-2793-2026
 - Sanderson et al. 2024, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316
 - Siegert and Payne 2024, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238
 - Wang et al. 2023, https://doi.org/10.1594/PANGAEA.958462
