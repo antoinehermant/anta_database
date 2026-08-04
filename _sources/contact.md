@@ -1,9 +1,27 @@
-# Support and contact
+# Support and Contact
 
-Feel free to raise a [GitHub issue](https://github.com/antoinehermant/anta_database/issues/new) if you find any bug or if you would like a feature added.
+## Getting Help
 
-For any other questions or contribution, you can email me at: antoine.hermant@unibe.ch
+If you encounter any issues or have questions about the anta_database package:
 
-The database presented in this website is not available on any public repository. You can compile data using the package or contact me for the one I compiled. 
+- **Bug Reports & Feature Requests**: Please raise a [GitHub issue](https://github.com/antoinehermant/anta_database/issues/new)
+- **General Questions**: Email antoine.hermant@unibe.ch
+
+## Data Access
+
+**Important**: The AntADatabase dataset is not publicly hosted. To access the compiled dataset:
+
+- You can compile your own data using the `anta_database` package (see [Advanced](advanced) section)
+- Contact antoine.hermant@unibe.ch to request access to the pre-compiled dataset
+
+## Contributing
+
+We welcome contributions to the anta_database project! Whether you want to:
+- Report bugs or suggest features
+- Improve documentation
+- Add new functionality
+- Contribute datasets
+
+Please see our [Contribution Guide](contribute) for more information. 
 
 

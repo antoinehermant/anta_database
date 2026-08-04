@@ -6,9 +6,9 @@
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Contributing &#8212; AntADatabase</title>
+    <title>Contributing to AntADatabase &#8212; AntADatabase</title>
   
   
   
@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -60,7 +60,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'contribute';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Support and contact" href="contact.html" />
+    <link rel="next" title="Support and Contact" href="contact.html" />
+    <link rel="prev" title="Advanced: Database Management" href="advanced.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -174,19 +175,16 @@
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="intro.html">
-                    AntADatabase
+                    Welcome to AntADatabase
                 </a>
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="pism_example.html">Model-data comparison (ex: PISM)</a></li>
-
-
-<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
-<li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pism_example.html">PISM Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced Usage</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contact.html">Support &amp; Contact</a></li>
 </ul>
 
     </div>
@@ -359,7 +357,9 @@ document.write(`
   </button>
 `);
 </script>
-
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
 </div></div>
       
     </div>
@@ -370,11 +370,26 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Contributing</h1>
+    <h1>Contributing to AntADatabase</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
             
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-contribute">How to Contribute</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-issues">Reporting Issues</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-contributions">Code Contributions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-start">Before You Start</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contribution-ideas">Contribution Ideas</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-style">Code Style</a></li>
+</ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -384,12 +399,59 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="contributing">
-<h1>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">#</a></h1>
-<p>Contribution to this tool is very much welcome! This can be anything from adding new features to refactoring the code.</p>
-<p>Maybe first contact me so I know that people are interested and on which feature they are working on.</p>
-<p>The project is hosted on <a class="reference external" href="https://github.com/antoinehermant/anta_database">GitHub</a>. First you should fork the repository, create your own features branches and submit pull request.</p>
-<p>Check the <a class="reference external" href="https://github.com/antoinehermant/anta_database/blob/main/ROADMAP.md">Roadmap</a>.</p>
+  <section class="tex2jax_ignore mathjax_ignore" id="contributing-to-antadatabase">
+<h1>Contributing to AntADatabase<a class="headerlink" href="#contributing-to-antadatabase" title="Link to this heading">#</a></h1>
+<p>We welcome and appreciate all contributions to the AntADatabase project! Whether you’re a user, developer, or researcher, there are many ways you can help improve this project.</p>
+<section id="how-to-contribute">
+<h2>How to Contribute<a class="headerlink" href="#how-to-contribute" title="Link to this heading">#</a></h2>
+<section id="reporting-issues">
+<h3>Reporting Issues<a class="headerlink" href="#reporting-issues" title="Link to this heading">#</a></h3>
+<p>Found a bug or have a feature request? Please <a class="reference external" href="https://github.com/antoinehermant/anta_database/issues/new">open a GitHub issue</a> with:</p>
+<ul class="simple">
+<li><p>A clear description of the problem or feature</p></li>
+<li><p>Steps to reproduce (for bugs)</p></li>
+<li><p>Your environment details (Python version, OS, etc.)</p></li>
+</ul>
+</section>
+<section id="code-contributions">
+<h3>Code Contributions<a class="headerlink" href="#code-contributions" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Fork the repository</strong> on <a class="reference external" href="https://github.com/antoinehermant/anta_database">GitHub</a></p></li>
+<li><p><strong>Create a feature branch</strong> from the main branch</p></li>
+<li><p><strong>Make your changes</strong> with clear, focused commits</p></li>
+<li><p><strong>Submit a pull request</strong> with a descriptive title and explanation</p></li>
+</ol>
+</section>
+<section id="before-you-start">
+<h3>Before You Start<a class="headerlink" href="#before-you-start" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Contact us first</strong>: Email <a class="reference external" href="mailto:antoine&#46;hermant&#37;&#52;&#48;unibe&#46;ch">antoine<span>&#46;</span>hermant<span>&#64;</span>unibe<span>&#46;</span>ch</a> to let us know what you’re working on</p></li>
+<li><p><strong>Check existing issues</strong>: Avoid duplicate work by reviewing open issues and pull requests</p></li>
+<li><p><strong>Review the Roadmap</strong>: See what’s already planned in our <a class="reference external" href="https://github.com/antoinehermant/anta_database/blob/main/ROADMAP.md">Roadmap</a></p></li>
+</ul>
+</section>
+<section id="contribution-ideas">
+<h3>Contribution Ideas<a class="headerlink" href="#contribution-ideas" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Add support for new dataset formats</p></li>
+<li><p>Improve visualization capabilities</p></li>
+<li><p>Enhance query performance</p></li>
+<li><p>Expand documentation and examples</p></li>
+<li><p>Fix bugs and improve code quality</p></li>
+<li><p>Add new analysis features</p></li>
+</ul>
+</section>
+</section>
+<section id="code-style">
+<h2>Code Style<a class="headerlink" href="#code-style" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Follow PEP 8 guidelines</p></li>
+<li><p>Include docstrings for new functions</p></li>
+<li><p>Add tests for new functionality</p></li>
+<li><p>Keep commits atomic and well-documented</p></li>
+</ul>
+<p>Thank you for helping make AntADatabase better for everyone!</p>
+</section>
 </section>
 
     <script type="text/x-thebe-config">
@@ -423,13 +485,22 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="contact.html"
+       href="advanced.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Support and contact</p>
+        <p class="prev-next-title">Advanced: Database Management</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="contact.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Support and Contact</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -437,6 +508,28 @@ document.write(`
             </div>
             
             
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-contribute">How to Contribute</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-issues">Reporting Issues</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-contributions">Code Contributions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-start">Before You Start</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contribution-ideas">Contribution Ideas</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-style">Code Style</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

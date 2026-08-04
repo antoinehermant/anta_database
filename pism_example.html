@@ -6,9 +6,9 @@
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Model-data comparison (ex: PISM) &#8212; AntADatabase</title>
+    <title>Model-Data Comparison with PISM &#8212; AntADatabase</title>
   
   
   
@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -60,8 +60,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'pism_example';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Advanced: Managing the database" href="advanced.html" />
-    <link rel="prev" title="Quick start" href="quick_start.html" />
+    <link rel="next" title="Advanced: Database Management" href="advanced.html" />
+    <link rel="prev" title="Quick Start Guide" href="quick_start.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -175,19 +175,16 @@
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="intro.html">
-                    AntADatabase
+                    Welcome to AntADatabase
                 </a>
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
-
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Model-data comparison (ex: PISM)</a></li>
-
-
-<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced: Managing the database</a></li>
-<li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Start Guide</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">PISM Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contact.html">Support &amp; Contact</a></li>
 </ul>
 
     </div>
@@ -373,7 +370,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Model-data comparison (ex: PISM)</h1>
+    <h1>Model-Data Comparison with PISM</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -383,21 +380,55 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison (ex: PISM)</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-layer-mismatch">2D Layer mismatch</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM output</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#query-the-antadatabase">Query the AntADatabase</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism">Interpolate PISM</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#xarray">xarray</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#h5py">h5py</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about-pism">About PISM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose">Purpose</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup-and-data">Setup and Data</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM Output</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-pism-output">Loading PISM Output</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting">Plotting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#d-comparison-spatial-mismatch">2D Comparison: Spatial Mismatch</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#query-antadatabase">Query AntADatabase</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism-onto-irh-locations">Interpolate PISM onto IRH Locations</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-using-xarray">Method 1: Using xarray</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-using-h5py-recommended-for-performance">Method 2: Using h5py (Recommended for Performance)</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-transect-mismatch">1D Transect mismatch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-2d-mismatch">Visualize 2D Mismatch</a></li>
 </ul>
-
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#d-comparison-transect-analysis">1D Comparison: Transect Analysis</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#select-a-transect">Select a Transect</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#select-layers-for-comparison">Select Layers for Comparison</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism-layers-onto-transect">Interpolate PISM Layers onto Transect</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpreting-results">Interpreting Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d-mismatch-plot">2D Mismatch Plot</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d-transect-plot">1D Transect Plot</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#time-conversion-considerations">Time Conversion Considerations</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#important-notes-on-age-scales">Important Notes on Age Scales</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#performance-considerations">Performance Considerations</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-comparison">Method Comparison</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#optimization-tips">Optimization Tips</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adapting-to-your-workflow">Adapting to Your Workflow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#customizing-for-your-model">Customizing for Your Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#integrating-with-diagnostic-tools">Integrating with Diagnostic Tools</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-resources">Additional Resources</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-takeaways">Key Takeaways:</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps:</a></li>
+</ul>
+</li>
+</ul>
             </nav>
         </div>
     </div>
@@ -408,38 +439,67 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="model-data-comparison-ex-pism">
-<h1>Model-data comparison (ex: PISM)<a class="headerlink" href="#model-data-comparison-ex-pism" title="Link to this heading">#</a></h1>
-<p>Example using the Parallel Ice Sheet Model</p>
-<p>PISM includes an englacial layer tracing scheme <a class="reference external" href="https://doi.org/10.5194/tc-15-4539-2021">(Born and Robinson 2021)</a> since its version 2.1 <a class="reference external" href="https://www.pism.io/docs/manual/modeling-choices/dynamics/age.html">(PISM docs)</a></p>
-<p>This notebook shows how to make direct use of the AntADatabase and the anta_database module for comparing a model run with PISM and IRH data. It is not meant to be very efficient, but descriptive, and people should be able to take parts of the code to implement it in there diagnostic routines.</p>
+  <section class="tex2jax_ignore mathjax_ignore" id="model-data-comparison-with-pism">
+<h1>Model-Data Comparison with PISM<a class="headerlink" href="#model-data-comparison-with-pism" title="Link to this heading">#</a></h1>
+<p><strong>Comparing PISM Ice Sheet Model Output with AntADatabase IRH Data</strong></p>
+<p>This notebook demonstrates how to compare Internal Reflecting Horizon (IRH) data from the AntADatabase with output from the Parallel Ice Sheet Model (PISM).</p>
+<section id="about-pism">
+<h2>About PISM<a class="headerlink" href="#about-pism" title="Link to this heading">#</a></h2>
+<p>PISM (Parallel Ice Sheet Model) includes an englacial layer tracing scheme <a class="reference external" href="https://doi.org/10.5194/tc-15-4539-2021">(Born and Robinson 2021)</a> since version 2.1. This allows PISM to simulate the formation and evolution of isochrones within the ice sheet.</p>
 </section>
-<section class="tex2jax_ignore mathjax_ignore" id="d-layer-mismatch">
-<h1>2D Layer mismatch<a class="headerlink" href="#d-layer-mismatch" title="Link to this heading">#</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">#</a></h2>
+<p>This notebook provides descriptive examples of how to:</p>
+<ul class="simple">
+<li><p>Load and process PISM model output containing isochronal layers</p></li>
+<li><p>Query and retrieve IRH data from AntADatabase</p></li>
+<li><p>Interpolate model output onto observation locations</p></li>
+<li><p>Compare model predictions with observed IRH data</p></li>
+<li><p>Create visualization of model-data mismatches</p></li>
+</ul>
+<p>Users can adapt these examples for their own diagnostic routines and model validation workflows.</p>
+</section>
+<section id="setup-and-data">
+<h2>Setup and Data<a class="headerlink" href="#setup-and-data" title="Link to this heading">#</a></h2>
 <section id="pism-output">
-<h2>PISM output<a class="headerlink" href="#pism-output" title="Link to this heading">#</a></h2>
-<p>This example is using output from a regional domain setup around Dome C, East Antarctica. Layers were traced to match the Cavitte et al. 2020 dataset.
-Note that PISM time is in second since year 0, while the dated IRHs are in years before 1950. So one has to be careful with the time reference between the dated IRH and the model time.
-PISM outputs the ‘isochronal_layer_thickness’ variable, which needs to be converted to isochronal depth. Then we select the layer of interest.
-Here is with xarray, but one can use netCDF4:</p>
+<h3>PISM Output<a class="headerlink" href="#pism-output" title="Link to this heading">#</a></h3>
+<p>This example uses output from a regional PISM domain setup around Dome C, East Antarctica. The model was configured to trace layers matching the Cavitte et al. 2020 dataset.</p>
+<p><strong>Important Time Reference Note</strong>:</p>
+<ul class="simple">
+<li><p>PISM time is in seconds since year 0</p></li>
+<li><p>Dated IRHs are typically in years before 1950 (BP)</p></li>
+<li><p>Careful conversion between these time systems is required for accurate comparison</p></li>
+</ul>
+</section>
+<section id="loading-pism-output">
+<h3>Loading PISM Output<a class="headerlink" href="#loading-pism-output" title="Link to this heading">#</a></h3>
+<p>PISM outputs the <code class="docutils literal notranslate"><span class="pre">isochronal_layer_thickness</span></code> variable, which needs to be converted to isochronal depth. We then select the layer of interest for comparison.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="n">pism_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="s1">&#39;/home/anthe/documents/data/isochrones/pism_output_example/edc_pism_output.nc&#39;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;netcdf4&#39;</span><span class="p">,</span> <span class="n">decode_times</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+<span class="c1"># Load PISM output (replace with your actual file path)</span>
+<span class="n">pism_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/pism_output_example/edc_pism_output.nc&#39;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;netcdf4&#39;</span><span class="p">,</span> <span class="n">decode_times</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
 
+<span class="c1"># Convert isochronal layer thickness to depth</span>
+<span class="c1"># Note: We reverse the deposition_time dimension twice to get the cumulative sum correct</span>
 <span class="n">pism_out</span><span class="p">[</span><span class="s1">&#39;isochronal_layer_depth&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_thickness</span>
     <span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># Reverse deposition_time</span>
     <span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s1">&#39;deposition_time&#39;</span><span class="p">)</span>
     <span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># Reverse back</span>
-    <span class="p">)</span> <span class="c1"># Cumulative sum to get layer depths. Note that the order of deposition_time is reversed for correct cumulative sum calculation in xarray. One could use a for loop as well, but xarray operations are faster.</span>
+<span class="p">)</span>
 
-<span class="n">age</span> <span class="o">=</span> <span class="mi">38000</span> <span class="c1"># note the age is different from the one used in Cavitte et al. 2020 due to different ice core age scale, please ignore</span>
-<span class="n">age_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1950</span> <span class="c1"># to account for difference between model time and age scale used for IRHs, the isochrones were seeded at age+1950, and the simulation ran until year 1950.</span>
-<span class="n">age_seconds</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span><span class="o">+</span><span class="n">age_offset</span><span class="p">)</span><span class="o">*</span><span class="mi">3600</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span>
+<span class="c1"># Define the age of interest (note: may differ from Cavitte et al. 2020 due to different ice core age scales)</span>
+<span class="n">age</span> <span class="o">=</span> <span class="mi">38000</span>  <span class="c1"># years BP</span>
+<span class="n">age_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1950</span>  <span class="c1"># Account for difference between model time and IRH age scale</span>
+<span class="n">age_seconds</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span> <span class="o">+</span> <span class="n">age_offset</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">365</span>  <span class="c1"># Convert to seconds since year 0</span>
+
+<span class="c1"># Extract the specific layer</span>
 <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age_seconds</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+<span class="c1"># Create coordinate grid for interpolation</span>
 <span class="n">X_pism</span><span class="p">,</span> <span class="n">Y_pism</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">pism_out</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
 <span class="n">pism_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">X_pism</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">Y_pism</span><span class="o">.</span><span class="n">flatten</span><span class="p">()))</span>
 </pre></div>
@@ -447,39 +507,51 @@ Here is with xarray, but one can use netCDF4:</p>
 </div>
 </div>
 </section>
-<section id="query-the-antadatabase">
-<h2>Query the AntADatabase<a class="headerlink" href="#query-the-antadatabase" title="Link to this heading">#</a></h2>
-<p>One can query the Database and fetch the files containing the data to compare with:</p>
+</section>
+<section id="d-comparison-spatial-mismatch">
+<h2>2D Comparison: Spatial Mismatch<a class="headerlink" href="#d-comparison-spatial-mismatch" title="Link to this heading">#</a></h2>
+<section id="query-antadatabase">
+<h3>Query AntADatabase<a class="headerlink" href="#query-antadatabase" title="Link to this heading">#</a></h3>
+<p>Retrieve IRH data from AntADatabase for comparison with the PISM output:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
 
-<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span><span class="p">)</span>
-<span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
-<span class="n">query</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span> <span class="c1"># compare with 38.1 ka layer</span>
+<span class="c1"># Initialize database (replace with your actual database path)</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/AntADatabase/&#39;</span><span class="p">,</span> <span class="n">include_BEDMAP</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+<span class="c1"># Filter out unwanted flight lines</span>
+<span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
+
+<span class="c1"># Query specific dataset and age</span>
+<span class="n">query</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span>  <span class="c1"># Compare with 38.1 ka layer</span>
+
+<span class="c1"># Get list of files matching the query</span>
 <span class="n">irh_files</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get_files</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 </div>
 </section>
-<section id="interpolate-pism">
-<h2>Interpolate PISM<a class="headerlink" href="#interpolate-pism" title="Link to this heading">#</a></h2>
-<p>Next we loop through the IRH flight line files, interpolate the PISM isochronal layer depth on each flight line coordinates and compute the difference in depth. We concatenate the results in a DataFrame for plotting. Here we show both with xarray, which is provides a convenient interface with the data, and with h5py, which is much faster:</p>
-<section id="xarray">
-<h3>xarray<a class="headerlink" href="#xarray" title="Link to this heading">#</a></h3>
+<section id="interpolate-pism-onto-irh-locations">
+<h3>Interpolate PISM onto IRH Locations<a class="headerlink" href="#interpolate-pism-onto-irh-locations" title="Link to this heading">#</a></h3>
+<p>We need to interpolate the PISM isochronal layer depth onto the IRH flight line coordinates to compute the difference. Below are two approaches: using xarray (convenient) and h5py (faster for large datasets).</p>
+<section id="method-1-using-xarray">
+<h4>Method 1: Using xarray<a class="headerlink" href="#method-1-using-xarray" title="Link to this heading">#</a></h4>
+<p>xarray provides a convenient interface for working with the data:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
+<span class="c1"># Initialize lists to store results</span>
 <span class="n">all_psx</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">all_psy</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">all_depth_diff</span> <span class="o">=</span> <span class="p">[]</span>
 
+<span class="c1"># Process each IRH file</span>
 <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">irh_files</span><span class="p">:</span>
-    <span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;h5netcdf&#39;</span><span class="p">)</span>
+    <span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">query</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]:</span>
         <span class="n">irh_layer</span> <span class="o">=</span> <span class="n">irh</span><span class="o">.</span><span class="n">IRH_DEPTH</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">IRH_AGE</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">age</span><span class="p">))</span>
         <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="p">,</span> <span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="p">))</span>
@@ -494,16 +566,19 @@ Here is with xarray, but one can use netCDF4:</p>
 </div>
 </div>
 </section>
-<section id="h5py">
-<h3>h5py<a class="headerlink" href="#h5py" title="Link to this heading">#</a></h3>
+<section id="method-2-using-h5py-recommended-for-performance">
+<h4>Method 2: Using h5py (Recommended for Performance)<a class="headerlink" href="#method-2-using-h5py-recommended-for-performance" title="Link to this heading">#</a></h4>
+<p>h5py provides more efficient data reading, which is better for processing many files:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
 
+<span class="c1"># Initialize lists to store results</span>
 <span class="n">all_psx</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">all_psy</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">all_depth_diff</span> <span class="o">=</span> <span class="p">[]</span>
 
+<span class="c1"># Process each IRH file</span>
 <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">irh_files</span><span class="p">:</span>
     <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">irh</span><span class="p">:</span>
         <span class="n">irh_values</span> <span class="o">=</span> <span class="n">irh</span><span class="p">[</span><span class="s1">&#39;IRH_AGE&#39;</span><span class="p">][:]</span>
@@ -525,25 +600,27 @@ Here is with xarray, but one can use netCDF4:</p>
 </div>
 </section>
 </section>
-<section id="plotting">
-<h2>Plotting<a class="headerlink" href="#plotting" title="Link to this heading">#</a></h2>
+<section id="visualize-2d-mismatch">
+<h3>Visualize 2D Mismatch<a class="headerlink" href="#visualize-2d-mismatch" title="Link to this heading">#</a></h3>
+<p>Create a scatter plot showing the spatial distribution of depth differences between PISM and observed IRH data:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
-<span class="c1"># Create DataFrame</span>
+<span class="c1"># Create DataFrame from collected data</span>
 <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
     <span class="s1">&#39;PSX&#39;</span><span class="p">:</span> <span class="n">all_psx</span><span class="p">,</span>
     <span class="s1">&#39;PSY&#39;</span><span class="p">:</span> <span class="n">all_psy</span><span class="p">,</span>
     <span class="s1">&#39;Depth_diff&#39;</span><span class="p">:</span> <span class="n">all_depth_diff</span>
 <span class="p">})</span>
 
+<span class="c1"># Create the plot</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 <span class="n">sc</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
-    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;PSX&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span>  <span class="c1"># Convert to km</span>
     <span class="n">df</span><span class="p">[</span><span class="s1">&#39;PSY&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span>
     <span class="n">c</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;Depth_diff&#39;</span><span class="p">],</span>
-    <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">,</span>  <span class="c1"># Red for PISM deeper, Blue for PISM shallower</span>
     <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">vmin</span><span class="o">=-</span><span class="mi">100</span><span class="p">,</span>
     <span class="n">vmax</span><span class="o">=</span><span class="mi">100</span>
@@ -557,48 +634,72 @@ Here is with xarray, but one can use netCDF4:</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/29303bb26e646f1a65afefde0bc6aceb0dfce0742802c433c57c617c6b6d0317.png" src="_images/29303bb26e646f1a65afefde0bc6aceb0dfce0742802c433c57c617c6b6d0317.png" />
+<img alt="_images/b8b142b326384beab1ec73c5fcd99d0c9e283f1b4c4786ec10625639b102c965.png" src="_images/b8b142b326384beab1ec73c5fcd99d0c9e283f1b4c4786ec10625639b102c965.png" />
 </div>
 </div>
 </section>
 </section>
-<section class="tex2jax_ignore mathjax_ignore" id="d-transect-mismatch">
-<h1>1D Transect mismatch<a class="headerlink" href="#d-transect-mismatch" title="Link to this heading">#</a></h1>
-<p>It is also useful to simply plot the absolute isochronal layer depth in both PISM and the dataset as well as respective bed resolutions.
-First we select a specific transect:</p>
+<section id="d-comparison-transect-analysis">
+<h2>1D Comparison: Transect Analysis<a class="headerlink" href="#d-comparison-transect-analysis" title="Link to this heading">#</a></h2>
+<p>For more detailed analysis, we can compare PISM and IRH data along specific transects. This is particularly useful for identifying systematic biases or local mismatches.</p>
+<section id="select-a-transect">
+<h3>Select a Transect<a class="headerlink" href="#select-a-transect" title="Link to this heading">#</a></h3>
+<p>First, select a specific flight line for detailed comparison:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query a specific flight line</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
 
-<span class="n">f</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get_files</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> 
-<span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;h5netcdf&#39;</span><span class="p">)</span>
+<span class="c1"># Get the file for this flight line</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get_files</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 </div>
-<p>We select a few layers we want to plot for comparison (one can plot everything, but here there is a lot)</p>
+</section>
+<section id="select-layers-for-comparison">
+<h3>Select Layers for Comparison<a class="headerlink" href="#select-layers-for-comparison" title="Link to this heading">#</a></h3>
+<p>Choose which isochronal layers to compare. Note that the ages in PISM output may differ slightly from the original dataset due to different ice core chronologies.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cavitte_ages</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">29400</span><span class="p">,</span> <span class="mi">38100</span><span class="p">,</span> <span class="mi">46400</span><span class="p">,</span> <span class="mi">73400</span><span class="p">,</span> <span class="mi">96500</span><span class="p">,</span> <span class="mi">121100</span><span class="p">,</span> <span class="mi">166400</span><span class="p">,</span> <span class="mi">277900</span><span class="p">]</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define ages for both datasets</span>
+<span class="n">cavitte_ages</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">29400</span><span class="p">,</span> <span class="mi">38100</span><span class="p">,</span> <span class="mi">46400</span><span class="p">,</span> <span class="mi">73400</span><span class="p">,</span> <span class="mi">96500</span><span class="p">,</span> <span class="mi">121100</span><span class="p">,</span> <span class="mi">166400</span><span class="p">,</span> <span class="mi">277900</span><span class="p">]</span>
+<span class="n">pism_ages</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">29300</span><span class="p">,</span> <span class="mi">38000</span><span class="p">,</span> <span class="mi">46600</span><span class="p">,</span> <span class="mi">73100</span><span class="p">,</span> <span class="mi">97400</span><span class="p">,</span> <span class="mi">122800</span><span class="p">,</span> <span class="mi">165200</span><span class="p">,</span> <span class="mi">278000</span><span class="p">]</span>  <span class="c1"># PISM ages differ slightly</span>
+
+<span class="c1"># Extract IRH layers from the dataset</span>
 <span class="n">irh_layers</span> <span class="o">=</span> <span class="n">irh</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">IRH_AGE</span><span class="o">=</span><span class="n">cavitte_ages</span><span class="p">)</span>
 <span class="n">fl_line_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">irh</span><span class="o">.</span><span class="n">PSX</span><span class="p">,</span> <span class="n">irh</span><span class="o">.</span><span class="n">PSY</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="interpolate-pism-layers-onto-transect">
+<h3>Interpolate PISM Layers onto Transect<a class="headerlink" href="#interpolate-pism-layers-onto-transect" title="Link to this heading">#</a></h3>
+<p>Interpolate each PISM isochronal layer onto the flight line coordinates:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Interpolate and plot each PISM layer</span>
+<span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">pism_ages</span><span class="p">:</span>
+    <span class="n">age_seconds</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span> <span class="o">+</span> <span class="n">age_offset</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3600</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">365</span><span class="p">)</span>
+    <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age_seconds</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pism_depth_interp</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">)</span>
 
-<span class="n">pism_ages</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">29300</span><span class="p">,</span> <span class="mi">38000</span><span class="p">,</span> <span class="mi">46600</span><span class="p">,</span> <span class="mi">73100</span><span class="p">,</span> <span class="mi">97400</span><span class="p">,</span> <span class="mi">122800</span><span class="p">,</span> <span class="mi">165200</span><span class="p">,</span> <span class="mi">278000</span><span class="p">]</span> <span class="c1"># PISM ages differ slightly since I used a different ice core chronology for the dating than in the original Cavitte et al. 2020 paper</span>
+<span class="c1"># Add a dummy line for the legend</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;PISM Isochronal Layers&#39;</span><span class="p">)</span>
 
+<span class="c1"># Interpolate PISM bed depth</span>
+<span class="n">pism_bed_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">thk</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pism_bed_depth_interp</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;PISM Bed Depth&#39;</span><span class="p">)</span>
+
+<span class="c1"># Plot IRH layers from the dataset</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">irh_layers</span><span class="o">.</span><span class="n">IRH_DEPTH</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">irh_layers</span><span class="o">.</span><span class="n">IRH_AGE</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">irh_layers</span><span class="o">.</span><span class="n">ICE_THK</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bed Depth&#39;</span><span class="p">)</span>
 
-<span class="k">for</span> <span class="n">age</span> <span class="ow">in</span> <span class="n">pism_ages</span><span class="p">:</span>
-    <span class="n">age</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">age</span><span class="o">+</span><span class="n">age_offset</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">3600</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span><span class="p">)</span>
-    <span class="n">pism_layer</span> <span class="o">=</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">isochronal_layer_depth</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">deposition_time</span><span class="o">=</span><span class="n">age</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-    <span class="n">pism_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_layer</span><span class="p">,</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pism_depth_interp</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;PISM Isochronal Layers&#39;</span><span class="p">)</span>    
-
-<span class="n">pism_bed_depth_interp</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">pism_points</span><span class="p">,</span> <span class="n">pism_out</span><span class="o">.</span><span class="n">thk</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">fl_line_xy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">irh</span><span class="o">.</span><span class="n">Distance</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pism_bed_depth_interp</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;PISM Bed Depth&#39;</span><span class="p">)</span>    
-
-<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">3500</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="c1"># Format the plot</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">3500</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Depth increases downward</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance along flight line [km]&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Isochronal Layer Depth [m]&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Isochronal Layer Depth Comparison along Transect&#39;</span><span class="p">)</span>
@@ -608,9 +709,158 @@ First we select a specific transect:</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/f4e3939ba5f13eaa276c5a5e0eb796d4fc90009f8319a111c2ed0d2bcda53266.png" src="_images/f4e3939ba5f13eaa276c5a5e0eb796d4fc90009f8319a111c2ed0d2bcda53266.png" />
+<img alt="_images/0aa1f000560c9639a905c69ced7704394c48f0bd5d2c2d352f7092d96db3a0f8.png" src="_images/0aa1f000560c9639a905c69ced7704394c48f0bd5d2c2d352f7092d96db3a0f8.png" />
 </div>
 </div>
+</section>
+</section>
+<section id="interpreting-results">
+<h2>Interpreting Results<a class="headerlink" href="#interpreting-results" title="Link to this heading">#</a></h2>
+<section id="d-mismatch-plot">
+<h3>2D Mismatch Plot<a class="headerlink" href="#d-mismatch-plot" title="Link to this heading">#</a></h3>
+<p>The 2D spatial mismatch plot shows:</p>
+<ul class="simple">
+<li><p><strong>Red points</strong>: PISM predicts deeper isochrones than observed</p></li>
+<li><p><strong>Blue points</strong>: PISM predicts shallower isochrones than observed</p></li>
+<li><p><strong>White points</strong>: Good agreement between model and observations</p></li>
+</ul>
+<p>This helps identify spatial patterns in model bias or areas where the model may need improvement.</p>
+</section>
+<section id="d-transect-plot">
+<h3>1D Transect Plot<a class="headerlink" href="#d-transect-plot" title="Link to this heading">#</a></h3>
+<p>The 1D transect comparison shows:</p>
+<ul class="simple">
+<li><p><strong>Solid lines</strong>: Observed IRH depths from Cavitte et al. 2020</p></li>
+<li><p><strong>Dashed lines</strong>: PISM-predicted isochronal layer depths</p></li>
+<li><p><strong>Gray lines</strong>: Bed depth (both observed and modeled)</p></li>
+</ul>
+<p>Differences in layer depths can indicate:</p>
+<ul class="simple">
+<li><p>Issues with model physics (e.g., ice flow, accumulation rates)</p></li>
+<li><p>Problems with layer tracing in the model</p></li>
+<li><p>Differences in age scales or dating methods</p></li>
+<li><p>Local ice sheet conditions not captured by the model</p></li>
+</ul>
+</section>
+</section>
+<section id="time-conversion-considerations">
+<h2>Time Conversion Considerations<a class="headerlink" href="#time-conversion-considerations" title="Link to this heading">#</a></h2>
+<section id="important-notes-on-age-scales">
+<h3>Important Notes on Age Scales<a class="headerlink" href="#important-notes-on-age-scales" title="Link to this heading">#</a></h3>
+<p>When comparing model output with observed IRH data, pay special attention to time references:</p>
+<ol class="arabic simple">
+<li><p><strong>PISM Time</strong>:</p>
+<ul class="simple">
+<li><p>Uses seconds since year 0</p></li>
+<li><p>Positive values for future, negative for past</p></li>
+</ul>
+</li>
+<li><p><strong>IRH Ages</strong>:</p>
+<ul class="simple">
+<li><p>Typically in years before present (BP)</p></li>
+<li><p>Often referenced to 1950 (so 38,100 years BP = 36,150 years BCE)</p></li>
+</ul>
+</li>
+<li><p><strong>Conversion</strong>:</p>
+<ul class="simple">
+<li><p>The example uses: <code class="docutils literal notranslate"><span class="pre">age_seconds</span> <span class="pre">=</span> <span class="pre">-(age</span> <span class="pre">+</span> <span class="pre">age_offset)</span> <span class="pre">*</span> <span class="pre">3600</span> <span class="pre">*</span> <span class="pre">24</span> <span class="pre">*</span> <span class="pre">365</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">age_offset</span> <span class="pre">=</span> <span class="pre">-1950</span></code> accounts for the 1950 reference date</p></li>
+<li><p>Always verify the time reference used in your specific dataset</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+<section id="performance-considerations">
+<h2>Performance Considerations<a class="headerlink" href="#performance-considerations" title="Link to this heading">#</a></h2>
+<section id="method-comparison">
+<h3>Method Comparison<a class="headerlink" href="#method-comparison" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Pros</p></th>
+<th class="head"><p>Cons</p></th>
+<th class="head"><p>Best For</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>xarray</p></td>
+<td><p>Easy to use, good for exploration</p></td>
+<td><p>Slower for many files</p></td>
+<td><p>Single files, small datasets</p></td>
+</tr>
+<tr class="row-odd"><td><p>h5py</p></td>
+<td><p>Faster, more efficient</p></td>
+<td><p>More verbose code</p></td>
+<td><p>Large datasets, production workflows</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="optimization-tips">
+<h3>Optimization Tips<a class="headerlink" href="#optimization-tips" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p><strong>For large comparisons</strong>: Use h5py method and process files in batches</p></li>
+<li><p><strong>For spatial interpolation</strong>: Consider using KDTree for faster nearest-neighbor lookups</p></li>
+<li><p><strong>For memory efficiency</strong>: Use generators or process one file at a time</p></li>
+<li><p><strong>For parallel processing</strong>: The interpolation step can be easily parallelized</p></li>
+</ol>
+</section>
+</section>
+<section id="adapting-to-your-workflow">
+<h2>Adapting to Your Workflow<a class="headerlink" href="#adapting-to-your-workflow" title="Link to this heading">#</a></h2>
+<section id="customizing-for-your-model">
+<h3>Customizing for Your Model<a class="headerlink" href="#customizing-for-your-model" title="Link to this heading">#</a></h3>
+<p>To adapt this example to your own model output:</p>
+<ol class="arabic simple">
+<li><p><strong>Update file paths</strong>: Change the PISM output file path to your model output</p></li>
+<li><p><strong>Adjust time conversion</strong>: Modify the age_offset and time conversion based on your model’s time reference</p></li>
+<li><p><strong>Select different layers</strong>: Choose the isochronal layers that match your validation data</p></li>
+<li><p><strong>Modify visualization</strong>: Adjust plot parameters (vmin, vmax, colormap) for your specific comparison</p></li>
+</ol>
+</section>
+<section id="integrating-with-diagnostic-tools">
+<h3>Integrating with Diagnostic Tools<a class="headerlink" href="#integrating-with-diagnostic-tools" title="Link to this heading">#</a></h3>
+<p>You can integrate these comparison methods into larger diagnostic frameworks:</p>
+<ul class="simple">
+<li><p><strong>Automated validation</strong>: Run comparisons for multiple layers and regions</p></li>
+<li><p><strong>Statistical analysis</strong>: Calculate RMSE, bias, and other metrics across the ice sheet</p></li>
+<li><p><strong>Time series analysis</strong>: Compare how mismatches evolve over time</p></li>
+<li><p><strong>Sensitivity studies</strong>: Test how model parameters affect IRH predictions</p></li>
+</ul>
+</section>
+</section>
+<section id="additional-resources">
+<h2>Additional Resources<a class="headerlink" href="#additional-resources" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.pism.io/docs/">PISM Documentation</a></p></li>
+<li><p><a class="reference external" href="https://github.com/antoinehermant/anta_database">AntADatabase GitHub</a></p></li>
+<li><p><a class="reference external" href="https://www.pism.io/docs/manual/modeling-choices/dynamics/age.html">PISM Ice Layer Tracing Docs</a></p></li>
+</ul>
+</section>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading">#</a></h2>
+<p>This notebook has demonstrated how to compare PISM model output with IRH data from AntADatabase. The examples provided are intentionally descriptive rather than highly optimized, allowing you to understand the workflow and adapt it to your specific needs.</p>
+<section id="key-takeaways">
+<h3>Key Takeaways:<a class="headerlink" href="#key-takeaways" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Time conversion is critical</strong>: Always verify time references between model and observations</p></li>
+<li><p><strong>Multiple comparison methods</strong>: 2D spatial and 1D transect analyses provide complementary insights</p></li>
+<li><p><strong>Performance matters</strong>: Choose the right method (xarray vs h5py) based on your dataset size</p></li>
+<li><p><strong>Visualization is powerful</strong>: Well-designed plots can reveal systematic model biases</p></li>
+</ul>
+</section>
+<section id="next-steps">
+<h3>Next Steps:<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Adapt the code for your specific model and dataset</p></li>
+<li><p>Integrate into your validation workflow</p></li>
+<li><p>Explore different regions and age layers</p></li>
+<li><p>Consider automated comparison across multiple datasets</p></li>
+</ul>
+</section>
+</section>
 </section>
 
     <script type="text/x-thebe-config">
@@ -649,7 +899,7 @@ First we select a specific transect:</p>
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Quick start</p>
+        <p class="prev-next-title">Quick Start Guide</p>
       </div>
     </a>
     <a class="right-next"
@@ -657,7 +907,7 @@ First we select a specific transect:</p>
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Advanced: Managing the database</p>
+        <p class="prev-next-title">Advanced: Database Management</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -677,21 +927,55 @@ First we select a specific transect:</p>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Model-data comparison (ex: PISM)</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-layer-mismatch">2D Layer mismatch</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM output</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#query-the-antadatabase">Query the AntADatabase</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism">Interpolate PISM</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#xarray">xarray</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#h5py">h5py</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about-pism">About PISM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose">Purpose</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup-and-data">Setup and Data</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pism-output">PISM Output</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-pism-output">Loading PISM Output</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting">Plotting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#d-comparison-spatial-mismatch">2D Comparison: Spatial Mismatch</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#query-antadatabase">Query AntADatabase</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism-onto-irh-locations">Interpolate PISM onto IRH Locations</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-using-xarray">Method 1: Using xarray</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-using-h5py-recommended-for-performance">Method 2: Using h5py (Recommended for Performance)</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#d-transect-mismatch">1D Transect mismatch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-2d-mismatch">Visualize 2D Mismatch</a></li>
 </ul>
-
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#d-comparison-transect-analysis">1D Comparison: Transect Analysis</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#select-a-transect">Select a Transect</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#select-layers-for-comparison">Select Layers for Comparison</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interpolate-pism-layers-onto-transect">Interpolate PISM Layers onto Transect</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpreting-results">Interpreting Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d-mismatch-plot">2D Mismatch Plot</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d-transect-plot">1D Transect Plot</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#time-conversion-considerations">Time Conversion Considerations</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#important-notes-on-age-scales">Important Notes on Age Scales</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#performance-considerations">Performance Considerations</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-comparison">Method Comparison</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#optimization-tips">Optimization Tips</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adapting-to-your-workflow">Adapting to Your Workflow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#customizing-for-your-model">Customizing for Your Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#integrating-with-diagnostic-tools">Integrating with Diagnostic Tools</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-resources">Additional Resources</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-takeaways">Key Takeaways:</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps:</a></li>
+</ul>
+</li>
+</ul>
   </nav></div>
 
 </div></div>

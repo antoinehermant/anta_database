@@ -6,9 +6,9 @@
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Advanced: Managing the database &#8212; AntADatabase</title>
+    <title>Advanced: Database Management &#8212; AntADatabase</title>
   
   
   
@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -60,8 +60,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'advanced';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Support and contact" href="contact.html" />
-    <link rel="prev" title="Model-data comparison (ex: PISM)" href="pism_example.html" />
+    <link rel="next" title="Contributing to AntADatabase" href="contribute.html" />
+    <link rel="prev" title="Model-Data Comparison with PISM" href="pism_example.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -175,19 +175,16 @@
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="intro.html">
-                    AntADatabase
+                    Welcome to AntADatabase
                 </a>
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick start</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="pism_example.html">Model-data comparison (ex: PISM)</a></li>
-
-
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Advanced: Managing the database</a></li>
-<li class="toctree-l1"><a class="reference internal" href="contact.html">Support and contact</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pism_example.html">PISM Example</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Advanced Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contact.html">Support &amp; Contact</a></li>
 </ul>
 
     </div>
@@ -373,7 +370,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Advanced: Managing the database</h1>
+    <h1>Advanced: Database Management</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -383,13 +380,43 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-json-file">The JSON file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-csv-column-file">The CSV column file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#database-structure">Database Structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing-the-database">Reindexing the Database</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-using-indexdatabase-class">Method 1: Using IndexDatabase class</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-automatic-reindexing-during-database-initialization">Method 2: Automatic reindexing during Database initialization</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compiling-datasets">Compiling Datasets</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-compilation">Basic Compilation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-twt-data">Handling TWT Data</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-file-raw-md-json">Metadata File (raw_md.json)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-organization-types">Dataset Organization Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#type-1-layer-based-organization">Type 1: Layer-based Organization</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#type-2-flight-line-based-organization">Type 2: Flight Line-based Organization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#column-mapping-file-original-new-column-names-csv">Column Mapping File (original_new_column_names.csv)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#required-variables">Required Variables</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-variable-names">Standard Variable Names</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#file-format">File Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#example-1-basic-layer-based-dataset">Example 1: Basic layer-based dataset</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#example-2-flight-line-based-dataset-with-multiple-irh-layers">Example 2: Flight line-based dataset with multiple IRH layers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-formatting-notes">File Formatting Notes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-notes">Additional Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Multiprocessing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-file-requirements">Data File Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#after-compilation">After Compilation</a></li>
 </ul>
 </li>
 </ul>
@@ -403,103 +430,150 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="advanced-managing-the-database">
-<h1>Advanced: Managing the database<a class="headerlink" href="#advanced-managing-the-database" title="Link to this heading">#</a></h1>
-<section id="reindexing">
-<h2>Reindexing<a class="headerlink" href="#reindexing" title="Link to this heading">#</a></h2>
-<p>You may want for example to update the age of the layers in a particular dataset. For this, you just need to modify the ages in the file called <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> located under a dataset directory. Then, reindex with the <code class="docutils literal notranslate"><span class="pre">IndexDatabase</span></code> class:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexDatabase</span>
-
-<span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span> 
-<span class="n">indexing</span> <span class="o">=</span> <span class="n">IndexDatabase</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
-<span class="n">indexing</span><span class="o">.</span><span class="n">index_database</span><span class="p">()</span> 
+  <section class="tex2jax_ignore mathjax_ignore" id="advanced-database-management">
+<h1>Advanced: Database Management<a class="headerlink" href="#advanced-database-management" title="Link to this heading">#</a></h1>
+<p>This section covers advanced topics for users who want to compile their own datasets or manage existing AntADatabase installations.</p>
+<section id="database-structure">
+<h2>Database Structure<a class="headerlink" href="#database-structure" title="Link to this heading">#</a></h2>
+<p>The AntADatabase uses a specific directory structure to organize datasets:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>AntADatabase/
+├── AntADatabase.db          # SQLite index database
+├── FirstAuthor_YYYY/        # Dataset directory (e.g., Cavitte_2020)
+│   ├── raw_md.json          # Metadata file (required)
+│   ├── original_new_column_names.csv  # Column mapping file (required)
+│   ├── raw/                 # Original raw data files
+│   └── h5/                  # Processed HDF5 files (created during compilation)
+└── ...
 </pre></div>
 </div>
-<p>Or simply use the <code class="docutils literal notranslate"><span class="pre">index_database=True</span></code> argument when initializing the <code class="docutils literal notranslate"><span class="pre">Database</span></code>, which runs the IndexDatabase class itself:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
+</section>
+<section id="reindexing-the-database">
+<h2>Reindexing the Database<a class="headerlink" href="#reindexing-the-database" title="Link to this heading">#</a></h2>
+<p>Reindexing updates the SQLite database with current metadata. This is necessary when:</p>
+<ul class="simple">
+<li><p>You’ve modified the <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> file for a dataset</p></li>
+<li><p>You’ve added new datasets</p></li>
+<li><p>You’ve changed age information or other metadata</p></li>
+</ul>
+<section id="method-1-using-indexdatabase-class">
+<h3>Method 1: Using IndexDatabase class<a class="headerlink" href="#method-1-using-indexdatabase-class" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexDatabase</span>
 
-<span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/home/anthe/documents/data/isochrones/AntADatabase/&#39;</span> 
+<span class="c1"># Path to your AntADatabase directory</span>
+<span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/path/to/AntADatabase/&#39;</span>
+<span class="n">indexing</span> <span class="o">=</span> <span class="n">IndexDatabase</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
+<span class="n">indexing</span><span class="o">.</span><span class="n">index_database</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="method-2-automatic-reindexing-during-database-initialization">
+<h3>Method 2: Automatic reindexing during Database initialization<a class="headerlink" href="#method-2-automatic-reindexing-during-database-initialization" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
+
+<span class="c1"># This will automatically run indexing when initializing</span>
+<span class="n">db_path</span> <span class="o">=</span> <span class="s1">&#39;/path/to/AntADatabase/&#39;</span>
 <span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="n">db_path</span><span class="p">,</span> <span class="n">index_database</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="re-compile-the-database">
-<h2>(Re)compile the database<a class="headerlink" href="#re-compile-the-database" title="Link to this heading">#</a></h2>
-<p>You can (re)compile the database, if for example you modify some data in the raw directories or if you add a dataset. For this, make sure to follow the structure:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>AntADatabase/
-├── AntADatabase.db
-├── FirstAuthor_YYYY
-    ├── raw_md.json # file containing information about the dataset, take example on an existing dataset and see the section below
-    ├── original_new_column_names.csv # first row: names of columns to keep from raw files, second row: how the columns should be renamed (see section below)
-    ├── raw/ #Directory with the original files to process
-    └── h5/ # Directory were the processed files will be written (it will be created in the process)
-</pre></div>
-</div>
-<p>Note that the header information in the raw files should be commented out with ‘#’. The column names of the dataframe should be kept.
-Then use the `CompileDatabase class to compile the database:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompileDatabase</span>
+</section>
+<section id="compiling-datasets">
+<h2>Compiling Datasets<a class="headerlink" href="#compiling-datasets" title="Link to this heading">#</a></h2>
+<p>Compile raw data files into the standardized HDF5 format used by AntADatabase.</p>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Directory Structure</strong>: Create a directory for your dataset following the structure above</p></li>
+<li><p><strong>Metadata File</strong>: Create a <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> file with dataset metadata (see below)</p></li>
+<li><p><strong>Column Mapping</strong>: Create an <code class="docutils literal notranslate"><span class="pre">original_new_column_names.csv</span></code> file (see below)</p></li>
+<li><p><strong>Raw Data</strong>: Place your raw data files in the <code class="docutils literal notranslate"><span class="pre">raw/</span></code> directory</p></li>
+</ol>
+</section>
+<section id="basic-compilation">
+<h3>Basic Compilation<a class="headerlink" href="#basic-compilation" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompileDatabase</span>
 
-<span class="n">dir_path_list</span> <span class="o">=</span> <span class="p">[</span> <span class="c1"># list of the dataset subdirectories to compile</span>
+<span class="c1"># List of dataset directories to compile</span>
+<span class="n">dir_path_list</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s1">&#39;./Winter_2018&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Sanderson_2024&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Franke_2025&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Cavitte_2020&#39;</span><span class="p">,</span>
     <span class="s1">&#39;./Beem_2021&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;./Bodart_2021/&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;./Muldoon_2023/&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;./Ashmore_2020/&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Bodart_2021&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Muldoon_2023&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;./Ashmore_2020&#39;</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path_list</span><span class="p">)</span>
 <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Then reindex (see above). Furthermore, if the depth is not given in meters but TWT, you should set the wave_speed (units should match values in the file) for conversion and firn_correction (meters):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dir_path</span> <span class="o">=</span> <span class="s1">&#39;./Wang_2023&#39;</span>
-<span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">wave_speed</span><span class="o">=</span><span class="mf">0.1685</span><span class="p">,</span> <span class="n">firn_correction</span><span class="o">=</span><span class="mf">15.5</span><span class="p">)</span>
+</section>
+<section id="handling-twt-data">
+<h3>Handling TWT Data<a class="headerlink" href="#handling-twt-data" title="Link to this heading">#</a></h3>
+<p>If your depth data is in Two-Way Travel Time (TWT) rather than meters, specify the wave speed and firn correction:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dir_path</span> <span class="o">=</span> <span class="s1">&#39;./Wang_2023&#39;</span>
+<span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span>
+    <span class="n">dir_path</span><span class="p">,</span> 
+    <span class="n">wave_speed</span><span class="o">=</span><span class="mf">0.1685</span><span class="p">,</span>    <span class="c1"># Wave speed in m/ns (units must match file)</span>
+    <span class="n">firn_correction</span><span class="o">=</span><span class="mf">15.5</span>  <span class="c1"># Firn correction in meters</span>
+<span class="p">)</span>
 <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
-<section id="the-json-file">
-<h2>The JSON file<a class="headerlink" href="#the-json-file" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> defines all the metadata of a raw file which we be associated to the corresponding data in the database. This will allow to query the database with all the implemented filters. One should provide all the information that exists if possible:
-One important field is the <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>, which specifies if the raw files are organised per layers or per flight lines. There are then two possibilities:</p>
-<p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>: “layer”</p>
+<section id="multiprocessing">
+<h3>Multiprocessing<a class="headerlink" href="#multiprocessing" title="Link to this heading">#</a></h3>
+<p>The compilation uses multiprocessing for better performance. By default, it uses all available CPUs minus one. To manually set the number of CPUs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cpus</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># Use exactly 4 CPUs</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="metadata-file-raw-md-json">
+<h2>Metadata File (raw_md.json)<a class="headerlink" href="#metadata-file-raw-md-json" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">raw_md.json</span></code> file contains all metadata for your dataset, enabling the database to be queried with all implemented filters. Provide as much information as possible.</p>
+<section id="dataset-organization-types">
+<h3>Dataset Organization Types<a class="headerlink" href="#dataset-organization-types" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code> field specifies how your raw files are organized. There are two main types:</p>
+<section id="type-1-layer-based-organization">
+<h4>Type 1: Layer-based Organization<a class="headerlink" href="#type-1-layer-based-organization" title="Link to this heading">#</a></h4>
+<p>For datasets where each file contains data for a specific layer/age:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>field</p></th>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
 <th class="head"><p>Description</p></th>
 <th class="head"><p>Example Values</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">layer</span></code></p></td>
+<td><p>Must be set to <code class="docutils literal notranslate"><span class="pre">&quot;layer&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'layer'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">raw</span> <span class="pre">file</span></code></p></td>
-<td><p>Name of the raw file in the raw folder with the correct extension (csv, txt, tab).</p></td>
+<td><p>Name of the raw file in the raw folder with extension</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'OIA_EDC_IRH1.csv'</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code></p></td>
-<td><p>Name of the dataset corresponding dataset (usually same as the folder name)</p></td>
+<td><p>Dataset name (usually matches folder name)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'Cavitte_2020'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">institute</span></code></p></td>
-<td><p>Institute(s) that produced the data.</p></td>
+<td><p>Institute(s) that produced the data</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'BAS'</span></code>, <code class="docutils literal notranslate"><span class="pre">['AWI',</span> <span class="pre">'NASA']</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">project</span></code></p></td>
-<td><p>Project(s) under which the data were collected.</p></td>
+<td><p>Project(s) under which data was collected</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'OIB'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">acquisition</span> <span class="pre">year</span></code></p></td>
-<td><p>Year(s) in which the radar data were acquired. Can be a range.</p></td>
+<td><p>Year(s) of radar data acquisition (can be range)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'2000-2010'</span></code>, <code class="docutils literal notranslate"><span class="pre">'2005'</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">age</span></code></p></td>
-<td><p>Age in years before present of the layer.</p></td>
+<td><p>Age in years before present of the layer</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'10000'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">age</span> <span class="pre">uncertainty</span></code></p></td>
@@ -511,62 +585,66 @@ One important field is the <code class="docutils literal notranslate"><span clas
 <td><p><code class="docutils literal notranslate"><span class="pre">'Cavitte</span> <span class="pre">et</span> <span class="pre">al.</span> <span class="pre">2020'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">dataset</span></code></p></td>
-<td><p>DOI that directly links to the original dataset (e.g zenodo, USAP-DC…)</p></td>
+<td><p>DOI linking to original dataset</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.15784/601411'</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">publication</span></code></p></td>
-<td><p>DOI of the associated publication that published the data</p></td>
+<td><p>DOI of associated publication</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.5194/essd-13-4759-2021'</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>Example of such a dataset is Cavitte_2020</p></td>
-<td><p></p></td>
-<td><p></p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code>: “flight line”
-Replace the <code class="docutils literal notranslate"><span class="pre">raw</span> <span class="pre">file</span></code> entry by <code class="docutils literal notranslate"><span class="pre">IRH</span> <span class="pre">name</span></code> as they are named in the raw files. Then the compilation will use the file name for flight ID.</p>
+<p>Example dataset: Cavitte_2020</p>
+</section>
+<section id="type-2-flight-line-based-organization">
+<h4>Type 2: Flight Line-based Organization<a class="headerlink" href="#type-2-flight-line-based-organization" title="Link to this heading">#</a></h4>
+<p>For datasets where each file contains multiple IRH layers organized by flight lines:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>field</p></th>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
 <th class="head"><p>Description</p></th>
 <th class="head"><p>Example Values</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">type</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">flight</span> <span class="pre">line</span></code></p></td>
+<td><p>Must be set to <code class="docutils literal notranslate"><span class="pre">&quot;flight</span> <span class="pre">line&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'flight</span> <span class="pre">line'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IRH</span> <span class="pre">name</span></code></p></td>
-<td><p>Name of the IRH layer as is it named in the raw file (e.g. column name)</p></td>
+<td><p>Name of the IRH layer as it appears in raw file</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'IRH1'</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">age</span></code></p></td>
-<td><p>Age in years before present of the layer.</p></td>
+<td><p>Age in years before present of the layer</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'10000'</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>Example of such a dataset is Wang_2023</p></td>
-<td><p></p></td>
-<td><p></p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>Example dataset: Wang_2023</p>
 </section>
-<section id="the-csv-column-file">
-<h2>The CSV column file<a class="headerlink" href="#the-csv-column-file" title="Link to this heading">#</a></h2>
-<p>The original_new_column_names.csv pairs the columns in the raw file with associated variables in the database. The minimal information in the file should be:</p>
+</section>
+</section>
+<section id="column-mapping-file-original-new-column-names-csv">
+<h2>Column Mapping File (original_new_column_names.csv)<a class="headerlink" href="#column-mapping-file-original-new-column-names-csv" title="Link to this heading">#</a></h2>
+<p>This CSV file maps columns from your raw data files to the standardized variable names used in AntADatabase.</p>
+<section id="required-variables">
+<h3>Required Variables<a class="headerlink" href="#required-variables" title="Link to this heading">#</a></h3>
+<p>At minimum, you must provide:</p>
 <ul class="simple">
-<li><p>Polar Stereographic coordinates PSX and PSY or lon, lat (will be converted to PSX, PSY)</p></li>
+<li><p>Polar Stereographic coordinates (<code class="docutils literal notranslate"><span class="pre">PSX</span></code> and <code class="docutils literal notranslate"><span class="pre">PSY</span></code>) or longitude/latitude (will be converted to PSX, PSY)</p></li>
 <li><p>The IRH depth</p></li>
 </ul>
-<p>More information can be provided such as flight ID, Ice thickness, acquisition year etc. But the columns should be renamed following the database convention:</p>
+</section>
+<section id="standard-variable-names">
+<h3>Standard Variable Names<a class="headerlink" href="#standard-variable-names" title="Link to this heading">#</a></h3>
+<p>When mapping your columns, use these standardized names:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>variable</p></th>
-<th class="head"><p>variable name convention in the Database</p></th>
+<tr class="row-odd"><th class="head"><p>Your Data</p></th>
+<th class="head"><p>Database Convention</p></th>
 </tr>
 </thead>
 <tbody>
@@ -585,42 +663,84 @@ Replace the <code class="docutils literal notranslate"><span class="pre">raw</sp
 <tr class="row-even"><td><p>Distance along transect</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">DIST</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">acquisition</span> <span class="pre">year</span></code></p></td>
+<tr class="row-odd"><td><p>Acquisition year</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">acq_year</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Flight</span> <span class="pre">ID</span></code></p></td>
+<tr class="row-even"><td><p>Flight ID</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Flight_ID</span></code></p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Note if the acquisition year column is not directly a year YYYY but a string that contains the year, add a third row to provide the pattern to extract the acquisition year from the string.</p>
-<p>Example of original_new_column_names.csv file:</p>
+</section>
+<section id="file-format">
+<h3>File Format<a class="headerlink" href="#file-format" title="Link to this heading">#</a></h3>
+<p>The CSV file should have:</p>
+<ul class="simple">
+<li><p><strong>First row</strong>: Original column names from your raw files</p></li>
+<li><p><strong>Second row</strong>: Corresponding standardized variable names</p></li>
+<li><p><strong>Third row (optional)</strong>: Pattern to extract year from string (if acquisition year is embedded in a string)</p></li>
+</ul>
+</section>
+<section id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+<section id="example-1-basic-layer-based-dataset">
+<h4>Example 1: Basic layer-based dataset<a class="headerlink" href="#example-1-basic-layer-based-dataset" title="Link to this heading">#</a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">timestamp</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">thk_m</span><span class="p">,</span><span class="n">bedelv_mABSL</span><span class="p">,</span><span class="n">IRHdepth_m</span><span class="p">,</span><span class="n">line</span>
 <span class="n">acq_year</span><span class="p">,</span><span class="n">PSX</span><span class="p">,</span><span class="n">PSY</span><span class="p">,</span><span class="n">ICE_THK</span><span class="p">,</span><span class="n">BED_ELEV</span><span class="p">,</span><span class="n">IRH_DEPTH</span><span class="p">,</span><span class="n">Flight_ID</span>
 <span class="n">YYYYxxxxxxxxxxxxxxxxxxxxxx</span>
 </pre></div>
 </div>
-<p>For a dataset organized by flight lines, so many IRH depth in the raw files, the original_new_column_names.csv should look like:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Longitude</span><span class="p">,</span><span class="n">Latitude</span><span class="p">,</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">bed</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H1</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H2</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H3</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H4</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H5</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H6</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H7</span><span class="p">)</span>
-<span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">,</span><span class="n">ICE_THK</span><span class="p">,</span><span class="n">IRH1</span><span class="p">,</span><span class="n">IRH2</span><span class="p">,</span><span class="n">IRH3</span><span class="p">,</span><span class="n">IRH4</span><span class="p">,</span><span class="n">IRH5</span><span class="p">,</span><span class="n">IRH6</span><span class="p">,</span><span class="n">IRH7</span>
+</section>
+<section id="example-2-flight-line-based-dataset-with-multiple-irh-layers">
+<h4>Example 2: Flight line-based dataset with multiple IRH layers<a class="headerlink" href="#example-2-flight-line-based-dataset-with-multiple-irh-layers" title="Link to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Longitude</span><span class="p">,</span><span class="n">Latitude</span><span class="p">,</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">bed</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H1</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H2</span><span class="p">),</span><span class="n">TWT</span> <span class="p">[</span><span class="n">ns</span><span class="p">]</span> <span class="p">(</span><span class="n">of</span> <span class="n">H3</span><span class="p">)</span>
+<span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">,</span><span class="n">ICE_THK</span><span class="p">,</span><span class="n">IRH1</span><span class="p">,</span><span class="n">IRH2</span><span class="p">,</span><span class="n">IRH3</span>
 </pre></div>
 </div>
-<p>Where the new column names for the layers correspond to the names you provided in the JSON file.</p>
+<p><strong>Note</strong>: For flight line-based datasets, the new column names for the layers must match the names you provided in the JSON metadata file.</p>
 </section>
-<section id="notes">
-<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">#</a></h2>
-<section id="multiprocessing">
-<h3>Multiprocessing<a class="headerlink" href="#multiprocessing" title="Link to this heading">#</a></h3>
-<p>The compilation uses multiprocessing tools for parallel processing. It first finds all the raw files to process and then distribute the processes on multiple processors. By default, it uses all available cpus on the machine minus 1 (to not completely freeze the machine). However, if there are fewer tasks than cpus (fewer files to process), it will use only as many cpus as there are tasks.
-To manually fix the number of cpus used during the compilation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cpus</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="c1"># Or any integer of choice</span>
+</section>
+</section>
+<section id="file-formatting-notes">
+<h2>File Formatting Notes<a class="headerlink" href="#file-formatting-notes" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Header information in raw files should be commented out with <code class="docutils literal notranslate"><span class="pre">#</span></code></p></li>
+<li><p>Column names in the raw files should be preserved in the first row of your mapping CSV</p></li>
+</ul>
+</section>
+<section id="additional-notes">
+<h2>Additional Notes<a class="headerlink" href="#additional-notes" title="Link to this heading">#</a></h2>
+<section id="id1">
+<h3>Multiprocessing<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<p>The compilation process uses multiprocessing for parallel processing. It automatically:</p>
+<ul class="simple">
+<li><p>Discovers all raw files to process</p></li>
+<li><p>Distributes tasks across available processors</p></li>
+<li><p>Uses all available CPUs minus one by default (to keep your machine responsive)</p></li>
+<li><p>Automatically scales down if there are fewer files than CPUs</p></li>
+</ul>
+<p>To manually control the number of CPUs used:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cpus</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Use exactly 2 CPUs</span>
 </pre></div>
 </div>
 </section>
-<section id="compilation-process">
-<h3>Compilation process<a class="headerlink" href="#compilation-process" title="Link to this heading">#</a></h3>
-<p>Needs to be updated.</p>
+<section id="data-file-requirements">
+<h3>Data File Requirements<a class="headerlink" href="#data-file-requirements" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Header information in raw files must be commented out with <code class="docutils literal notranslate"><span class="pre">#</span></code></p></li>
+<li><p>Column names should be preserved in the first row of your raw files</p></li>
+<li><p>Supported file formats: CSV, TXT, TAB</p></li>
+</ul>
+</section>
+<section id="after-compilation">
+<h3>After Compilation<a class="headerlink" href="#after-compilation" title="Link to this heading">#</a></h3>
+<p>After compiling your datasets, remember to:</p>
+<ol class="arabic simple">
+<li><p>Reindex the database (see <a class="reference internal" href="#reindexing-the-database"><span class="xref myst">Reindexing the Database</span></a>)</p></li>
+<li><p>Verify the data by running some test queries</p></li>
+<li><p>Check the processed HDF5 files in the <code class="docutils literal notranslate"><span class="pre">h5/</span></code> directory</p></li>
+</ol>
 </section>
 </section>
 </section>
@@ -661,15 +781,15 @@ To manually fix the number of cpus used during the compilation:</p>
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Model-data comparison (ex: PISM)</p>
+        <p class="prev-next-title">Model-Data Comparison with PISM</p>
       </div>
     </a>
     <a class="right-next"
-       href="contact.html"
+       href="contribute.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Support and contact</p>
+        <p class="prev-next-title">Contributing to AntADatabase</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -689,13 +809,43 @@ To manually fix the number of cpus used during the compilation:</p>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing">Reindexing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-compile-the-database">(Re)compile the database</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-json-file">The JSON file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-csv-column-file">The CSV column file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes">Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#database-structure">Database Structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reindexing-the-database">Reindexing the Database</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-using-indexdatabase-class">Method 1: Using IndexDatabase class</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-automatic-reindexing-during-database-initialization">Method 2: Automatic reindexing during Database initialization</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compiling-datasets">Compiling Datasets</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-compilation">Basic Compilation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-twt-data">Handling TWT Data</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-process">Compilation process</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-file-raw-md-json">Metadata File (raw_md.json)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-organization-types">Dataset Organization Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#type-1-layer-based-organization">Type 1: Layer-based Organization</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#type-2-flight-line-based-organization">Type 2: Flight Line-based Organization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#column-mapping-file-original-new-column-names-csv">Column Mapping File (original_new_column_names.csv)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#required-variables">Required Variables</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-variable-names">Standard Variable Names</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#file-format">File Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#example-1-basic-layer-based-dataset">Example 1: Basic layer-based dataset</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#example-2-flight-line-based-dataset-with-multiple-irh-layers">Example 2: Flight line-based dataset with multiple IRH layers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-formatting-notes">File Formatting Notes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-notes">Additional Notes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Multiprocessing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-file-requirements">Data File Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#after-compilation">After Compilation</a></li>
 </ul>
 </li>
 </ul>
