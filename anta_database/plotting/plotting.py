@@ -365,6 +365,9 @@ class Plotting:
             xmin, xmax = xlim
             ymin, ymax = ylim
 
+        if color_by == "transect_1D":
+            mini_map=False
+
         inset_pos = [0.7, 0.75, 0.25, 0.25]
         inset = fig.add_axes(
             inset_pos,  # [left, bottom, width, height] in figure coordinates
@@ -596,10 +599,9 @@ class Plotting:
                         subset["PSX"] / 1000,
                         subset["PSY"] / 1000,
                         color="darkgreen",
-                        s=marker_size,
-                        norm=norm,
+                        s=marker_size*0.5,
                         linewidths=0,
-                        zorder=i,
+                        zorder=11,
                     )
 
             elif var in ["ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT"]:
@@ -659,11 +661,9 @@ class Plotting:
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
                     color="darkgreen",
-                    s=marker_size,
-                    vmin=vmin,
-                    vmax=vmax,
+                    s=marker_size*0.5,
                     linewidths=0,
-                    rasterized=True,
+                    zorder=11,
                 )
 
             elif var in ["IRH_DEPTH"]:
@@ -710,11 +710,9 @@ class Plotting:
                         df["PSX"] / 1000,
                         df["PSY"] / 1000,
                         color="darkgreen",
-                        s=marker_size,
-                        vmin=vmin,
-                        vmax=vmax,
+                        s=marker_size*0.5,
                         linewidths=0,
-                        rasterized=True,
+                        zorder=11,
                     )
 
         if color_by == "transect_1D":
@@ -894,7 +892,11 @@ class Plotting:
         if not self._disable_tqdm:
             print("Formatting ...")
 
-        if auto_zoom:
+        if color_by == "transect_1D":
+            xmin, xmax = xlim
+            ymin, ymax = ylim
+            
+        elif auto_zoom:
             xmin = xmin - 10 if xmin is not None else None
             xmax = xmax + 10 if xmax is not None else None
             ymin = ymin - 10 if ymin is not None else None
