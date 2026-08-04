@@ -3,6 +3,7 @@ import h5py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
 import shapefile
 from matplotlib.patches import Polygon
@@ -86,6 +87,8 @@ class Plotting:
         basins: Optional[bool] = True,
         stations: Optional[bool] = True,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
     ) -> None:
         """
         Plot the data points on a Antarctic map with color-coded dataset dataset
@@ -106,6 +109,8 @@ class Plotting:
             basins=basins,
             stations=stations,
             save=save,
+            auto_zoom=auto_zoom,
+            mini_map=mini_map,
         )
 
     def institute(
@@ -124,6 +129,8 @@ class Plotting:
         basins: Optional[bool] = True,
         stations: Optional[bool] = True,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
     ) -> None:
         """
         Plot the data points on a Antarctic map with color-coded institutes
@@ -144,6 +151,8 @@ class Plotting:
             basins=basins,
             stations=stations,
             save=save,
+            auto_zoom=auto_zoom,
+            mini_map=mini_map,
         )
 
     def flight_id(
@@ -162,6 +171,8 @@ class Plotting:
         basins: Optional[bool] = True,
         stations: Optional[bool] = True,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
     ) -> None:
         """
         Plot the data points on a Antarctic map with color-coded trace IDs
@@ -182,6 +193,8 @@ class Plotting:
             basins=basins,
             stations=stations,
             save=save,
+            auto_zoom=auto_zoom,
+            mini_map=mini_map,
         )
 
     def var(
@@ -201,6 +214,8 @@ class Plotting:
         basins: Optional[bool] = True,
         stations: Optional[bool] = True,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
     ) -> None:
         """
         Plot the color-coded values of the given variable on Antarcitic map
@@ -222,6 +237,8 @@ class Plotting:
             basins=basins,
             stations=stations,
             save=save,
+            auto_zoom=auto_zoom,
+            mini_map=mini_map,
         )
 
     def transect_1D(
@@ -239,6 +256,8 @@ class Plotting:
         basins: Optional[bool] = True,
         stations: Optional[bool] = True,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
     ) -> None:
         """
         Plot the color-coded values of the given variable on Antarcitic map
@@ -258,6 +277,8 @@ class Plotting:
             basins=basins,
             stations=stations,
             save=save,
+            auto_zoom=auto_zoom,
+            mini_map=mini_map,
         )
 
     @contextmanager
@@ -284,6 +305,8 @@ class Plotting:
         scale_factor: float = 1.0,
         marker_size: Optional[float] = 0.1,
         save: Optional[str] = None,
+        auto_zoom: Optional[bool] = True,
+        mini_map: Optional[bool] = True,
         color_by: str = "dataset",  # 'dataset', 'flight_id', 'depth', 'density'
         cmap: Optional["LinearSegmentedColormap"] = None,
         grounding_line: Optional[bool] = True,
@@ -327,6 +350,29 @@ class Plotting:
         label = None
         extend = None
 
+        if auto_zoom and (
+            xlim[0] is not None
+            or xlim[1] is not None
+            or ylim[0] is not None
+            or ylim[1] is not None
+        ):
+            auto_zoom = False
+
+        if auto_zoom:
+            xmin, xmax = None, None
+            ymin, ymax = None, None
+        else:
+            xmin, xmax = xlim
+            ymin, ymax = ylim
+
+        inset_pos = [0.7, 0.75, 0.25, 0.25]
+        inset = fig.add_axes(
+            inset_pos,  # [left, bottom, width, height] in figure coordinates
+        )
+        inset.set_xlim(-2700, 2700)
+        inset.set_ylim(-2700, 2700)
+        inset.set_facecolor("none")
+
         if color_by == "dataset":
             if not title:
                 title = f"AntADatabase by datasets"
@@ -363,7 +409,7 @@ class Plotting:
                 )
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
-                zorder = 0 if dataset in ["BEDMAP1", "BEDMAP2", "BEDMAP3"] else 1
+                zorder = 9 if dataset in ["BEDMAP1", "BEDMAP2", "BEDMAP3"] else 10
 
                 all_x, all_y = [], []
                 for f in file_paths:
@@ -374,7 +420,7 @@ class Plotting:
                 df = pd.DataFrame(
                     {"PSX": np.concatenate(all_x), "PSY": np.concatenate(all_y)}
                 )
-                plt.scatter(
+                ax.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
                     color=colors[dataset],
@@ -383,11 +429,28 @@ class Plotting:
                     linewidths=0,
                 )
 
+                inset.scatter(
+                    df["PSX"] / 1000,
+                    df["PSY"] / 1000,
+                    color=colors[dataset],
+                    s=marker_size,
+                    zorder=10,
+                    linewidths=0,
+                )
+
+                if auto_zoom:
+                    psx_min, psx_max = df["PSX"].min() / 1000, df["PSX"].max() / 1000
+                    psy_min, psy_max = df["PSY"].min() / 1000, df["PSY"].max() / 1000
+                    xmin = psx_min if xmin is None else min(xmin, psx_min)
+                    xmax = psx_max if xmax is None else max(xmax, psx_max)
+                    ymin = psy_min if ymin is None else min(ymin, psy_min)
+                    ymax = psy_max if ymax is None else max(ymax, psy_max)
+
             for dataset in datasets:
                 citation = self._db.query(dataset=dataset, retain_query=False)[
                     "reference"
                 ]
-                plt.plot([], [], color=colors[dataset], label=citation, linewidth=3)
+                ax.plot([], [], color=colors[dataset], label=citation, linewidth=3)
             if ncol == None:
                 if len(datasets) > 7:
                     ncol = 2
@@ -429,7 +492,7 @@ class Plotting:
                 df = pd.DataFrame(
                     {"PSX": np.concatenate(all_x), "PSY": np.concatenate(all_y)}
                 )
-                plt.scatter(
+                ax.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
                     color=colors[institute],
@@ -437,7 +500,24 @@ class Plotting:
                     linewidths=0,
                 )
 
-                plt.plot([], [], color=colors[institute], label=institute, linewidth=3)
+                inset.scatter(
+                    df["PSX"] / 1000,
+                    df["PSY"] / 1000,
+                    color=colors[institute],
+                    s=marker_size,
+                    linewidths=0,
+                )
+
+                ax.plot([], [], color=colors[institute], label=institute, linewidth=3)
+
+                if auto_zoom:
+                    psx_min, psx_max = df["PSX"].min() / 1000, df["PSX"].max() / 1000
+                    psy_min, psy_max = df["PSY"].min() / 1000, df["PSY"].max() / 1000
+                    xmin = psx_min if xmin is None else min(xmin, psx_min)
+                    xmax = psx_max if xmax is None else max(xmax, psx_max)
+                    ymin = psy_min if ymin is None else min(ymin, psy_min)
+                    ymax = psy_max if ymax is None else max(ymax, psy_max)
+
             if ncol == None:
                 if len(institutes) > 7:
                     ncol = 2
@@ -471,6 +551,14 @@ class Plotting:
                 all_dfs.append(ds)
             df = pd.concat(all_dfs)
 
+            if auto_zoom:
+                psx_min, psx_max = df["PSX"].min() / 1000, df["PSX"].max() / 1000
+                psy_min, psy_max = df["PSY"].min() / 1000, df["PSY"].max() / 1000
+                xmin = psx_min if xmin is None else min(xmin, psx_min)
+                xmax = psx_max if xmax is None else max(xmax, psx_max)
+                ymin = psy_min if ymin is None else min(ymin, psy_min)
+                ymax = psy_max if ymax is None else max(ymax, psy_max)
+
             if var == "IRH_NUM":
                 if not title:
                     title = f"Number of traced IRHs per data point"
@@ -498,6 +586,16 @@ class Plotting:
                         subset["PSY"] / 1000,
                         c=subset[var],
                         cmap=discrete_cmap,
+                        s=marker_size,
+                        norm=norm,
+                        linewidths=0,
+                        zorder=i,
+                    )
+
+                    inset.scatter(
+                        subset["PSX"] / 1000,
+                        subset["PSY"] / 1000,
+                        color="darkgreen",
                         s=marker_size,
                         norm=norm,
                         linewidths=0,
@@ -546,11 +644,21 @@ class Plotting:
                         vmax = 400
                     if not title:
                         title = f"AntADatabase Basal Unit"
-                scatter = plt.scatter(
+                scatter = ax.scatter(
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
                     c=df[var],
                     cmap=cmap,
+                    s=marker_size,
+                    vmin=vmin,
+                    vmax=vmax,
+                    linewidths=0,
+                    rasterized=True,
+                )
+                inset.scatter(
+                    df["PSX"] / 1000,
+                    df["PSY"] / 1000,
+                    color="darkgreen",
                     s=marker_size,
                     vmin=vmin,
                     vmax=vmax,
@@ -587,11 +695,21 @@ class Plotting:
                     label = f"IRH Depth [m]"
 
                 for age in metadata["age"]:
-                    scatter = plt.scatter(
+                    scatter = ax.scatter(
                         df["PSX"] / 1000,
                         df["PSY"] / 1000,
                         c=df[age],
                         cmap=cmap,
+                        s=marker_size,
+                        vmin=vmin,
+                        vmax=vmax,
+                        linewidths=0,
+                        rasterized=True,
+                    )
+                    inset.scatter(
+                        df["PSX"] / 1000,
+                        df["PSY"] / 1000,
+                        color="darkgreen",
                         s=marker_size,
                         vmin=vmin,
                         vmax=vmax,
@@ -656,7 +774,7 @@ class Plotting:
                     s=marker_size,
                     linewidths=0.1,
                 )
-                plt.plot([], [], color=color, label=age, linewidth=3)
+                ax.plot([], [], color=color, label=age, linewidth=3)
 
             if elevation:
                 if "BED_ELEV" in ds.variables:
@@ -667,7 +785,7 @@ class Plotting:
                         s=marker_size,
                         linewidths=0.1,
                     )
-                    plt.plot([], [], color="k", label="Bed Elevation", linewidth=3)
+                    ax.plot([], [], color="k", label="Bed Elevation", linewidth=3)
                 elif "ICE_THK" in ds.variables and "SURF_ELEV" in ds.variables:
                     ds["BED_ELEV"] = ds.SURF_ELEV - ds.ICE_THK
                     scatter = ax.scatter(
@@ -677,7 +795,7 @@ class Plotting:
                         s=marker_size,
                         linewidths=0.1,
                     )
-                    plt.plot([], [], color="k", label="Bed Elevation", linewidth=3)
+                    ax.plot([], [], color="k", label="Bed Elevation", linewidth=3)
                 else:
                     print("Cannot plot Bed Elevation from the variables in the file")
                 ax.scatter(
@@ -687,7 +805,7 @@ class Plotting:
                     s=marker_size,
                     linewidths=0.1,
                 )
-                plt.plot([], [], color="grey", label="Surface Elevation", linewidth=3)
+                ax.plot([], [], color="grey", label="Surface Elevation", linewidth=3)
 
             else:
                 scatter = ax.scatter(
@@ -697,7 +815,7 @@ class Plotting:
                     s=marker_size,
                     linewidths=0.1,
                 )
-                plt.plot([], [], color="k", label="Bed Depth", linewidth=3)
+                ax.plot([], [], color="k", label="Bed Depth", linewidth=3)
 
             if elevation:
                 ylim = (
@@ -744,7 +862,7 @@ class Plotting:
                 df = pd.DataFrame(
                     {"PSX": np.concatenate(all_x), "PSY": np.concatenate(all_y)}
                 )
-                plt.scatter(
+                ax.scatter(
                     df["PSX"][::downsampling_factor] / 1000,
                     df["PSY"][::downsampling_factor] / 1000,
                     color=colors[flight_id],
@@ -752,18 +870,46 @@ class Plotting:
                     linewidths=0,
                 )
 
-                plt.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
+                inset.scatter(
+                    df["PSX"][::downsampling_factor] / 1000,
+                    df["PSY"][::downsampling_factor] / 1000,
+                    color=colors[flight_id],
+                    s=marker_size,
+                    linewidths=0,
+                )
+
+                ax.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
+
+                if auto_zoom:
+                    psx_min, psx_max = df["PSX"].min() / 1000, df["PSX"].max() / 1000
+                    psy_min, psy_max = df["PSY"].min() / 1000, df["PSY"].max() / 1000
+                    xmin = psx_min if xmin is None else min(xmin, psx_min)
+                    xmax = psx_max if xmax is None else max(xmax, psx_max)
+                    ymin = psy_min if ymin is None else min(ymin, psy_min)
+                    ymax = psy_max if ymax is None else max(ymax, psy_max)
+
             ncol = 2 if len(flight_ids) > 40 else 1
 
         # --- Format Figure ---
         if not self._disable_tqdm:
             print("Formatting ...")
 
-        ax.set_xlim(*xlim)
-        ax.set_ylim(*ylim)
+        if auto_zoom:
+            xmin = xmin - 10 if xmin is not None else None
+            xmax = xmax + 10 if xmax is not None else None
+            ymin = ymin - 10 if ymin is not None else None
+            ymax = ymax + 10 if ymax is not None else None
+
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
         if color_by != "transect_1D":
-            x0, x1 = ax.get_xlim() if xlim == (None, None) else xlim
-            y0, y1 = ax.get_ylim() if ylim == (None, None) else ylim
+            x0_ax, x1_ax = ax.get_xlim()
+            y0_ax, y1_ax = ax.get_ylim()
+            x0 = x0_ax if xlim[0] == None else xlim[0]
+            x1 = x1_ax if xlim[1] == None else xlim[1]
+            y0 = y0_ax if ylim[0] == None else ylim[0]
+            y1 = y1_ax if ylim[1] == None else ylim[1]
+
             x_extent = x1 - x0
             y_extent = y1 - y0
             aspect_ratio = y_extent / x_extent
@@ -773,13 +919,14 @@ class Plotting:
             plt.gcf().set_size_inches(
                 10 * scale_factor, 10 * aspect_ratio * scale_factor
             )
-        plt.title(title, fontsize=24 * scale_factor)
+
+        ax.set_title(title, fontsize=24 * scale_factor)
 
         if ncol == None:
             ncol = 1
         # --- Legend/Colorbar ---
         if color_by in ["dataset", "institute"]:
-            plt.legend(ncols=ncol, loc="lower left", fontsize=8)
+            ax.legend(ncols=ncol, loc="lower left", fontsize=8)
         elif color_by == "flight_id":
             ax.legend(
                 ncols=ncol,
@@ -882,6 +1029,48 @@ class Plotting:
                             )
                         ],
                     )
+
+            inset_basin_patches = []
+            for shape_rec in sf_basins.shapeRecords():
+                shp = shape_rec.shape
+                pts = shp.points
+                parts = list(shp.parts) + [len(pts)]
+
+                for i in range(len(parts) - 1):
+                    start, end = parts[i], parts[i + 1]
+                    ring = pts[start:end]
+                    scaled = [(x * 0.001, y * 0.001) for x, y in ring]
+                    poly = Polygon(scaled, closed=True, fill=True)
+                    inset_basin_patches.append(poly)
+
+            pc = PatchCollection(
+                inset_basin_patches,
+                facecolor="white",
+                edgecolor="black",
+                linewidth=0.5,
+            )
+            inset.add_collection(pc)
+
+            # Add rectangle showing current view
+            inset.plot(
+                [xmin, xmax, xmax, xmin, xmin],
+                [ymin, ymin, ymax, ymax, ymin],
+                color="darkred",
+                linestyle="--",
+            )
+            inset.set_xlabel("")
+            inset.set_ylabel("")
+            inset.set_xticks([])
+            inset.set_yticks([])
+
+            inset.set_aspect("equal")
+            inset.spines[["right", "left", "top", "bottom"]].set_visible(False)
+
+        if xmin is None and ymin is None and xmax is None and ymax is None:
+            inset.remove()
+        if not mini_map:
+            inset.remove()
+
         # --- Plot ice core sites ---
         if stations and color_by != "transect_1D":
             site_coords = pd.read_parquet(self._site_coords_path)
