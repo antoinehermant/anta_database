@@ -48,7 +48,7 @@ class Database:
 
     def _build_query_and_params(
         self,
-        age: Optional[Union[str, List[str]]] = None,
+        age: Optional[Union[str, List[str], int, List[int]]] = None,
         var: Optional[Union[str, List[str]]] = None,
         dataset: Optional[Union[str, List[str]]] = None,
         institute: Optional[Union[str, List[str]]] = None,
@@ -418,7 +418,7 @@ class Database:
 
     def filter_out(
         self,
-        age: Optional[Union[str, List[str]]] = None,
+        age: Optional[Union[str, List[str], int, List[int]]] = None,
         var: Optional[Union[str, List[str]]] = None,
         dataset: Optional[Union[str, List[str]]] = None,
         institute: Optional[Union[str, List[str]]] = None,
@@ -572,7 +572,7 @@ class Database:
 
     def query(
         self,
-        age: Optional[Union[str, List[str]]] = None,
+        age: Optional[Union[str, List[str], int, List[int]]] = None,
         var: Optional[Union[str, List[str]]] = None,
         dataset: Optional[Union[str, List[str]]] = None,
         institute: Optional[Union[str, List[str]]] = None,
@@ -600,6 +600,13 @@ class Database:
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
         "
+
+        if age is not None:
+            if isinstance(age, (list, tuple)):
+                age = [str(a) for a in age]
+            else:
+                age = str(age)
+
         query, params = self._build_query_and_params(
             age,
             var,
@@ -1002,8 +1009,12 @@ class MetadataResult:
             flight_id_str = ", ".join(flight_ids)
 
         if not md["dataset"]:
-            output.append(f"\nNo data found for this query")
-            output.append(f"Try something else:")
+            output.append(f"\nNo data found for this query.")
+            if any(len(v) > 0 for v in md["_filter_params"].values()):
+                output.append(
+                    f"\nWARNING: Some filters are applied. You may want to reset the filters with db.filter_out() (no arguments)."
+                )
+            output.append(f"\nQuery and filter arguments:")
             output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
             output.append(f"  - query params: {md['_query_params']}")
             output.append(f"  - filter params: {md['_filter_params']}")
