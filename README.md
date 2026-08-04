@@ -1,81 +1,83 @@
 <h1 align="center">
+<a href="https://antoinehermant.github.io/anta_database/index">
 <img src="https://raw.githubusercontent.com/antoinehermant/anta_database/main/book/logo.png" width="200">
-</h1><br>
+</a>
+</h1>
 
-[![PyPi](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
-[![Downloads](https://img.shields.io/pypi/dm/anta_database)](https://pypi.org/project/anta_database)
+[![PyPI version](https://img.shields.io/pypi/v/anta_database)](https://pypi.org/project/anta_database/)
+[![Downloads](https://img.shields.io/pypi/dm/anta_database)](https://pypi.org/project/anta_database/)
 [![GitHub issues](https://img.shields.io/badge/issue_tracking-github-blue.svg)](https://github.com/antoinehermant/anta_database/issues)
-<!-- [![Contributing](https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?)](https://matplotlib.org/stable/devel/index.html) -->
-<!-- [![Conda](https://img.shields.io/conda/vn/conda-forge/anta_database)](https://anaconda.org/conda-forge/anta_database) -->
 
-AntADatabase is a Python-powered SQLite database designed for browsing, visualizing and processing Internal Reflecting Horizons (isochrones) across Antarctica, curated by the AntArchitecture action group. It is specifically designed for ice dynamic modelers who need a fast, memory-efficient data structure to constrain their models.
+# AntADatabase
 
-Visit the [Home Page](https://antoinehermant.github.io/anta_database/intro) for more information.
+**Visit the [Home Page](https://antoinehermant.github.io/anta_database/index) for full documentation and examples.**
 
-# The AntADatabase
+**SQL database for the AntArchitecture Community Data**
 
-The AntADatabase contains all traced and dated Internal Reflective Horizons (isochrones) that have been published at that date. All the data is organized by flight transect for each dataset. The data is encoded in HDF5 (Hierarchical Data Format) which provides convenient data structure and performant read speeds. 
-Variables per file (when exist):
-- PSX(point)
-- PSY(point)
-- Distance(point)
-- IRH_DEPTH(point, age)
-- IRH_NUM(point, age)
-- ICE_THK(point)
-- SURF_ELEV(point, age)
-- BED_ELEV(point, age)
+AntADatabase is a Python package providing efficient access to Internal Reflecting Horizons (isochrones) data across Antarctica. Designed for ice sheet modelers, it offers fast, memory-efficient data structures to constrain models with published IRH data.
 
-# anta_database Python module
+## Key Features
 
-This Python module provides SQL indexing for the AntADatabase, as well as quick plot functions and generate lazy data for later use. It allows to quickly browse through the database, filtering by:
-- dataset
-- institute
-- project
-- age
-- acquisition_year (year of radar acquisition)
-- region
-- IMBIE_basin
-- var (variable)
-- flight id
+- **SQL Indexing**: Fast querying of IRH data by dataset, institute, project, age, region, basin, variable, or flight ID
+- **HDF5 Storage**: Data stored in HDF5 format for optimal read performance
+- **Plotting Tools**: Built-in visualization functions for quick data exploration
+- **Lazy Data Generation**: Generate data for later use
 
-For examples of queries, plots, generate data (e.g for model comparison), please see [Quick start](https://antoinehermant.github.io/anta_database/quick_start)
+## Data Variables
 
-# Installation
+Each dataset contains (when available):
+- `PSX`, `PSY`: Coordinates
+- `Distance`: Along-track distance
+- `IRH_DEPTH`: Internal Reflecting Horizon depth
+- `IRH_NUM`: Number of traced IRHs per point
+- `ICE_THK`: Ice thickness
+- `SURF_ELEV`: Surface elevation
+- `BED_ELEV`: Bed elevation
 
-The Python module can be directly installed from [PyPI](https://pypi.org/project/anta-database/) with:
+## Installation
 
-    pip install anta_database
+```bash
+pip install anta_database
+```
 
-Note that this module is new and under development, so that the [PyPI](https://pypi.org/project/anta-database/) package may not contain the latest features. For the latest version and development, see the instruction below.
-To get started with the anta_database module, see the [Documentation](https://antoinehermant.github.io/anta_database).
-Also, you need the actual data to use this module. It is currently not available on any public repository, so please contact me.
+For the latest development version:
+```bash
+pip install git+https://github.com/antoinehermant/anta_database.git
+```
 
-## Advanced installation
+## Quick Start
 
-One can install the latest commit from this GitHub directory with:
+```python
+from anta_database import Database
 
-    pip install git+https://github.com/antoinehermant/anta_database.git
+# Initialize database (contact maintainer for data access)
+db = Database("/path/to/AntADatabase/")
 
-Or for development, you should clone this repo and install the module in development mode:
+# Query data by various criteria
+db.query(dataset="Cavitte_2020", age=10000)
 
-    git clone git@github:antoinehermant/anta_database.git
-    pip install -e anta_database/
+# Visualize data
+db.plot.var(title="My IRH Data")
+```
 
-# Support and contact
+## Documentation
 
-You can email me for downloading the database: antoine.hermant@unibe.ch
+Full documentation and examples are available on the [Home Page](https://antoinehermant.github.io/anta_database/index).
 
-Feel free to raise an issue on the GitHub if you find any bug or if you would like a feature added.
+## Data Access
 
-# Contribution
+The database files are not publicly hosted. Please contact [antoine.hermant@unibe.ch](mailto:antoine.hermant@unibe.ch) to request access to the data.
 
-If you like this database and wish to help me develop this module, do not hesitate to contact me. You should then fork the repo, build feature branches and pull request. That would be much appreciated!
-Please have also a look at the [Roadmap](https://github.com/antoinehermant/anta_database/blob/main/ROADMAP.md) to check whether some features are already in development or for ideas.
+## Support
 
+- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/antoinehermant/anta_database/issues)
+- **Contact**: antoine.hermant@unibe.ch
 
-# Acknowledgments
+## Citation
 
-I am developing this tool as part of my PhD project, which is funded by the Swiss National Science Foundation (grant no. 211542, Project CHARIBDIS)
-Any data used through this database should be cited at source. For this, use the DOI provided in the metadata.
-If you used this tool for your work and this was useful, please cite this repo, so other people get to know that it exists.
+If you use this tool in your work, please cite this repository and the original data sources using their provided DOIs.
+
+## Acknowledgments
+
+Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542).
 
