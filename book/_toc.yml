@@ -5,7 +5,12 @@ format: jb-book
 root: intro
 chapters:
 - file: quick_start
+  title: Quick Start Guide
 - file: pism_example
+  title: PISM Example
 - file: advanced
-- file: contact
+  title: Advanced Usage
 - file: contribute
+  title: Contributing
+- file: contact
+  title: Support & Contact
