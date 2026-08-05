@@ -8,6 +8,7 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
+from anta_database.plotting.plotting_pism import PISMPlotting
 from anta_database.indexing.index_database import IndexDatabase
 
 
@@ -25,6 +26,7 @@ class Database:
         self._file_db_path = os.path.join(self._db_dir, file_db)
         self._md = None
         self._plotting = None
+        self._pism_plotting = None
         self._max_displayed_flight_ids = max_displayed_flight_ids
         self._include_BM = include_BEDMAP
         self._include_BM = index_database
@@ -980,6 +982,12 @@ class Database:
         if self._plotting is None:
             self._plotting = Plotting(self)
         return self._plotting
+
+    @property
+    def plot_PISM(self):
+        if self._pism_plotting is None:
+            self._pism_plotting = PISMPlotting(self)
+        return self._pism_plotting
 
 
 class MetadataResult:

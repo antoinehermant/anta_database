@@ -366,7 +366,7 @@ class Plotting:
             ymin, ymax = ylim
 
         if color_by == "transect_1D":
-            mini_map=False
+            mini_map = False
 
         inset_pos = [0.7, 0.75, 0.25, 0.25]
         inset = fig.add_axes(
@@ -600,7 +600,7 @@ class Plotting:
                         subset["PSX"] / 1000,
                         subset["PSY"] / 1000,
                         color="darkgreen",
-                        s=marker_size*0.5,
+                        s=marker_size * 0.5,
                         linewidths=0,
                         zorder=11,
                     )
@@ -662,7 +662,7 @@ class Plotting:
                     df["PSX"] / 1000,
                     df["PSY"] / 1000,
                     color="darkgreen",
-                    s=marker_size*0.5,
+                    s=marker_size * 0.5,
                     linewidths=0,
                     zorder=11,
                 )
@@ -711,7 +711,7 @@ class Plotting:
                         df["PSX"] / 1000,
                         df["PSY"] / 1000,
                         color="darkgreen",
-                        s=marker_size*0.5,
+                        s=marker_size * 0.5,
                         linewidths=0,
                         zorder=11,
                     )
@@ -900,7 +900,7 @@ class Plotting:
         if color_by == "transect_1D":
             xmin, xmax = xlim
             ymin, ymax = ylim
-            
+
         elif auto_zoom:
             xmin = xmin - 10 if xmin is not None else None
             xmax = xmax + 10 if xmax is not None else None

@@ -16,6 +16,7 @@ from .indexing.index_database import IndexDatabase
 
 # Plotting modules
 from .plotting.plotting import Plotting
+from .plotting.plotting_pism import PISMPlotting
 
 __all__ = [
     # Database classes
@@ -27,4 +28,5 @@ __all__ = [
     "IndexDatabase",
     # Plotting functions
     "Plotting",
+    "PISMPlotting",
 ]
