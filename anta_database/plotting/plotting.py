@@ -241,7 +241,7 @@ class Plotting:
             mini_map=mini_map,
         )
 
-    def transect_1D(
+    def stratigraphy(
         self,
         metadata: Union[None, Dict, "MetadataResult"] = None,
         elevation: Optional[bool] = False,
@@ -263,7 +263,7 @@ class Plotting:
         Plot the color-coded values of the given variable on Antarcitic map
         """
         self._base_plot(
-            color_by="transect_1D",
+            color_by="stratigraphy",
             elevation=elevation,
             metadata=metadata,
             downsampling_factor=downsampling_factor,
@@ -334,12 +334,12 @@ class Plotting:
         # else: FIXME: this seems to crash spyder for spyder users
         #     matplotlib.use('TkAgg')
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(constrained_layout=True)
 
         if basins:
             grounding_line = False
         # --- Plot Grounding Line ---
-        if True and color_by != "transect_1D":  # FIXME
+        if True and color_by != "stratigraphy":  # FIXME
             gl = pd.read_parquet(self._gl_path)
             ax.plot(gl.x / 1000, gl.y / 1000, linewidth=1, color="k")
 
@@ -365,7 +365,7 @@ class Plotting:
             xmin, xmax = xlim
             ymin, ymax = ylim
 
-        if color_by == "transect_1D":
+        if color_by == "stratigraphy":
             mini_map = False
 
         inset_pos = [0.7, 0.75, 0.25, 0.25]
@@ -716,7 +716,7 @@ class Plotting:
                         zorder=11,
                     )
 
-        if color_by == "transect_1D":
+        if color_by == "stratigraphy":
             flight_id = list(metadata["flight_id"])
             if len(flight_id) > 1:
                 flight_id = flight_id[0]
@@ -897,7 +897,7 @@ class Plotting:
         if not self._disable_tqdm:
             print("Formatting ...")
 
-        if color_by == "transect_1D":
+        if color_by == "stratigraphy":
             xmin, xmax = xlim
             ymin, ymax = ylim
 
@@ -909,7 +909,7 @@ class Plotting:
 
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
-        if color_by != "transect_1D":
+        if color_by != "stratigraphy":
             x0_ax, x1_ax = ax.get_xlim()
             y0_ax, y1_ax = ax.get_ylim()
             x0 = x0_ax if xlim[0] == None else xlim[0]
@@ -967,7 +967,7 @@ class Plotting:
             cbar.ax.xaxis.set_ticks_position("bottom")
             if label:
                 cbar.set_label(label)
-        elif color_by == "transect_1D":
+        elif color_by == "stratigraphy":
             ax.legend(ncols=2)
             ax.set_xlabel("Distance along transect [km]")
             if elevation:
@@ -976,10 +976,8 @@ class Plotting:
                 ax.set_ylabel("Depth below surface [m]")
             plt.gcf().set_size_inches(10 * scale_factor, 10 * 2 / 3)
 
-        plt.tight_layout()
-
         # --- Plot IMBIE basins ---
-        if basins and color_by != "transect_1D":
+        if basins and color_by != "stratigraphy":
             sf_basins = shapefile.Reader(self._imbie_path)
             basin_patches = []
 
@@ -1079,7 +1077,7 @@ class Plotting:
             inset.remove()
 
         # --- Plot ice core sites ---
-        if stations and color_by != "transect_1D":
+        if stations and color_by != "stratigraphy":
             site_coords = pd.read_parquet(self._site_coords_path)
             for i in site_coords.index:
                 site = site_coords.loc[i]
