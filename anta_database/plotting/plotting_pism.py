@@ -84,6 +84,7 @@ class PISMPlotting:
         title: Optional[str] = None,
         xlim: Optional[tuple] = (None, None),
         ylim: Optional[tuple] = (None, None),
+        sel_method: Optional[str] = "nearest",
         scale_factor: float = 1.0,
         marker_size: Optional[float] = 2,
         cmap: Optional["LinearSegmentedColormap"] = None,
@@ -108,6 +109,7 @@ class PISMPlotting:
             title=title,
             xlim=xlim,
             ylim=ylim,
+            sel_method=sel_method,
             scale_factor=scale_factor,
             marker_size=marker_size,
             cmap=cmap,
@@ -127,6 +129,7 @@ class PISMPlotting:
         downsampling_factor: Optional[int] = None,
         cpus: int = 2,
         firn_correction: Optional[int] = 31,
+        sel_method: Optional[str] = "nearest",
         title: Optional[str] = None,
         xlim: Optional[tuple] = (None, None),
         ylim: Optional[tuple] = (None, None),
@@ -153,6 +156,7 @@ class PISMPlotting:
             downsampling_factor=downsampling_factor,
             cpus=cpus,
             firn_correction=firn_correction,
+            sel_method=sel_method,
             title=title,
             xlim=xlim,
             ylim=ylim,
@@ -226,7 +230,7 @@ class PISMPlotting:
                     ds_depth_interp = griddata(
                         pism_points,
                         pism_ds.isochronal_layer_depth.sel(
-                            deposition_time=age_seconds
+                            deposition_time=age_seconds, method=self.sel_method
                         ).values.flatten(),
                         fl_line_xy,
                         method="linear",
@@ -264,6 +268,7 @@ class PISMPlotting:
         downsampling_factor: Optional[int] = None,
         age_offset: Optional[int] = -1950,
         firn_correction: Optional[int] = 31,
+        sel_method: Optional[str] = None,
         cpus: int = 4,
         title: Optional[str] = None,
         xlim: Optional[tuple] = (None, None),
@@ -301,6 +306,7 @@ class PISMPlotting:
         self.downsampling_factor = downsampling_factor
         self.firn_correction = firn_correction
         self.elevation = elevation
+        self.sel_method = sel_method
 
         # if save:
         #     matplotlib.use('Agg')
@@ -499,7 +505,14 @@ class PISMPlotting:
 
             cmap = self._custom_cmap_density()
             colors = [cmap(i) for i in np.linspace(0.1, 0.9, len(metadata_impl["age"]))]
-            for age, color in zip(list(map(int, common_values)), colors):
+            print(
+                "\nInterpolating",
+                # len(common_values),
+                len(ages),
+                "PISM isochronal layers along the transect...",
+            )
+            # for age, color in zip(list(map(int, common_values)), colors):
+            for age, color in zip(list(map(int, ages)), colors):
                 if age not in ds.IRH_AGE:
                     print(
                         f"{metadata_impl['flight_id'][0]} does not contain age {age}, skipping"
@@ -519,6 +532,7 @@ class PISMPlotting:
                 age_converted = -(age + age_offset) * (3600 * 24 * 365)
                 pism_layer = pism_ds.isochronal_layer_depth.sel(
                     deposition_time=age_converted,
+                    method=self.sel_method,
                 ).values.flatten()
 
                 depth_offset = 31 + 12 * 0.038

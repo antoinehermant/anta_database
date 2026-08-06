@@ -47,6 +47,21 @@ class Database:
         if index_database:
             indexing = IndexDatabase(self._db_dir)
             indexing.index_database()
+        if not os.path.exists(database_dir):
+            print("WARNING: AntADatabase not found. Try a different path.")
+            if not os.path.isabs(database_dir):
+                print(
+                    f"Note: '{database_dir}' is a relative path. Try absolute path to AntADatabase"
+                )
+            return
+        elif not os.path.exists(f"{database_dir}/{file_db}"):
+            print(
+                f"WARNING: {file_db} not found in {database_dir}. Check if the AntADatabase is complete."
+            )
+            return
+        elif os.path.exists(f"{database_dir}/{file_db}"):
+            print(f"AntADatabase successfully initiated")
+            return
 
     def _build_query_and_params(
         self,

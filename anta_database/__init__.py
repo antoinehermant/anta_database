@@ -5,7 +5,7 @@ Main package for isochrone database access and processing.
 """
 
 # Database modules
-from .database.database import Database
+from .database.database import Database, MetadataResult
 
 # Compiling modules
 from .compiling.zarr_converter_simple import FlightLineZarrConverter
@@ -21,6 +21,7 @@ from .plotting.plotting_pism import PISMPlotting
 __all__ = [
     # Database classes
     "Database",
+    "MetadataResult",
     # Compiling classes
     "FlightLineZarrConverter",
     "CompileDatabase",
