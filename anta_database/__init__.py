@@ -5,18 +5,18 @@ Main package for isochrone database access and processing.
 """
 
 # Database modules
-from .database.database import Database, MetadataResult
+from anta_database.database.database import Database, MetadataResult
 
 # Compiling modules
-from .compiling.zarr_converter_simple import FlightLineZarrConverter
-from .compiling.compile import CompileDatabase
+from anta_database.compiling.zarr_converter_simple import FlightLineZarrConverter
+from anta_database.compiling.compile import CompileDatabase
 
 # Indexing modules
-from .indexing.index_database import IndexDatabase
+from anta_database.indexing.index_database import IndexDatabase
 
 # Plotting modules
-from .plotting.plotting import Plotting
-from .plotting.plotting_pism import PISMPlotting
+from anta_database.plotting.plotting import Plotting
+from anta_database.plotting.plotting_pism import PISMPlotting
 
 __all__ = [
     # Database classes
