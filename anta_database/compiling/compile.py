@@ -278,23 +278,21 @@ class CompileDatabase:
                 for h5_file in tqdm(all_h5, desc="Processing"):
                     self.set_attrs(h5_file)
 
-            if self._remove_tmp_files:
-                print("\nRemoving temporary directories ...")
-                num_tasks = len(self._dir_list)
-                num_workers = min(num_tasks, cpus)
-                if num_workers > 1:
-                    with Pool(num_workers) as pool:
-                        for _ in tqdm(
-                            pool.imap_unordered(self._cleanup, self._dir_list),
-                            total=num_tasks,
-                            unit="directory",
-                        ):
-                            pass
-                else:
-                    for ds_dir in tqdm(
-                        self._dir_list, desc="Removing", unit="directory"
+        if self._remove_tmp_files:
+            print("\nRemoving temporary directories ...")
+            num_tasks = len(self._dir_list)
+            num_workers = min(num_tasks, cpus)
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(
+                        pool.imap_unordered(self._cleanup, self._dir_list),
+                        total=num_tasks,
+                        unit="directory",
                     ):
-                        self._cleanup(ds_dir)
+                        pass
+            else:
+                for ds_dir in tqdm(self._dir_list, desc="Removing", unit="directory"):
+                    self._cleanup(ds_dir)
 
         if self._shapefiles:
             num_tasks = len(self._dir_list)
@@ -911,7 +909,7 @@ class CompileDatabase:
                         chunk_size_point = 1000
                     else:
                         chunk_size_point = 10000
-                    ds["IRH_FRAC_DEPTH"] = ds["IRH_DEPTH"].chunk(
+                    ds["IRH_FRAC_DEPTH"] = ds["IRH_FRAC_DEPTH"].chunk(
                         {"IRH_AGE": 1, "point": chunk_size_point}
                     )
                     encoding = {

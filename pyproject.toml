@@ -18,8 +18,10 @@ dependencies = [
   "pandas",
   "geopandas",
   "fastparquet",
+  "shapely",
   "pyarrow",
   "xarray",
+  "netcdf4",
   "h5netcdf",
   "h5py",
   "pyproj",
@@ -28,6 +30,7 @@ dependencies = [
   "colormaps",
   "tqdm",
   "pyshp",
+  "zarr",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]

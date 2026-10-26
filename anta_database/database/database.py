@@ -269,7 +269,7 @@ class Database:
 
         for field, column in [
             ("age", "a.age"),
-            ("var", "v.var"),
+            ("var", "v.name"),
             ("dataset", "s.name"),
             ("acquisition_year", "d.acq_year"),
             ("flight_id", "d.flight_id"),
