@@ -395,7 +395,7 @@ class CompileDatabase:
             warnings.simplefilter("always")
             warnings.showwarning = warn_with_file_path
 
-            ds = pd.read_csv(
+            df = pd.read_csv(
                 file_dict["file_path"],
                 comment="#",
                 header=0,
@@ -408,27 +408,27 @@ class CompileDatabase:
         _, file_name = os.path.split(file_dict["file_path"])
         file_name_, ext = os.path.splitext(file_name)
 
-        ds = ds[ds.columns.intersection(original_new_columns.columns)]
-        ds.columns = (
-            original_new_columns[ds.columns].iloc[0].values
+        df = df[df.columns.intersection(original_new_columns.columns)]
+        df.columns = (
+            original_new_columns[df.columns].iloc[0].values
         )  # renaming the columns
 
         values_to_replace = ["-9999", "-9999.0", "NaN", "nan", ""]
 
-        if "PSX" in ds.columns and "PSY" in ds.columns:
+        if "PSX" in df.columns and "PSY" in df.columns:
             # Create a mask for rows where both PSX and PSY are in values_to_replace
-            mask = ds["PSX"].isin(values_to_replace) & ds["PSY"].isin(values_to_replace)
+            mask = df["PSX"].isin(values_to_replace) & df["PSY"].isin(values_to_replace)
             if mask.any():
-                problematic_indices = ds.index[mask].tolist()
+                problematic_indices = df.index[mask].tolist()
                 warnings.warn(
                     f"Found {len(problematic_indices)} rows where both PSX and PSY are in {values_to_replace}. "
                     f"Indices: {problematic_indices}. Dropping these rows."
                 )
 
-            ds = ds[~mask].copy()
+            df = df[~mask].copy()
 
-        cols_to_replace = [col for col in ds.columns if col not in ["PSX", "PSY"]]
-        ds[cols_to_replace] = ds[cols_to_replace].replace(values_to_replace, pd.NA)
+        cols_to_replace = [col for col in df.columns if col not in ["PSX", "PSY"]]
+        df[cols_to_replace] = df[cols_to_replace].replace(values_to_replace, pd.NA)
 
         pattern_values = original_new_columns[1:]
         pattern_header = original_new_columns.iloc[0]
@@ -446,76 +446,69 @@ class CompileDatabase:
             "lat",
             "lon",
         ]:
-            if var in ds.columns:
-                ds[var] = self.convert_col_to_num(ds[var])
+            if var in df.columns:
+                df[var] = self.convert_col_to_num(df[var])
 
         if (
-            "ICE_THK" in ds.columns
-            and "SURF_ELEV" in ds.columns
-            and not "BED_ELEV" in ds.columns
+            "ICE_THK" in df.columns
+            and "SURF_ELEV" in df.columns
+            and not "BED_ELEV" in df.columns
         ):
-            ds["BED_ELEV"] = ds["SURF_ELEV"] - ds["ICE_THK"]
+            df["BED_ELEV"] = df["SURF_ELEV"] - df["ICE_THK"]
         if (
-            "ICE_THK" in ds.columns
-            and "BED_ELEV" in ds.columns
-            and not "SURF_ELEV" in ds.columns
+            "ICE_THK" in df.columns
+            and "BED_ELEV" in df.columns
+            and not "SURF_ELEV" in df.columns
         ):
-            ds["SURF_ELEV"] = ds["BED_ELEV"] + ds["ICE_THK"]
+            df["SURF_ELEV"] = df["BED_ELEV"] + df["ICE_THK"]
         if (
-            "SURF_ELEV" in ds.columns
-            and "BED_ELEV" in ds.columns
-            and not "ICE_THK" in ds.columns
+            "SURF_ELEV" in df.columns
+            and "BED_ELEV" in df.columns
+            and not "ICE_THK" in df.columns
         ):
-            ds["ICE_THK"] = ds["SURF_ELEV"] - ds["BED_ELEV"]
+            df["ICE_THK"] = df["SURF_ELEV"] - df["BED_ELEV"]
 
         if self._wave_speed:
             for var in ["ICE_THK", "BED_ELEV"]:
-                if var in ds.columns:
-                    ds[var] *= self._wave_speed
+                if var in df.columns:
+                    df[var] *= self._wave_speed
         if self._firn_correction:
             for var in ["ICE_THK", "BED_ELEV"]:
-                if var in ds.columns:
-                    ds[var] += self._firn_correction
+                if var in df.columns:
+                    df[var] += self._firn_correction
 
-        if "PSX" not in ds.columns and "PSY" not in ds.columns:
-            if "lon" in ds.columns and "lat" in ds.columns:
+        if "PSX" not in df.columns and "PSY" not in df.columns:
+            if "lon" in df.columns and "lat" in df.columns:
                 transformer = Transformer.from_proj(
                     "EPSG:4326",  # source: WGS84 (lon/lat)
                     "+proj=stere +lon_0=0 +lat_0=-90 +lat_ts=-71 +datum=WGS84 +units=m +no_defs",  # target: polar
                     always_xy=True,
                 )
-                ds["PSX"], ds["PSY"] = transformer.transform(
-                    ds["lon"].values, ds["lat"].values
+                df["PSX"], df["PSY"] = transformer.transform(
+                    df["lon"].values, df["lat"].values
                 )
-        elif "PSX" in ds.columns and "PSY" in ds.columns:
+        elif "PSX" in df.columns and "PSY" in df.columns:
             pass
         else:
             print("No coordinates found in the dataset")
             return
 
-        if "raw file" in raw_md.columns:
+        if raw_md.iloc[0]["file structure"] == "IRH":
             raw_md.set_index("raw file", inplace=True)
             raw_md = raw_md.loc[file_dict["file"]]
 
-            if "age" in raw_md.index:
-                age = raw_md["age"]
-            else:
-                age = pd.NA
             if self._wave_speed:
-                ds["IRH_DEPTH"] *= self._wave_speed
+                df["IRH_DEPTH"] *= self._wave_speed
             if self._firn_correction:
-                ds["IRH_DEPTH"] += self._firn_correction
+                df["IRH_DEPTH"] += self._firn_correction
 
-            ds = ds.astype({"Flight_ID": str})
-            ds["Flight_ID"] = ds["Flight_ID"].str.replace(
+            df = df.astype({"Flight_ID": str})
+            df["Flight_ID"] = df["Flight_ID"].str.replace(
                 r"/\s+", "_"
             )  # Replace slashes with underscores, otherwise the paths can get messy
-            ds["Flight_ID"] = ds["Flight_ID"].str.replace("/", "_")
-            ds.set_index("Flight_ID", inplace=True)
+            df["Flight_ID"] = df["Flight_ID"].str.replace("/", "_")
+            df.set_index("Flight_ID", inplace=True)
 
-            unique_flight_ids = np.unique(ds.index)
-            converted = pd.to_numeric(unique_flight_ids, errors="coerce")
-            converted = pd.Series(converted)
             flight_id = []
             flight_id_flag = "original"
 
@@ -526,7 +519,7 @@ class CompileDatabase:
 
             if "flight ID prefix" in raw_md.index:
                 if not pd.isna(raw_md["flight ID prefix"]):
-                    ds.index = [f"{raw_md['flight ID prefix']}{x}" for x in ds.index]
+                    df.index = [f"{raw_md['flight ID prefix']}{x}" for x in df.index]
                     flight_id_flag = "project_acq-year_number"
 
             dataset = raw_md["dataset"]
@@ -540,17 +533,17 @@ class CompileDatabase:
             institute_flag = "original"
             project = raw_md["project"]
             project_flag = "original"
-            acq_year = raw_md["acquisition year"]
             acq_year_flag = "original"
             doi_data = raw_md["DOI dataset"]
             doi_pub = raw_md["DOI publication"]
             acq_year = raw_md["acquisition year"]
+            IRH = raw_md["IRH"]
             if "radar instrument" in raw_md.index:
                 radar_inst = raw_md["radar instrument"]
             else:
                 radar_inst = "nan"
 
-            flight_ids = np.unique(ds.index)
+            flight_ids = np.unique(df.index)
             if flight_id_flag == "not_provided":
                 flight_ids = [flight_id]
 
@@ -560,17 +553,17 @@ class CompileDatabase:
 
             for flight_id in flight_ids:
                 if flight_id_flag == "not_provided":
-                    ds_trace = ds.copy()
+                    df_trace = df.copy()
                 else:
-                    ds_trace = ds.loc[flight_id].copy()
+                    df_trace = df.loc[flight_id].copy()
 
                 if "acq_year" in pattern_values.columns:
                     pattern = pattern_values.iloc[0]["acq_year"]
                     if not pd.isna(pattern):
-                        ds_trace["acq_year"] = ds_trace["acq_year"].apply(
+                        df_trace["acq_year"] = df_trace["acq_year"].apply(
                             lambda x: extract_year(x, pattern)
                         )
-                        unique_time = np.unique(ds_trace["acq_year"])
+                        unique_time = np.unique(df_trace["acq_year"])
                         if len(unique_time) > 1:
                             raise ValueError(
                                 f"flight {flight_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this"
@@ -578,41 +571,19 @@ class CompileDatabase:
                         else:
                             position = pattern.find("YYYY")
                             acq_year = unique_time[0][position : position + 4]
-                        ds_trace.drop(columns="acq_year", inplace=True)
+                        df_trace.drop(columns="acq_year", inplace=True)
 
                 if flight_id == "nan":
                     flight_id = f"{project}_{acq_year}"
                     flight_id_flag = "not_provided"
 
-                if age is not pd.NA:
-                    # age = str(age)
-                    ds_trace = ds_trace.rename(columns={"IRH_DEPTH": age})
-                    if (
-                        not isinstance(institute, (list, tuple, set))
-                        and institute != "nan"
-                        and dataset in ["BEDMAP2", "BEDMAP3"]
-                    ):
-                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{age}.pkl"  # if var instead of age, call the file as var.pkl
-                    else:
-                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{age}.pkl"  # if var instead of age, call the file as var.pkl
-                else:
-                    if (
-                        not isinstance(institute, (list, tuple, set))
-                        and institute != "nan"
-                        and dataset in ["BEDMAP2", "BEDMAP3"]
-                    ):
-                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{file_name_}.pkl"  # else use the same file name.pkl
-                    else:
-                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{file_name_}.pkl"  # else use the same file name.pkl
-
-                # if age in ds_trace.columns:
-                #     if ds_trace[age].isna().all(): # If trace contains only nan, skip it
-                #         continue
+                # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
+                ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl"
 
                 flight_dir, _ = os.path.split(ds_trace_file)
                 os.makedirs(flight_dir, exist_ok=True)
-                ds_trace.reset_index(drop=True, inplace=True)
-                ds_trace.to_pickle(ds_trace_file)
+                df_trace.reset_index(drop=True, inplace=True)
+                df_trace.to_pickle(ds_trace_file)
 
                 trace_metadata = f"{flight_dir}/metadata.csv"
                 if not os.path.exists(trace_metadata):
@@ -633,34 +604,33 @@ class CompileDatabase:
                     trace_md.set_index("flight_id", inplace=True)
                     trace_md.to_csv(trace_metadata)
 
-        # FIXME: how to handle data type flight line from raw md file now
-        elif raw_md.iloc[0]["data type"] == "flight line":
+        elif raw_md.iloc[0]["file structure"] == "line":
             IRH_md = pd.read_json(f"{file_dict['dir_path']}/raw_md.json")
 
             flight_id = file_name_
-            IRH_md.set_index("IRH name", inplace=True)
+            IRH_md.set_index("IRH", inplace=True)
 
             for IRH, row in IRH_md.iterrows():
-                if IRH in ds.columns:
-                    age = row["age"]
-                    ds_IRH = ds[IRH]
-                    ds_IRH = pd.DataFrame(
+                if IRH in df.columns:
+                    df_IRH = df[IRH]
+                    df_IRH = pd.DataFrame(
                         {
-                            "PSX": ds["PSX"],
-                            "PSY": ds["PSY"],
-                            age: ds_IRH,
+                            "PSX": df["PSX"],
+                            "PSY": df["PSY"],
+                            "IRH_DEPTH": df_IRH,
                         }
                     )
 
-                    ds_IRH[age] = self.convert_col_to_num(ds_IRH[age])
+                    df_IRH["IRH_DEPTH"] = self.convert_col_to_num(df_IRH["IRH_DEPTH"])
+
                     if self._wave_speed:
-                        ds_IRH[age] *= self._wave_speed
+                        df_IRH["IRH_DEPTH"] *= self._wave_speed
                     if self._firn_correction:
-                        ds_IRH[age] += self._firn_correction
+                        df_IRH["IRH_DEPTH"] += self._firn_correction
 
                     for var in self._var_list:
-                        if var in ds.columns:
-                            ds_IRH[var] = ds[var]
+                        if var in df.columns:
+                            df_IRH[var] = df[var]
 
                     dataset = row["dataset"]
                     institute = row["institute"]
@@ -683,19 +653,13 @@ class CompileDatabase:
                     else:
                         radar_inst = "nan"
 
-                    if (
-                        not isinstance(institute, (list, tuple, set))
-                        and institute != "nan"
-                    ):
-                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{institute}_{flight_id}/{IRH}.pkl"
-                    else:
-                        ds_trace_file = (
-                            f"{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl"
-                        )
+                    # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
+                    ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl"
+
                     flight_dir, _ = os.path.split(ds_trace_file)
                     os.makedirs(flight_dir, exist_ok=True)
-                    ds_IRH.reset_index(drop=True, inplace=True)
-                    ds_IRH.to_pickle(ds_trace_file)
+                    df_IRH.reset_index(drop=True, inplace=True)
+                    df_IRH.to_pickle(ds_trace_file)
 
                     trace_metadata = f"{flight_dir}/metadata.csv"
                     if not os.path.exists(trace_metadata):
@@ -720,12 +684,14 @@ class CompileDatabase:
             return
 
         if len(files) > 1:
-            dfs = [pd.read_pickle(f) for f in files]
-
             dfs_prep = []
-            for df in dfs:
+            for f in files:
+                df = pd.read_pickle(f)
                 df = df.set_index(["PSX", "PSY"])
                 df = df[~df.index.duplicated(keep="first")]
+                _, f_name = os.path.split(f)
+                IRH, _ = os.path.splitext(f_name)
+                df = df.rename(columns={"IRH_DEPTH": IRH})
                 dfs_prep.append(df)
 
             merged_df = pd.concat(dfs_prep, axis=1, join="outer")
@@ -745,7 +711,14 @@ class CompileDatabase:
                     merged_df = merged_df.rename(columns={temp_col: col})
 
         else:
-            merged_df = pd.read_pickle(files[0])
+            f = files[0]
+            df = pd.read_pickle(f)
+            df = df.set_index(["PSX", "PSY"])
+            df = df[~df.index.duplicated(keep="first")]
+            df.reset_index(inplace=True)
+            _, f_name = os.path.split(f)
+            IRH, _ = os.path.splitext(f_name)
+            merged_df = df.rename(columns={"IRH_DEPTH": IRH})
 
         x = merged_df["PSX"]
         y = merged_df["PSY"]
@@ -754,14 +727,14 @@ class CompileDatabase:
             "PSY": (["point"], y),
         }
 
-        ages = [col for col in merged_df.columns if str(col).isdigit()]
+        IRHS = [col for col in merged_df.columns if str(col).isdigit()]
 
         for var in self._var_list:
             if var in merged_df.columns:
                 data_vars[var] = (["point"], merged_df[var].values)
 
-        pkl_dir, trace_id = os.path.split(trace_dir)
-        dataset_dir, pkl = os.path.split(pkl_dir)
+        pkl_dir, _ = os.path.split(trace_dir)
+        dataset_dir, _ = os.path.split(pkl_dir)
         trace_md = pd.read_csv(f"{trace_dir}/metadata.csv")
         institute = str(trace_md.iloc[0]["institute"])
         if isinstance(institute, str):
@@ -807,37 +780,23 @@ class CompileDatabase:
             "PSY": {"zlib": True, "complevel": 1},
         }
 
-        if ages:
-            sorted_ages = sorted(ages, key=lambda x: int(x))
-            sorted_ages_int = [int(age) for age in sorted_ages]
-            depth_data = merged_df[sorted_ages]
-            data_vars["IRH_DEPTH"] = (["point", "IRH_AGE"], depth_data)
-            ds = ds.assign_coords(IRH_AGE=sorted_ages_int)
-            ds["IRH_DEPTH"] = (["point", "IRH_AGE"], depth_data)
+        if IRHS:
+            sorted_irhs = sorted(IRHS, key=lambda x: int(x))
+            sorted_irhs_int = [int(irh) for irh in sorted_irhs]
+            depth_data = merged_df[sorted_irhs]
+            data_vars["IRH_DEPTH"] = (["point", "IRH"], depth_data)
+            ds = ds.assign_coords(IRH=sorted_irhs_int)
+            ds["IRH_DEPTH"] = (["point", "IRH"], depth_data)
 
             if "IRH_DEPTH" in ds.variables:
                 ds["IRH_DEPTH"] = ds["IRH_DEPTH"].chunk(
-                    {"IRH_AGE": 1, "point": chunk_size_point}
+                    {"IRH": 1, "point": chunk_size_point}
                 )
                 encoding["IRH_DEPTH"] = {
                     "zlib": True,
                     "complevel": 1,
                     "chunksizes": (chunk_size_point, 1),
                 }
-
-            md = pd.read_json(f"{dataset_dir}/raw_md.json")
-            if "age" in md.columns and "age uncertainty" in md.columns:
-                age_unc = md[["age", "age uncertainty"]]
-                age_unc = age_unc.drop_duplicates()
-                # age_unc = age_unc.astype(int)
-                age_unc = age_unc.set_index("age")
-                age_unc = age_unc.loc[sorted_ages_int]["age uncertainty"].values
-                age_uncertainties = xr.DataArray(
-                    data=age_unc,
-                    dims=["IRH_AGE"],
-                    coords={"IRH_AGE": sorted_ages_int},
-                )
-                ds["IRH_AGE_UNC"] = age_uncertainties
 
         for var in self._var_list:
             if var in ds.variables:
@@ -912,7 +871,7 @@ class CompileDatabase:
                     else:
                         chunk_size_point = 10000
                     ds["IRH_FRAC_DEPTH"] = ds["IRH_DEPTH"].chunk(
-                        {"IRH_AGE": 1, "point": chunk_size_point}
+                        {"IRH": 1, "point": chunk_size_point}
                     )
                     encoding = {
                         "IRH_FRAC_DEPTH": {
@@ -932,7 +891,7 @@ class CompileDatabase:
             with xr.open_dataset(f, engine="h5netcdf") as ds:
 
                 if "IRH_DEPTH" in ds.variables:
-                    irh_num = (~np.isnan(ds["IRH_DEPTH"])).sum(dim="IRH_AGE")
+                    irh_num = (~np.isnan(ds["IRH_DEPTH"])).sum(dim="IRH")
                     irh_num = irh_num.where(irh_num != 0, np.nan)
                     has_nan = np.isnan(irh_num).any().values
 
@@ -1094,6 +1053,7 @@ class CompileDatabase:
                     max_depth = np.full(len(N), np.nan)
                     age_max_depth = np.full(len(N), np.nan)
 
+                    # NOTE: This compute the oldest traced isochrone. Will not work if ages are not assigned yet.
                     for i in range(len(N)):
                         depth_slice = irh_depth[i, :]
                         if not np.all(

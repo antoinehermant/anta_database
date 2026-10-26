@@ -1,27 +1,135 @@
+from jupyter_lsp.specs import md
+from multiprocessing import Pool, cpu_count
+from functools import partial
 import os
 from tqdm import tqdm
 import glob
 import pandas as pd
 import numpy as np
+import xarray as xr
 import sqlite3
 import h5py
 import json
 import ast
+from typing import Optional, Union
 
 
 class IndexDatabase:
-    def __init__(self, database_dir: str, file_db: str = "AntADatabase.db") -> None:
+    def __init__(
+        self,
+        database_dir: str,
+        file_db: str = "AntADatabase.db",
+        assign_ages: bool = False,
+        cpus: int = cpu_count() - 1,
+    ) -> None:
         self._db_dir = database_dir
         self._file_db = os.path.join(self._db_dir, file_db)
         self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
+        self._assign_ages = assign_ages
+        self.cpus = cpus
+
+    def _do_assign_ages(
+        self, h5_file: str, md_dict: dict, assign_age_df: Union[pd.DataFrame, None]
+    ):
+        # for f in tqdm(h5_files, desc="Indexing files", disable=self._disable_tqdm):
+        with h5py.File(h5_file, "a") as f_h5:
+            with xr.open_dataset(f_h5, engine="h5netcdf") as ds:
+                md_raw = md_dict[ds.dataset]
+                f_irh = ds.IRH.values
+                # Ensures IRH are in the same ordered and fill with Nan values if some missing
+                inconsistent_irhs = md_raw.groupby("IRH")["age"].nunique()
+                if (inconsistent_irhs > 1).any():
+                    raise ValueError(
+                        f"Inconsistent ages for IRHs in {ds.dataset}: {inconsistent_irhs[inconsistent_irhs > 1].index.tolist()}"
+                    )
+                else:
+                    md_raw = md_raw.drop_duplicates(subset="IRH", keep="first")
+                md_raw = md_raw.set_index("IRH").reindex(f_irh, fill_value=np.nan)
+
+                if "IRH ID" in md_raw.columns:
+                    IRH_IDS = md_raw["IRH ID"]
+                    ds = ds.assign_coords(IRH_ID=("IRH", IRH_IDS))
+
+                    if "age" in md_raw:
+                        IRH_AGE = md_raw["age"]
+                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
+                        ds = ds.set_coords("IRH_AGE")
+                    else:
+                        IRH_AGE = np.full(len(ds.IRH_ID), np.nan)
+                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
+                        ds = ds.set_coords("IRH_AGE")
+                    if "age uncertainty" in md_raw:
+                        IRH_AGE_UNC = md_raw["age uncertainty"]
+                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+                    else:
+                        IRH_AGE_UNC = np.full(len(ds.IRH_ID), np.nan)
+                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+
+                    ds = ds.set_coords(["IRH_ID", "IRH_AGE"])
+                    ds = ds.swap_dims({"IRH": "IRH_ID"})
+                    # NOTE: we swap again the dims to keep IRH as
+                    # primary dim. Not sure why we need t swap twice,
+                    # but it was not working without the first swap
+                    ds = ds.swap_dims({"IRH_ID": "IRH"})
+
+                    if assign_age_df is not None:
+                        common_irh_ids = (
+                            pd.merge(
+                                pd.DataFrame(
+                                    {
+                                        "IRH ID": pd.DataFrame(assign_age_df.index)[
+                                            "IRH ID"
+                                        ]
+                                    }
+                                ),
+                                pd.DataFrame({"IRH ID": md_raw["IRH ID"]}),
+                                on="IRH ID",
+                                how="inner",
+                            )["IRH ID"]
+                            .dropna()
+                            .unique()
+                        )
+
+                        for irh_id in common_irh_ids:
+                            assigned_age = assign_age_df.loc[irh_id]
+                            ds["IRH_AGE"] = ds["IRH_AGE"].where(
+                                ds.IRH_ID != irh_id, assigned_age["age"]
+                            )
+
+                else:
+                    if "age" in md_raw:
+                        IRH_AGE = md_raw["age"]
+                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
+                        ds = ds.set_coords("IRH_AGE")
+                    else:
+                        IRH_AGE = np.full(len(ds.IRH_ID), np.nan)
+                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
+                        ds = ds.set_coords("IRH_AGE")
+                    if "age uncertainty" in md_raw:
+                        IRH_AGE_UNC = md_raw["age uncertainty"]
+                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+                    else:
+                        IRH_AGE_UNC = np.full(len(ds.IRH_ID), np.nan)
+                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+
+                ds.to_netcdf(h5_file, engine="h5netcdf", mode="a")
 
     def index_database(self):
         h5_files = []
 
+        if os.path.exists(f"{self._db_dir}/assign_ages.json"):
+            assign_age_df = pd.read_json(f"{self._db_dir}/assign_ages.json")
+            assign_age_df = assign_age_df.set_index("IRH ID")
+        else:
+            assign_age_df = None
+
         dirs = glob.glob(f"{self._db_dir}/*/")
         self._dataset_list = []
+        md_dict = {}
 
         for d in dirs:
+            _, dataset = os.path.split(d.rstrip("/"))
+            md_dict[dataset] = pd.read_json(f"{d}/raw_md.json")
             with open(f"{d}/raw_md.json", "r", encoding="utf-8") as f:
                 unique_data = []
                 seen = set()
@@ -56,8 +164,42 @@ class IndexDatabase:
 
         print(f"\n Found {len(h5_files)} files to index")
 
+        if self._assign_ages:
+            num_tasks = len(h5_files)
+            num_workers = min(num_tasks, self.cpus)
+            print(
+                "\n assign_ages is True:",
+                "will assign ages in",
+                num_tasks,
+                "isochrone files\n" "\n   ",
+                num_workers,
+                "worker(s) allocated out of",
+                cpu_count(),
+                "available cpus\n",
+            )
+
+            partial_process = partial(
+                self._do_assign_ages, md_dict=md_dict, assign_age_df=assign_age_df
+            )
+            if num_workers > 1:
+                with Pool(num_workers) as pool:
+                    for _ in tqdm(
+                        pool.imap_unordered(partial_process, h5_files),
+                        total=num_tasks,
+                        desc="Processing",
+                        unit="file",
+                    ):
+                        pass
+            else:
+                for f in tqdm(h5_files, desc="Processing", unit="file"):
+                    self._do_assign_ages(
+                        h5_file=f, md_dict=md_dict, assign_age_df=assign_age_df
+                    )
+
         if os.path.exists(self._file_db):
             os.remove(self._file_db)
+
+        print("\n Creating the main table...")
 
         conn = sqlite3.connect(self._file_db)
         cursor = conn.cursor()
@@ -204,16 +346,23 @@ class IndexDatabase:
                 PRIMARY KEY (dataset_id, region_id)
                 )
             """)
+        print(" Done.")
+
+        print(
+            "\n Adding",
+            len(h5_files),
+            "files to the table...\n",
+        )
 
         for f in tqdm(h5_files, desc="Indexing files", disable=self._disable_tqdm):
             _, file_name = os.path.split(f)
 
-            with h5py.File(f, "r") as f:
-                flight_id = f.attrs["flight ID"]
+            with h5py.File(f, "r") as ds:
+                flight_id = ds.attrs["flight ID"]
                 if flight_id in ["nan", "none"]:
                     flight_id = None
 
-                institutes = f.attrs["institute"]
+                institutes = ds.attrs["institute"]
                 if isinstance(institutes, str):
                     try:
                         institutes = ast.literal_eval(institutes)
@@ -227,7 +376,7 @@ class IndexDatabase:
                 else:
                     institutes = list(institutes)
 
-                projects = f.attrs["project"]
+                projects = ds.attrs["project"]
                 if isinstance(projects, str):
                     try:
                         projects = ast.literal_eval(projects)
@@ -241,15 +390,15 @@ class IndexDatabase:
                 else:
                     projects = list(projects)
 
-                acq_year = f.attrs["acquisition year"]
+                acq_year = ds.attrs["acquisition year"]
                 if acq_year in ["nan", "none"]:
                     acq_year = None
 
-                dataset = f.attrs["dataset"]
+                dataset = ds.attrs["dataset"]
                 if dataset in ["nan", "none"]:
                     dataset = None
 
-                radar_instruments = f.attrs["radar instrument"]
+                radar_instruments = ds.attrs["radar instrument"]
                 if isinstance(radar_instruments, str):
                     try:
                         radar_instruments = ast.literal_eval(radar_instruments)
@@ -263,18 +412,16 @@ class IndexDatabase:
                 else:
                     radar_instruments = list(radar_instruments)
 
-                ds_vars = list(f.keys())
+                ds_vars = list(ds.keys())
 
                 if "IRH_AGE" in ds_vars:
-                    ages = f["IRH_AGE"][:]
-                    age_uncs = f["IRH_AGE_UNC"][:]
-                    age_uncs = pd.DataFrame({"age": ages, "age_unc": age_uncs})
-                    age_uncs = age_uncs.set_index("age")
+                    ages = ds["IRH_AGE"][:]
+                    age_uncs = ds["IRH_AGE_UNC"][:]
                 else:
                     ages = None
                     age_uncs = None
 
-                basin_mapping = json.loads(f.attrs["IMBIE_basins"])
+                basin_mapping = json.loads(ds.attrs["IMBIE_basins"])
 
             relative_file_path = f"{dataset}/h5/{file_name}"
 
@@ -369,14 +516,14 @@ class IndexDatabase:
 
             # Insert ages and regions
             if ages is not None:
-                for age, age_unc in age_uncs.iterrows():
+                for age, age_unc in zip(ages, age_uncs):
                     cursor.execute(
                         "INSERT OR IGNORE INTO ages (age, age_unc) VALUES (?, ?)",
-                        (str(age), str(age_unc["age_unc"])),
+                        (str(age), str(age_unc)),
                     )
                     age_id = cursor.execute(
                         "SELECT id FROM ages WHERE age = ? AND age_unc = ?",
-                        (str(age), str(age_unc["age_unc"])),
+                        (str(age), str(age_unc)),
                     ).fetchone()[0]
                     cursor.execute(
                         """
@@ -405,3 +552,5 @@ class IndexDatabase:
 
         conn.commit()
         conn.close()
+
+        print("\n Done creating the Database table.")

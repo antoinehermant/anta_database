@@ -749,7 +749,7 @@ class Plotting:
                     ds["IRH_DEPTH"] = ds.SURF_ELEV - ds.IRH_DEPTH
 
                 elif "ICE_THK" in ds.variables and "BED_ELEV" in ds.variables:
-                    ds["SURF_ELEV"] = (ds.ICE_THK + ds.BED_ELEV) - ds.IRH_DEPTH
+                    ds["SURF_ELEV"] = ds.ICE_THK + ds.BED_ELEV
                     ds["IRH_DEPTH"] = ds.SURF_ELEV - ds.IRH_DEPTH
                 else:
                     print(
@@ -829,9 +829,9 @@ class Plotting:
                 ylim = (ds.ICE_THK.max() + 200, 0) if ylim == (None, None) else ylim
 
             if ncol == None:
-                if ds.sizes["IRH_AGE"] > 7:
+                if ds.sizes["IRH"] > 7:
                     ncol = 2
-                if ds.sizes["IRH_AGE"] > 15:
+                if ds.sizes["IRH"] > 15:
                     ncol = 3
 
         elif color_by == "flight_id":
