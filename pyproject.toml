@@ -7,8 +7,7 @@ name = "anta_database"
 dynamic = ["version"]
 description= "SQLite database for the AntArchitecture Community Data"
 authors = [
-    {name = "Antoine Hermant"},
-    {email = "antoine.hermant@etik.com"},
+    {name = "Antoine Hermant", email = "antoine.hermant@etik.com"},
 ]
 readme = "README.md"
 license = "MIT"

@@ -1,4 +1,3 @@
-from jupyter_lsp.specs import md
 from multiprocessing import Pool, cpu_count
 from functools import partial
 import os
