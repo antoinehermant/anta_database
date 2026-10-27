@@ -13,23 +13,18 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 
+# Core: querying, indexing and plotting the database
 dependencies = [
+  "numpy",
   "pandas",
-  "geopandas",
-  "fastparquet",
-  "shapely",
   "pyarrow",
   "xarray",
-  "netcdf4",
   "h5netcdf",
   "h5py",
-  "pyproj",
-  "scipy",
   "matplotlib",
   "colormaps",
   "tqdm",
   "pyshp",
-  "zarr",
 ]
 
 keywords = ["isochrones", "database", "IRH", "radar"]
@@ -41,6 +36,25 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Physics",
 
   "Programming Language :: Python",
+]
+
+[project.optional-dependencies]
+# Compiling the database from the raw data
+compile = [
+  "geopandas",
+  "shapely",
+  "pyproj",
+  "scipy",
+  "netcdf4",
+  "zarr",
+]
+# Plotting comparisons with PISM outputs
+pism = [
+  "scipy",
+  "netcdf4",
+]
+all = [
+  "anta_database[compile,pism]",
 ]
 
 [project.urls]

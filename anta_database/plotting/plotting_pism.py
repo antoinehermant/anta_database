@@ -3,7 +3,14 @@ import h5py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
+
+try:
+    from scipy.interpolate import griddata
+except ImportError as e:
+    raise ImportError(
+        f"{e}. PISM plotting needs optional dependencies, "
+        "install them with: pip install \"anta_database[pism]\""
+    ) from e
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
 import shapefile

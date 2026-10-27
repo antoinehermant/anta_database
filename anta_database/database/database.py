@@ -8,7 +8,6 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
-from anta_database.plotting.plotting_pism import PISMPlotting
 from anta_database.indexing.index_database import IndexDatabase
 
 
@@ -1001,6 +1000,9 @@ class Database:
     @property
     def plot_PISM(self):
         if self._pism_plotting is None:
+            # Imported here as it needs the optional "pism" dependencies
+            from anta_database.plotting.plotting_pism import PISMPlotting
+
             self._pism_plotting = PISMPlotting(self)
         return self._pism_plotting
 

@@ -40,6 +40,13 @@ Each dataset contains (when available):
 pip install anta_database
 ```
 
+This installs what is needed to query and plot the database. Optional extras:
+```bash
+pip install "anta_database[compile]"  # compile the database from raw data
+pip install "anta_database[pism]"     # plot comparisons with PISM outputs
+pip install "anta_database[all]"      # everything
+```
+
 For the latest development version:
 ```bash
 pip install git+https://github.com/antoinehermant/anta_database.git
