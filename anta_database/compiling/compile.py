@@ -51,8 +51,10 @@ class CompileDatabase:
         self._geopackages = geopackages
         self._break_transects = break_transects
         self._remove_tmp_files = remove_tmp_files
-        imbie_path = files("anta_database.data").joinpath("ANT_Basins_IMBIE2_v1.6.shp")
-        self._basins = gpd.read_file(imbie_path)
+        imbie_path = files("anta_database.data").joinpath(
+            "ANT_Basins_IMBIE2_v1.6.parquet"
+        )
+        self._basins = gpd.read_parquet(imbie_path)
         self._var_list = ["ICE_THK", "BED_ELEV", "SURF_ELEV", "BASAL_UNIT"]
         self._var_attrs_json = var_attrs_json
 
