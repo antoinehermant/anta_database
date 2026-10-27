@@ -7,6 +7,8 @@ The query, indexing and plotting tools only need the core dependencies.
 Compiling and PISM plotting need optional extras and are imported lazily:
     pip install "anta_database[compile]"
     pip install "anta_database[pism]"
+
+Download or update the published database with anta_database.sync().
 """
 
 from typing import TYPE_CHECKING
@@ -19,6 +21,9 @@ from anta_database.indexing.index_database import IndexDatabase
 
 # Plotting modules
 from anta_database.plotting.plotting import Plotting
+
+# Downloading and updating the published database
+from anta_database.cloud.sync import sync
 
 if TYPE_CHECKING:
     from anta_database.compiling.zarr_converter_simple import FlightLineZarrConverter
@@ -58,4 +63,6 @@ __all__ = [
     # Plotting functions
     "Plotting",
     "PISMPlotting",
+    # Cloud functions
+    "sync",
 ]

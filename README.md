@@ -52,12 +52,24 @@ For the latest development version:
 pip install git+https://github.com/antoinehermant/anta_database.git
 ```
 
+## Downloading the data
+
+Download the database, or update it to the latest published version (only new or changed files are downloaded):
+```python
+from anta_database import sync
+sync()                            # default local directory
+sync("/path/to/AntADatabase/")    # or a directory of your choice
+```
+or from the command line: `anta-sync --dir /path/to/AntADatabase/`. From an existing `Database`, use `db.sync()`, or `Database(sync=True)` to always sync when loading.
+
+When loading a synced database, `Database` tells you if a newer version is published (disable with `check_updates=False`). Updates are never downloaded without you asking, so your results only change when you decide to sync.
+
 ## Quick Start
 
 ```python
 from anta_database import Database
 
-# Initialize database (contact maintainer for data access)
+# Initialize database (without a path, uses the directory of sync())
 db = Database("/path/to/AntADatabase/")
 
 # Query data by various criteria

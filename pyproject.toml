@@ -52,9 +52,17 @@ pism = [
   "scipy",
   "netcdf4",
 ]
-all = [
-  "anta_database[compile,pism]",
+# Publishing the database to the cloud bucket (maintainers)
+publish = [
+  "boto3>=1.36",
 ]
+all = [
+  "anta_database[compile,pism,publish]",
+]
+
+[project.scripts]
+anta-sync = "anta_database.cloud.sync:main"
+anta-publish = "anta_database.cloud.publish:main"
 
 [project.urls]
 Homepage = "https://antoinehermant.github.io/anta_database/intro"

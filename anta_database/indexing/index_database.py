@@ -195,12 +195,14 @@ class IndexDatabase:
                         h5_file=f, md_dict=md_dict, assign_age_df=assign_age_df
                     )
 
-        if os.path.exists(self._file_db):
-            os.remove(self._file_db)
+        # Build into a temporary file, so a failure never leaves a broken or missing database
+        tmp_db = f"{self._file_db}.tmp"
+        if os.path.exists(tmp_db):
+            os.remove(tmp_db)
 
         print("\n Creating the main table...")
 
-        conn = sqlite3.connect(self._file_db)
+        conn = sqlite3.connect(tmp_db)
         cursor = conn.cursor()
         # Create a table for original reference to datasets
         cursor.execute("""
@@ -551,5 +553,6 @@ class IndexDatabase:
 
         conn.commit()
         conn.close()
+        os.replace(tmp_db, self._file_db)
 
         print("\n Done creating the Database table.")

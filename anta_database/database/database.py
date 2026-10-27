@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -9,17 +10,35 @@ from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
 from anta_database.indexing.index_database import IndexDatabase
+from anta_database.cloud.sync import (
+    check_for_update,
+    default_database_dir,
+    local_version,
+    remote_info,
+    sync as _sync,
+)
 
 
 class Database:
     def __init__(
         self,
-        database_dir: str,
+        database_dir: Optional[str] = None,
         file_db: str = "AntADatabase.db",
         index_database: bool = False,
         include_BEDMAP: bool = False,
         max_displayed_flight_ids: Optional[int] = 50,
+        sync: bool = False,
+        check_updates: bool = True,
     ) -> None:
+        """
+        Args:
+            database_dir: Local database directory. Defaults to the directory used by sync().
+            sync: Download or update the published database before loading it.
+            check_updates: Tell if a newer published version is available (fetches only the
+                small manifest, silent when offline). Only for databases downloaded with sync().
+        """
+        # Default to the directory used by sync()
+        database_dir = database_dir or default_database_dir()
         self._db_dir = database_dir
         self._file_db = file_db
         self._file_db_path = os.path.join(self._db_dir, file_db)
@@ -43,24 +62,51 @@ class Database:
             "radar_instrument": [],
         }
 
+        if sync:
+            try:
+                self.sync()
+            except ConnectionError as e:
+                print(f"WARNING: could not sync the AntADatabase, using the local copy. {e}")
         if index_database:
             indexing = IndexDatabase(self._db_dir)
             indexing.index_database()
-        if not os.path.exists(database_dir):
-            print("WARNING: AntADatabase not found. Try a different path.")
+
+        if not os.path.isfile(self._file_db_path):
+            remote = remote_info()
+            size = f" ({remote['size'] / 1e6:.0f} MB)" if remote else ""
+            print(
+                f"No AntADatabase found in {database_dir}. "
+                f"Download it with db.sync(){size}, or check the path."
+            )
             if not os.path.isabs(database_dir):
                 print(
                     f"Note: '{database_dir}' is a relative path. Try absolute path to AntADatabase"
                 )
             return
-        elif not os.path.exists(f"{database_dir}/{file_db}"):
-            print(
-                f"WARNING: {file_db} not found in {database_dir}. Check if the AntADatabase is complete."
+
+        version = local_version(database_dir)
+        print(f"AntADatabase {version} successfully initiated" if version else "AntADatabase successfully initiated")
+        if check_updates and not sync:
+            newer = check_for_update(database_dir)
+            if newer:
+                print(f"A new version of the AntADatabase is available ({newer}): run db.sync() to update.")
+
+    def _connect(self) -> sqlite3.Connection:
+        """Open the database read-only, so a wrong path never creates an empty database."""
+        if not os.path.isfile(self._file_db_path):
+            raise FileNotFoundError(
+                f"{self._file_db} not found in {self._db_dir}. "
+                "Download the AntADatabase with db.sync() or check the path."
             )
-            return
-        elif os.path.exists(f"{database_dir}/{file_db}"):
-            print(f"AntADatabase successfully initiated")
-            return
+        uri = Path(self._file_db_path).resolve().as_uri() + "?mode=ro"
+        return sqlite3.connect(uri, uri=True)
+
+    def sync(self, url: Optional[str] = None, dry_run: bool = False) -> Dict:
+        """
+        Download the published AntADatabase into this database directory, or update it.
+        Only new or changed files are downloaded. See anta_database.cloud.sync.
+        """
+        return _sync(self._db_dir, url=url, dry_run=dry_run)
 
     def _build_query_and_params(
         self,
@@ -559,7 +605,7 @@ class Database:
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        conn = sqlite3.connect(self._file_db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -637,7 +683,7 @@ class Database:
             select_clause,
         )
 
-        conn = sqlite3.connect(self._file_db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -839,7 +885,7 @@ class Database:
             select_clause,
         )
 
-        conn = sqlite3.connect(self._file_db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(query, params)
         file_paths = [row[0] for row in cursor.fetchall()]
