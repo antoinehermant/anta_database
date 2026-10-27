@@ -46,7 +46,6 @@ class Database:
         self._pism_plotting = None
         self._max_displayed_flight_ids = max_displayed_flight_ids
         self._include_BM = include_BEDMAP
-        self._include_BM = index_database
         self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
         self._excluded = {
             "dataset": [],
