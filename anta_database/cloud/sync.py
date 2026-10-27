@@ -80,13 +80,14 @@ def local_version(database_dir: str) -> Optional[str]:
 
 
 def remote_info(url: Optional[str] = None, timeout: float = 3) -> Optional[Dict]:
-    """Version and total size of the published database, or None if unreachable."""
+    """Version, publication date and total size of the published database, or None if unreachable."""
     try:
         manifest = _fetch_manifest((url or default_url()).rstrip("/"), timeout=timeout)
     except Exception:
         return None
     return {
         "db_version": manifest.get("db_version"),
+        "published": (manifest.get("created") or "")[:10],
         "size": sum(entry["size"] for entry in manifest["files"].values()),
     }
 

@@ -11,7 +11,6 @@ from tqdm import tqdm
 from anta_database.plotting.plotting import Plotting
 from anta_database.indexing.index_database import IndexDatabase
 from anta_database.cloud.sync import (
-    check_for_update,
     default_database_dir,
     local_version,
     remote_info,
@@ -86,10 +85,21 @@ class Database:
 
         version = local_version(database_dir)
         print(f"AntADatabase {version} successfully initiated" if version else "AntADatabase successfully initiated")
-        if check_updates and not sync:
-            newer = check_for_update(database_dir)
-            if newer:
-                print(f"A new version of the AntADatabase is available ({newer}): run db.sync() to update.")
+        # Only databases downloaded with sync() have a published version to compare with
+        if check_updates and version:
+            remote = remote_info()
+            if remote is None:
+                print("Could not check for AntADatabase updates (offline?).")
+            elif remote["db_version"] == version:
+                print(
+                    f"AntADatabase is up to date (latest version {version}, "
+                    f"published {remote['published']})."
+                )
+            else:
+                print(
+                    f"A new version of the AntADatabase is available ({remote['db_version']}, "
+                    f"published {remote['published']}): run db.sync() to update."
+                )
 
     def _connect(self) -> sqlite3.Connection:
         """Open the database read-only, so a wrong path never creates an empty database."""
