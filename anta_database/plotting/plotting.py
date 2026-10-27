@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import BoundaryNorm, ListedColormap, LinearSegmentedColormap
-import shapefile
+import shapely
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patheffects as path_effects
@@ -27,10 +27,10 @@ class Plotting:
             "site-coords.parquet"
         )
         self._imbie_path = files("anta_database.data").joinpath(
-            "ANT_Basins_IMBIE2_v1.6.shp"
+            "ANT_Basins_IMBIE2_v1.6.parquet"
         )
         self._center_coords = files("anta_database.data").joinpath(
-            "centeroid_coords_basins.shp"
+            "centeroid_coords_basins.parquet"
         )
         self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
 
@@ -978,27 +978,18 @@ class Plotting:
 
         # --- Plot IMBIE basins ---
         if basins and color_by != "stratigraphy":
-            sf_basins = shapefile.Reader(self._imbie_path)
-            basin_patches = []
-
-            for shape_rec in sf_basins.shapeRecords():
-                shp = shape_rec.shape
-                pts = shp.points
-                parts = list(shp.parts) + [len(pts)]  # add sentinel end index
-
-                # build one polygon per part
-                for i in range(len(parts) - 1):
-                    start, end = parts[i], parts[i + 1]
-                    ring = pts[start:end]
-
-                    # scale coordinates
-                    scaled = [(x * 0.001, y * 0.001) for x, y in ring]
-
-                    poly = Polygon(scaled, closed=True, fill=False)
-                    basin_patches.append(poly)
+            basins_df = pd.read_parquet(self._imbie_path)
+            basin_rings = []
+            for geom in shapely.from_wkb(basins_df["geometry"]):
+                # MultiPolygons (e.g. Islands) are split into their polygons
+                polygons = geom.geoms if hasattr(geom, "geoms") else [geom]
+                for polygon in polygons:
+                    for ring in [polygon.exterior, *polygon.interiors]:
+                        # scale coordinates
+                        basin_rings.append(np.asarray(ring.coords)[:, :2] * 0.001)
 
             pc = PatchCollection(
-                basin_patches,
+                [Polygon(ring, closed=True, fill=False) for ring in basin_rings],
                 facecolor="none",
                 edgecolor="black",
                 linewidth=0.5,
@@ -1006,19 +997,14 @@ class Plotting:
             ax.add_collection(pc)
 
             # ---- CENTERS: read + scale + label ----
-            sf_centers = shapefile.Reader(self._center_coords)
+            centers_df = pd.read_parquet(self._center_coords)
+            centers = shapely.from_wkb(centers_df["geometry"])
 
-            # find the field index for "Subregion" in the DBF
-            fields = sf_centers.fields[1:]  # first is DeletionFlag
-            field_names = [f[0] for f in fields]
-            sub_idx = field_names.index("Subregion")
-
-            for shape_rec in sf_centers.shapeRecords():
-                # assuming center_coords are points
-                x_raw, y_raw = shape_rec.shape.points[0]
-                x = x_raw * 0.001
-                y = y_raw * 0.001
-                sub = shape_rec.record[sub_idx]
+            for point, sub in zip(centers, centers_df["Subregion"]):
+                if pd.isna(sub):
+                    continue
+                x = point.x * 0.001
+                y = point.y * 0.001
 
                 if x0 <= x <= x1 and y0 <= y <= y1:
                     ax.text(
@@ -1035,21 +1021,8 @@ class Plotting:
                         ],
                     )
 
-            inset_basin_patches = []
-            for shape_rec in sf_basins.shapeRecords():
-                shp = shape_rec.shape
-                pts = shp.points
-                parts = list(shp.parts) + [len(pts)]
-
-                for i in range(len(parts) - 1):
-                    start, end = parts[i], parts[i + 1]
-                    ring = pts[start:end]
-                    scaled = [(x * 0.001, y * 0.001) for x, y in ring]
-                    poly = Polygon(scaled, closed=True, fill=True)
-                    inset_basin_patches.append(poly)
-
             pc = PatchCollection(
-                inset_basin_patches,
+                [Polygon(ring, closed=True, fill=True) for ring in basin_rings],
                 facecolor="white",
                 edgecolor="black",
                 linewidth=0.5,
