@@ -9,10 +9,10 @@ If you encounter any issues or have questions about the anta_database package:
 
 ## Data Access
 
-**Important**: The AntADatabase dataset is not publicly hosted. To access the compiled dataset:
+The AntADatabase dataset is free to download with the `anta_database` package:
 
-- You can compile your own data using the `anta_database` package (see [Advanced](advanced) section)
-- Contact antoine.hermant@unibe.ch to request access to the pre-compiled dataset
+- Download it and keep it up to date with `db.sync()` or `anta-sync` (see the [Quick Start](quick_start) guide)
+- You can also compile your own data using the `anta_database` package (see [Advanced](advanced) section)
 
 ## Contributing
 

@@ -69,8 +69,8 @@ When loading a synced database, `Database` tells you if a newer version is publi
 ```python
 from anta_database import Database
 
-# Initialize database (without a path, uses the directory of sync())
-db = Database("/path/to/AntADatabase/")
+# Load the database (without a path, uses the default directory of sync())
+db = Database()
 
 # Query data by various criteria
 db.query(dataset="Cavitte_2020", age=10000)
@@ -85,7 +85,7 @@ Full documentation and examples are available on the [Home Page](https://antoine
 
 ## Data Access
 
-The database files are not publicly hosted. Please contact [antoine.hermant@unibe.ch](mailto:antoine.hermant@unibe.ch) to request access to the data.
+The AntADatabase is free to download with `sync()` (see [Downloading the data](#downloading-the-data)). Any data used must be cited at source using the DOIs provided in the metadata.
 
 ## Support
 
