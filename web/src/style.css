@@ -1,0 +1,35 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1320;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#loading {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #d8e2ef;
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+#attribution {
+  position: fixed;
+  right: 8px;
+  bottom: 6px;
+  color: #9fb0c4;
+  font-size: 0.75rem;
+}
+
+#attribution a {
+  color: #c8d6e8;
+}
