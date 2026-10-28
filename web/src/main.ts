@@ -20,8 +20,11 @@ import {
 import { ageGradientCss, Isochrones, type Feature } from "./irh";
 import { PivotField } from "./pivot";
 
-const DATA_URL = `${import.meta.env.BASE_URL}data/terrain`;
-const IRH_URL = `${import.meta.env.BASE_URL}data/irh`;
+// Data exported by anta_database.web: served with the app in development
+// (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
+const DATA_ROOT = (import.meta.env.VITE_DATA_URL || `${import.meta.env.BASE_URL}data`).replace(/\/$/, "");
+const DATA_URL = `${DATA_ROOT}/terrain`;
+const IRH_URL = `${DATA_ROOT}/irh`;
 // Resolution of the quick preview, then of the shading texture
 const PREVIEW = "8km";
 const DETAIL = "2km";

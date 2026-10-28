@@ -1,12 +1,23 @@
-name: Deploy Jupyter Book to GitHub Pages
+name: Deploy Jupyter Book and 3D viewer to GitHub Pages
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'book/**' # Only trigger if changes are in the book/ folder
+      - 'book/**' # Only trigger if changes are in the book/ or web/ folders
+      - 'web/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+
+# Never run two deployments at the same time
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Exported viewer data (python -m anta_database.web.terrain / .irh), in the public bucket
+  VIEWER_DATA_URL: https://s3.pub1.infomaniak.cloud/object/v1/AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase/web
 
 jobs:
   deploy:
@@ -31,7 +42,24 @@ jobs:
         run: |
           jupyter-book build book/
 
-      # Upload the book's HTML as an artifact
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The viewer is served at <docs site>/viewer/, with its data from the bucket
+      - name: Build 3D viewer
+        working-directory: web
+        env:
+          VITE_DATA_URL: ${{ env.VIEWER_DATA_URL }}
+        run: |
+          npm ci
+          npm run build -- --base=/anta_database/viewer/
+          cp -r dist ../book/_build/html/viewer
+
+      # Upload the book's HTML, with the viewer, as an artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
