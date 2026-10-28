@@ -25,15 +25,16 @@
       const dark = theme === "Dark" || (theme !== "Light" && matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
     </script>
-    <script type="module" crossorigin src="/anta_database/viewer/assets/index-CEEwlKi-.js"></script>
-    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/index-GBZB048h.css">
+    <script type="module" crossorigin src="/anta_database/viewer/assets/viewer-BZl9okCB.js"></script>
+    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/modulepreload-polyfill-P2Xu9kJm.js">
+    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/viewer-c37kXZQN.css">
   </head>
   <body>
     <div id="app"></div>
     <aside id="sidebar">
       <header>
         <h1>AntADatabase</h1>
-        <p>Radar isochrones of Antarctica in 3D</p>
+        <p>Radar isochrones of Antarctica in 3D · <a href="download/">Download the data</a></p>
       </header>
       <div id="gui"></div>
       <button id="sidebar-toggle" type="button" aria-label="Hide the menu" title="Hide the menu">
