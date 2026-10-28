@@ -137,24 +137,34 @@ def package_version() -> Optional[str]:
         return None
 
 
-def _release(version: str) -> tuple:
-    """(major, minor, patch, ...) of a version string, ignoring dev/local parts."""
-    parts = []
-    for part in version.split("+")[0].split("."):
-        digits = re.match(r"\d+", part)
-        if digits is None:
-            break
-        parts.append(int(digits.group()))
-        if digits.group() != part:
-            break
-    return tuple(parts)
+def _version_key(version: str) -> tuple:
+    """
+    Sortable key of a version string, enough for comparing package versions:
+    "0.5.1.dev10" < "0.5.1rc1" < "0.5.1" == "0.5.1.0" < "0.5.1.post1".
+    """
+    match = re.match(r"v?(\d+(?:\.\d+)*)(.*)", version.split("+")[0].strip().lower())
+    if match is None:
+        return ((0,), 0)
+    release = [int(n) for n in match.group(1).split(".")]
+    while len(release) > 1 and release[-1] == 0:
+        release.pop()
+    suffix = match.group(2)
+    if "dev" in suffix:
+        stage = 0
+    elif re.match(r"[.\-_]?(a|b|c|rc|alpha|beta|pre|preview)\d*", suffix):
+        stage = 1
+    elif "post" in suffix:
+        stage = 3
+    else:
+        stage = 2
+    return (tuple(release), stage)
 
 
 def package_update_warning(manifest: Dict) -> Optional[str]:
     """Warning if the installed package is older than the manifest's min_package_version."""
     required = manifest.get("min_package_version")
     installed = package_version()
-    if not required or not installed or _release(installed) >= _release(required):
+    if not required or not installed or _version_key(installed) >= _version_key(required):
         return None
     return (
         f"WARNING: this AntADatabase version ({manifest.get('db_version')}) works best with "
