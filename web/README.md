@@ -27,11 +27,14 @@ Static web app (Vite + TypeScript + three.js) showing Antarctica in 3D.
 
 ## Deployment
 
-The app is deployed with the docs, at https://antoinehermant.github.io/anta_database/viewer/, by
-`.github/workflows/deploy.yml` on every push to `main` that changes `web/`. Its data is read from the
-public bucket (`VIEWER_DATA_URL` in the workflow), not from GitHub.
+The app is published with the docs, at https://antoinehermant.github.io/anta_database/viewer/.
+`./publish_site.sh` (at the root of the repo) builds the Jupyter Book and the viewer, puts the viewer
+in `viewer/` of the docs, and pushes everything to the `gh-pages` branch with `ghp-import`
+(`--no-push` to only build). Online, the viewer reads its data from the public bucket
+(`VIEWER_DATA_URL` in the script), not from GitHub.
 
-After re-exporting the data, upload it to the bucket (with the `infomaniak` AWS profile):
+After re-exporting the data, upload it to the bucket (with the `infomaniak` AWS profile); the
+site does not need to be republished:
 ```bash
 aws --endpoint-url=https://s3.pub1.infomaniak.cloud s3 sync web/public/data s3://antadatabase/web/
 ```
