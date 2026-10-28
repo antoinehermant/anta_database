@@ -14,8 +14,10 @@ import {
   terrainMaterial,
   type TerrainMeta,
 } from "./terrain";
+import { ageGradientCss, Isochrones, type Feature } from "./irh";
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/terrain`;
+const IRH_URL = `${import.meta.env.BASE_URL}data/irh`;
 // Resolutions (km) of the quick preview, then of the final mesh and shading texture
 const PREVIEW = { mesh: "8km", texture: "8km" };
 const DETAIL = { mesh: "4km", texture: "2km" };
@@ -86,11 +88,20 @@ let needsRender = true;
 function requestRender(): void {
   needsRender = true;
 }
-controls.addEventListener("change", requestRender);
+// Hover waits until the view has been still for a moment
+let lastViewChange = 0;
+controls.addEventListener("change", () => {
+  lastViewChange = performance.now();
+  isochrones.invalidate();
+  pointerMoved = true;
+  requestRender();
+});
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  isochrones.setResolution(window.innerWidth, window.innerHeight);
+  isochrones.invalidate();
   requestRender();
 });
 
@@ -99,6 +110,7 @@ if (import.meta.env.DEV) document.body.appendChild(stats.dom);
 
 renderer.setAnimationLoop(() => {
   controls.update();
+  updateHover();
   if (!needsRender) return;
   needsRender = false;
   renderer.render(scene, camera);
@@ -116,7 +128,7 @@ const surface = new THREE.Mesh(
   terrainMaterial(shared, {
     color: new THREE.Color("#f4f8fc"),
     shelfColor: new THREE.Color("#bcd8ee"),
-    opacity: 0.75,
+    opacity: 0.5,
   }),
 );
 for (const mesh of [bed, surface]) {
@@ -126,6 +138,89 @@ for (const mesh of [bed, surface]) {
 }
 // The transparent surface is drawn after everything opaque underneath it
 surface.renderOrder = 1;
+
+// Isochrones
+const isochrones = new Isochrones();
+isochrones.setResolution(window.innerWidth, window.innerHeight);
+isochrones.setExaggeration(shared.exaggeration.value);
+scene.add(isochrones.group);
+
+// Hover: find the line under the cursor at most once per frame, not while dragging
+const tooltip = document.getElementById("tooltip")!;
+let pointer: { x: number; y: number } | null = null;
+let pointerMoved = false;
+let hovered: number | null = null;
+
+renderer.domElement.addEventListener("pointermove", (event) => {
+  pointer = event.buttons ? null : { x: event.offsetX, y: event.offsetY };
+  pointerMoved = true;
+});
+renderer.domElement.addEventListener("pointerleave", () => {
+  pointer = null;
+  pointerMoved = true;
+});
+
+function formatAge(f: Feature): string {
+  if (f.age_ka === null) return "not assigned";
+  return f.age_unc_ka === null ? `${f.age_ka} ka` : `${f.age_ka} ± ${f.age_unc_ka} ka`;
+}
+
+function showTooltip(f: Feature, x: number, y: number): void {
+  const rows: [string, string][] = [
+    ["Age", formatAge(f)],
+    ["Flight ID", f.flight_id],
+    ["IRH", String(f.irh)],
+  ];
+  tooltip.replaceChildren();
+  const title = document.createElement("div");
+  title.className = "title";
+  title.textContent = f.citation ?? f.dataset;
+  tooltip.append(title);
+  for (const [key, value] of rows) {
+    const row = document.createElement("div");
+    const k = document.createElement("span");
+    k.className = "key";
+    k.textContent = `${key}: `;
+    row.append(k, value);
+    tooltip.append(row);
+  }
+  if (f.surface !== "SURF_ELEV") {
+    const note = document.createElement("div");
+    note.className = "note";
+    note.textContent = `Elevation from depth and the ${f.surface} surface`;
+    tooltip.append(note);
+  }
+  // Keep the tooltip inside the window
+  const left = Math.min(x + 16, window.innerWidth - tooltip.offsetWidth - 8);
+  const top = y + 16 + tooltip.offsetHeight > window.innerHeight ? y - tooltip.offsetHeight - 12 : y + 16;
+  tooltip.style.transform = `translate(${left}px, ${top}px)`;
+  tooltip.style.visibility = "visible";
+}
+
+function updateHover(): void {
+  if (!pointerMoved) return;
+  const moving = performance.now() - lastViewChange < 150;
+  if (moving && pointer) {
+    tooltip.style.visibility = "hidden";
+    return;
+  }
+  pointerMoved = false;
+  const canvas = renderer.domElement;
+  const feature = pointer
+    ? isochrones.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight)
+    : null;
+  if (feature === null || !pointer) {
+    tooltip.style.visibility = "hidden";
+  } else {
+    showTooltip(isochrones.features[feature], pointer.x, pointer.y);
+  }
+  if (feature !== hovered) {
+    hovered = feature;
+    isochrones.setHighlight(feature);
+    renderer.domElement.style.cursor = feature === null ? "" : "pointer";
+    requestRender();
+  }
+}
 
 let maskTexture: THREE.DataTexture | null = null;
 
@@ -156,7 +251,9 @@ const settings = {
   exaggeration: shared.exaggeration.value as number,
   bed: true,
   surface: true,
-  surfaceOpacity: 0.75,
+  surfaceOpacity: 0.5,
+  isochrones: true,
+  lineWidth: 2.5,
   lightAzimuth: 315, // degrees clockwise from grid north (+y)
   lightElevation: 40,
   resetView,
@@ -176,6 +273,8 @@ gui
   .name("Vertical exaggeration")
   .onChange((v: number) => {
     shared.exaggeration.value = v;
+    isochrones.setExaggeration(v);
+    pointerMoved = true;
     requestRender();
   });
 const layers = gui.addFolder("Layers");
@@ -200,6 +299,21 @@ layers
     surface.material.uniforms.opacity.value = v;
     requestRender();
   });
+layers
+  .add(settings, "isochrones")
+  .name("Isochrones")
+  .onChange((v: boolean) => {
+    isochrones.group.visible = v;
+    pointerMoved = true;
+    requestRender();
+  });
+layers
+  .add(settings, "lineWidth", 1, 8, 0.5)
+  .name("Line width")
+  .onChange((v: number) => {
+    isochrones.setLineWidth(v);
+    requestRender();
+  });
 const light = gui.addFolder("Light");
 light.add(settings, "lightAzimuth", 0, 360, 1).name("Azimuth").onChange(updateLight);
 light.add(settings, "lightElevation", 5, 90, 1).name("Elevation").onChange(updateLight);
@@ -221,3 +335,14 @@ loadMeta(DATA_URL)
     loading.textContent = String(error.message ?? error);
     console.error(error);
   });
+
+isochrones
+  .load(IRH_URL)
+  .then(() => {
+    const legend = document.getElementById("legend")!;
+    legend.querySelector<HTMLElement>(".bar")!.style.background = ageGradientCss();
+    legend.querySelector(".max")!.textContent = `${isochrones.maxAgeKa} ka`;
+    legend.style.visibility = "visible";
+    requestRender();
+  })
+  .catch((error) => console.error(error));

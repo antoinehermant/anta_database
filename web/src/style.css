@@ -33,3 +33,59 @@ body {
 #attribution a {
   color: #c8d6e8;
 }
+
+#tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(15, 22, 34, 0.92);
+  color: #e6edf5;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+#tooltip .title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+#tooltip .key {
+  color: #9fb0c4;
+}
+
+#tooltip .note {
+  margin-top: 4px;
+  color: #9fb0c4;
+  font-size: 0.75rem;
+}
+
+#legend {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  width: 200px;
+  visibility: hidden;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(15, 22, 34, 0.8);
+  color: #d8e2ef;
+  font-size: 0.8rem;
+}
+
+#legend .bar {
+  height: 10px;
+  margin: 4px 0 2px;
+  border-radius: 2px;
+}
+
+#legend .labels {
+  display: flex;
+  justify-content: space-between;
+  color: #9fb0c4;
+}

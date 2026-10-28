@@ -46,7 +46,7 @@ export function gridOf(level: Level): Grid {
   return { nx: level.nx, ny: level.ny, dx: level.dx / 1000, x0: level.x0 / 1000, y0: level.y0 / 1000 };
 }
 
-async function fetchBytes(url: string): Promise<ArrayBuffer> {
+export async function fetchBytes(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
   const buffer = await response.arrayBuffer();
