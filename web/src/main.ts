@@ -6,12 +6,15 @@ import {
   colormapTexture,
   gridGeometry,
   gridOf,
+  gridPositions,
   loadHeightTexture,
   loadMaskTexture,
   loadMeta,
   setLayerTextures,
   sharedUniforms,
   terrainMaterial,
+  verticesNearData,
+  type Grid,
   type TerrainMeta,
 } from "./terrain";
 import { ageGradientCss, Isochrones, type Feature } from "./irh";
@@ -19,9 +22,11 @@ import { PivotField } from "./pivot";
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/terrain`;
 const IRH_URL = `${import.meta.env.BASE_URL}data/irh`;
-// Resolutions (km) of the quick preview, then of the final mesh and shading texture
-const PREVIEW = { mesh: "8km", texture: "8km" };
-const DETAIL = { mesh: "4km", texture: "2km" };
+// Resolution of the quick preview, then of the shading texture
+const PREVIEW = "8km";
+const DETAIL = "2km";
+// Mesh resolution of each quality setting; the shading is always from the texture
+const QUALITY: Record<string, string> = { Fast: "8km", Detailed: "4km" };
 
 const BED_COLORS: [number, string][] = [
   [-7000, "#071a3d"],
@@ -39,7 +44,10 @@ const BED_COLORS: [number, string][] = [
 // Renderer, scene, camera
 const container = document.getElementById("app")!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Full resolution when still, lower while the view moves
+const FULL_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
+const MOVING_PIXEL_RATIO = Math.max(0.75, FULL_PIXEL_RATIO / 2);
+renderer.setPixelRatio(FULL_PIXEL_RATIO);
 renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
@@ -102,12 +110,13 @@ let needsRender = true;
 function requestRender(): void {
   needsRender = true;
 }
-// Hover waits until the view has been still for a moment
+// Hover waits until the view has been still for a moment, and only runs
+// again when the mouse moves
 let lastViewChange = 0;
 controls.addEventListener("change", () => {
   lastViewChange = performance.now();
   isochrones.invalidate();
-  pointerMoved = true;
+  clearHover();
   requestRender();
 });
 window.addEventListener("resize", () => {
@@ -125,6 +134,12 @@ if (import.meta.env.DEV) document.body.appendChild(stats.dom);
 renderer.setAnimationLoop(() => {
   controls.update();
   updateHover();
+  const moving = performance.now() - lastViewChange < 200;
+  const ratio = moving && settings.lowResWhileMoving ? MOVING_PIXEL_RATIO : FULL_PIXEL_RATIO;
+  if (renderer.getPixelRatio() !== ratio) {
+    renderer.setPixelRatio(ratio);
+    needsRender = true;
+  }
   if (!needsRender) return;
   needsRender = false;
   renderer.render(scene, camera);
@@ -211,6 +226,14 @@ function showTooltip(f: Feature, x: number, y: number): void {
   tooltip.style.visibility = "visible";
 }
 
+function clearHover(): void {
+  tooltip.style.visibility = "hidden";
+  if (hovered === null) return;
+  hovered = null;
+  isochrones.setHighlight(null);
+  renderer.domElement.style.cursor = "";
+}
+
 function updateHover(): void {
   if (!pointerMoved) return;
   const moving = performance.now() - lastViewChange < 150;
@@ -237,9 +260,13 @@ function updateHover(): void {
 }
 
 let maskTexture: THREE.DataTexture | null = null;
+// Grid and data coverage of the current height textures, to rebuild the meshes
+let textureGrid: Grid | null = null;
+let coverage: { bed: Uint8Array; surface: Uint8Array } | null = null;
+let terrainMeta: TerrainMeta | null = null;
 
-async function loadLevel(meta: TerrainMeta, res: { mesh: string; texture: string }): Promise<void> {
-  const level = meta.resolutions[res.texture];
+async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
+  const level = meta.resolutions[res];
   const [bedTex, surfaceTex, mask] = await Promise.all([
     loadHeightTexture(DATA_URL, level, "bed", meta.nodata),
     loadHeightTexture(DATA_URL, level, "surface", meta.nodata),
@@ -250,18 +277,28 @@ async function loadLevel(meta: TerrainMeta, res: { mesh: string; texture: string
     pivotField = PivotField.fromLayers(grid, bedTex.userData as never, surfaceTex.userData as never);
     if (!window.location.hash) resetView();
   }
-  // Only the first (coarse) level is kept on the CPU
+  textureGrid = grid;
+  coverage = { bed: bedTex.userData.valid, surface: surfaceTex.userData.valid };
+  // Heights are only kept on the CPU for the first (coarse) level
   bedTex.userData = {};
   surfaceTex.userData = {};
   setLayerTextures(bed.material, bedTex, mask, grid);
   setLayerTextures(surface.material, surfaceTex, mask, grid);
   maskTexture?.dispose();
   maskTexture = mask;
+  terrainMeta = meta;
+  buildMeshes(res === PREVIEW ? PREVIEW : QUALITY[settings.quality]);
+}
 
-  const geometry = gridGeometry(gridOf(meta.resolutions[res.mesh]));
+/** Bed and surface meshes at a resolution, without triangles where a layer has no data. */
+function buildMeshes(res: string): void {
+  if (!terrainMeta || !textureGrid || !coverage) return;
+  const grid = gridOf(terrainMeta.resolutions[res]);
+  const positions = gridPositions(grid);
   bed.geometry.dispose();
-  bed.geometry = geometry;
-  surface.geometry = geometry;
+  surface.geometry.dispose();
+  bed.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.bed));
+  surface.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.surface));
   bed.visible = settings.bed;
   surface.visible = settings.surface;
   requestRender();
@@ -277,6 +314,8 @@ const settings = {
   lineWidth: 2.5,
   lightAzimuth: 315, // degrees clockwise from grid north (+y)
   lightElevation: 40,
+  quality: "Fast",
+  lowResWhileMoving: true,
   resetView,
 };
 
@@ -344,6 +383,15 @@ const light = gui.addFolder("Light");
 light.add(settings, "lightAzimuth", 0, 360, 1).name("Azimuth").onChange(updateLight);
 light.add(settings, "lightElevation", 5, 90, 1).name("Elevation").onChange(updateLight);
 light.close();
+const performanceFolder = gui.addFolder("Performance");
+performanceFolder
+  .add(settings, "quality", Object.keys(QUALITY))
+  .name("Terrain mesh")
+  .onChange((v: string) => {
+    if (textureGrid && textureGrid.dx < 4) buildMeshes(QUALITY[v]);
+  });
+performanceFolder.add(settings, "lowResWhileMoving").name("Lower resolution while moving");
+performanceFolder.close();
 gui.add(settings, "resetView").name("Reset view");
 
 // Start: quick preview, then the detailed terrain
@@ -374,4 +422,4 @@ isochrones
   .catch((error) => console.error(error));
 
 // Debugging from the browser console in development: window.viewer
-if (import.meta.env.DEV) Object.assign(window, { viewer: { camera, controls, isochrones, renderer } });
+if (import.meta.env.DEV) Object.assign(window, { viewer: { camera, controls, isochrones, renderer, bed, surface, settings, buildMeshes } });

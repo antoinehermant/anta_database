@@ -152,8 +152,8 @@ export async function loadMaskTexture(baseUrl: string, level: Level): Promise<TH
   return texture;
 }
 
-/** Flat regular grid of vertices covering a grid, shared by all layers. */
-export function gridGeometry(grid: Grid): THREE.BufferGeometry {
+/** Positions of the vertices of a flat regular grid (km), to share between layers. */
+export function gridPositions(grid: Grid): THREE.BufferAttribute {
   const { nx, ny, dx, x0, y0 } = grid;
   const positions = new Float32Array(nx * ny * 3);
   for (let j = 0, k = 0; j < ny; j++) {
@@ -162,19 +162,55 @@ export function gridGeometry(grid: Grid): THREE.BufferGeometry {
       positions[k + 1] = y0 + j * dx;
     }
   }
+  return new THREE.BufferAttribute(positions, 3);
+}
+
+/**
+ * Vertices of a mesh grid near data of a texture grid: true where a texel
+ * with data lies within one mesh cell of the vertex.
+ */
+export function verticesNearData(mesh: Grid, texture: Grid, valid: Uint8Array): Uint8Array {
+  const near = new Uint8Array(mesh.nx * mesh.ny);
+  const radius = Math.ceil(mesh.dx / texture.dx);
+  for (let j = 0; j < mesh.ny; j++) {
+    for (let i = 0; i < mesh.nx; i++) {
+      const ti = Math.round((mesh.x0 + i * mesh.dx - texture.x0) / texture.dx);
+      const tj = Math.round((mesh.y0 + j * mesh.dx - texture.y0) / texture.dx);
+      search: for (let b = Math.max(0, tj - radius); b <= Math.min(texture.ny - 1, tj + radius); b++) {
+        for (let a = Math.max(0, ti - radius); a <= Math.min(texture.nx - 1, ti + radius); a++) {
+          if (valid[b * texture.nx + a]) {
+            near[j * mesh.nx + i] = 1;
+            break search;
+          }
+        }
+      }
+    }
+  }
+  return near;
+}
+
+/**
+ * Triangles of a regular grid, only for cells with a kept vertex (all cells
+ * without keep), so no triangles are drawn where a layer has no data.
+ */
+export function gridGeometry(grid: Grid, positions: THREE.BufferAttribute, keep?: Uint8Array): THREE.BufferGeometry {
+  const { nx, ny } = grid;
   const indices = new Uint32Array((nx - 1) * (ny - 1) * 6);
-  for (let j = 0, k = 0; j < ny - 1; j++) {
-    for (let i = 0; i < nx - 1; i++, k += 6) {
+  let k = 0;
+  for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
       const a = j * nx + i;
       const b = a + 1;
       const c = a + nx;
       const d = c + 1;
+      if (keep && !(keep[a] || keep[b] || keep[c] || keep[d])) continue;
       indices.set([a, b, d, a, d, c], k);
+      k += 6;
     }
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  geometry.setAttribute("position", positions);
+  geometry.setIndex(new THREE.BufferAttribute(indices.slice(0, k), 1));
   return geometry;
 }
 
