@@ -131,12 +131,13 @@ export async function loadHeightTexture(
       halves.set(h, half);
     }
     data[2 * i] = half;
-    data[2 * i + 1] = one;
   }
   const texture = new THREE.DataTexture(data, level.nx, level.ny, THREE.RGFormat, THREE.HalfFloatType);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
+  // Kept on the CPU for computations such as the rotation centre
+  texture.userData = { heights, valid };
   return texture;
 }
 

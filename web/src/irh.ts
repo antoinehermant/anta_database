@@ -185,20 +185,44 @@ export class Isochrones {
       .multiply(this.group.matrixWorld).elements;
     const p = this.positions;
     const n = p.length / 3; // segment ends
-    const sx = new Float32Array(n);
-    const sy = new Float32Array(n);
-    const depth = new Float32Array(n);
-    const front = new Uint8Array(n);
+    // Clip coordinates of every segment end
+    const clip = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
       const x = p[3 * i];
       const y = p[3 * i + 1];
       const z = p[3 * i + 2];
-      const w = m[3] * x + m[7] * y + m[11] * z + m[15];
-      if (w <= 0) continue; // behind the camera
-      sx[i] = ((m[0] * x + m[4] * y + m[8] * z + m[12]) / w + 1) * 0.5 * width;
-      sy[i] = (1 - (m[1] * x + m[5] * y + m[9] * z + m[13]) / w) * 0.5 * height;
-      depth[i] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
-      front[i] = 1;
+      clip[4 * i] = m[0] * x + m[4] * y + m[8] * z + m[12];
+      clip[4 * i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+      clip[4 * i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+      clip[4 * i + 3] = m[3] * x + m[7] * y + m[11] * z + m[15];
+    }
+    // Segments crossing the near plane are cut there rather than dropped
+    const near = 1e-3;
+    const sx = new Float32Array(n);
+    const sy = new Float32Array(n);
+    const depth = new Float32Array(n);
+    const front = new Uint8Array(n);
+    for (let a = 0; a < n; a += 2) {
+      const b = a + 1;
+      const wa = clip[4 * a + 3];
+      const wb = clip[4 * b + 3];
+      if (wa < near && wb < near) continue; // behind the camera
+      for (const [i, j, wi, wj] of [
+        [a, b, wa, wb],
+        [b, a, wb, wa],
+      ]) {
+        if (wi < near) {
+          const t = (near - wi) / (wj - wi);
+          for (let k = 0; k < 4; k++) clip[4 * i + k] += t * (clip[4 * j + k] - clip[4 * i + k]);
+        }
+      }
+      for (const i of [a, b]) {
+        const w = clip[4 * i + 3];
+        sx[i] = (clip[4 * i] / w + 1) * 0.5 * width;
+        sy[i] = (1 - clip[4 * i + 1] / w) * 0.5 * height;
+        depth[i] = clip[4 * i + 2] / w;
+        front[i] = 1;
+      }
     }
 
     // Cells covered by the bounding box of each segment on screen, counted then filled

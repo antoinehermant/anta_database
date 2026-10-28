@@ -15,6 +15,7 @@ import {
   type TerrainMeta,
 } from "./terrain";
 import { ageGradientCss, Isochrones, type Feature } from "./irh";
+import { PivotField } from "./pivot";
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/terrain`;
 const IRH_URL = `${import.meta.env.BASE_URL}data/irh`;
@@ -47,7 +48,8 @@ scene.background = new THREE.Color("#0b1320");
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 50000);
 camera.up.set(0, 0, 1);
-const HOME = { position: new THREE.Vector3(0, -5200, 6200), target: new THREE.Vector3(0, 0, 0) };
+// Home view, relative to the centre of the continent (the target)
+const HOME_OFFSET = new THREE.Vector3(0, -5200, 6200);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -56,11 +58,23 @@ controls.zoomToCursor = true;
 controls.screenSpacePanning = false; // pan along the ground
 controls.minDistance = 20;
 controls.maxDistance = 15000;
-controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon
+controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon of the rotation centre
+
+// Rotate, zoom and pan around the middle of the ice under the centre of the
+// screen, updated when an interaction starts. The centre moves along the line
+// of sight, so the view doesn't jump.
+let pivotField: PivotField | null = null;
+controls.addEventListener("start", () => {
+  if (!pivotField) return;
+  const direction = camera.getWorldDirection(new THREE.Vector3());
+  const hit = pivotField.intersect(camera.position, direction, shared.exaggeration.value, 2 * controls.maxDistance);
+  if (hit && hit.distanceTo(camera.position) >= controls.minDistance) controls.target.copy(hit);
+});
 
 function resetView(): void {
-  camera.position.copy(HOME.position);
-  controls.target.copy(HOME.target);
+  const centreZ = pivotField ? (pivotField.heightAt(0, 0) * shared.exaggeration.value) / 1000 : 0;
+  controls.target.set(0, 0, centreZ);
+  camera.position.copy(controls.target).add(HOME_OFFSET);
   controls.update();
   history.replaceState(null, "", window.location.pathname);
   requestRender();
@@ -232,6 +246,13 @@ async function loadLevel(meta: TerrainMeta, res: { mesh: string; texture: string
     loadMaskTexture(DATA_URL, level),
   ]);
   const grid = gridOf(level);
+  if (!pivotField) {
+    pivotField = PivotField.fromLayers(grid, bedTex.userData as never, surfaceTex.userData as never);
+    if (!window.location.hash) resetView();
+  }
+  // Only the first (coarse) level is kept on the CPU
+  bedTex.userData = {};
+  surfaceTex.userData = {};
   setLayerTextures(bed.material, bedTex, mask, grid);
   setLayerTextures(surface.material, surfaceTex, mask, grid);
   maskTexture?.dispose();
@@ -272,6 +293,11 @@ gui
   .add(settings, "exaggeration", 1, 100, 1)
   .name("Vertical exaggeration")
   .onChange((v: number) => {
+    // Keep looking at the same place: heights scale with the exaggeration
+    const ratio = v / shared.exaggeration.value;
+    camera.position.z *= ratio;
+    controls.target.z *= ratio;
+    controls.update();
     shared.exaggeration.value = v;
     isochrones.setExaggeration(v);
     pointerMoved = true;
@@ -346,3 +372,6 @@ isochrones
     requestRender();
   })
   .catch((error) => console.error(error));
+
+// Debugging from the browser console in development: window.viewer
+if (import.meta.env.DEV) Object.assign(window, { viewer: { camera, controls, isochrones, renderer } });
