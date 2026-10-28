@@ -64,6 +64,8 @@ or from the command line: `anta-sync --dir /path/to/AntADatabase/`. From an exis
 
 When loading a synced database, `Database` tells you if a newer version is published (disable with `check_updates=False`). Updates are never downloaded without you asking, so your results only change when you decide to sync.
 
+Keep the package up to date as well (`pip install -U anta_database`): if some features of the latest data need a newer package, `sync()` and `Database` print a warning. In the unlikely case of a breaking change to the data format, each package version keeps syncing the data it can read, and a newer package is needed to get the new data.
+
 ## Quick Start
 
 ```python

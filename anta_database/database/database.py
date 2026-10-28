@@ -10,6 +10,12 @@ from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
 from anta_database.indexing.index_database import IndexDatabase
+from anta_database.cloud.manifest import (
+    MANIFEST_NAME,
+    check_schema,
+    package_update_warning,
+    read_manifest,
+)
 from anta_database.cloud.sync import (
     default_database_dir,
     local_version,
@@ -82,6 +88,12 @@ class Database:
                 )
             return
 
+        manifest = read_manifest(os.path.join(database_dir, MANIFEST_NAME))
+        if manifest:
+            check_schema(manifest, database_dir)
+            warning = package_update_warning(manifest)
+            if warning:
+                print(warning)
         version = local_version(database_dir)
         print(f"AntADatabase {version} successfully initiated" if version else "AntADatabase successfully initiated")
         # Only databases downloaded with sync() have a published version to compare with

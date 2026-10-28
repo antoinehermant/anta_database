@@ -28,7 +28,10 @@ from tqdm import tqdm
 from anta_database.cloud.manifest import (
     DB_FILE,
     MANIFEST_NAME,
+    SCHEMA_VERSION,
     check_manifest,
+    check_schema,
+    package_update_warning,
     read_manifest,
     sha256sum,
     write_manifest,
@@ -36,11 +39,13 @@ from anta_database.cloud.manifest import (
 
 # Public URL of the published database (the bucket prefix holding manifest.json).
 # Anonymous reads on Infomaniak go through the Swift URL, not the S3 one.
-# Can be overridden with the ANTA_DATABASE_URL environment variable.
-DEFAULT_URL = (
+# Each data schema has its own prefix (v1/, v2/, ...), so this package only syncs
+# data it can read. Can be overridden with the ANTA_DATABASE_URL environment variable.
+BUCKET_URL = (
     "https://s3.pub1.infomaniak.cloud/object/v1/"
-    "AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase/v1"
+    "AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase"
 )
+DEFAULT_URL = f"{BUCKET_URL}/v{SCHEMA_VERSION}"
 
 _TIMEOUT = 60
 
@@ -155,6 +160,10 @@ def sync(
     disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", "0") not in ("", "0")
 
     remote = _fetch_manifest(url)
+    check_schema(remote, url)
+    warning = package_update_warning(remote)
+    if warning:
+        print(warning)
     local_manifest_path = os.path.join(database_dir, MANIFEST_NAME)
     local = read_manifest(local_manifest_path) or {"files": {}}
 
