@@ -83,7 +83,8 @@ def publish(
         bucket: Bucket name.
         prefix: Key prefix inside the bucket. Defaults to the data schema, e.g. "v1".
         endpoint_url: S3 endpoint. Defaults to $AWS_ENDPOINT_URL or Infomaniak.
-        db_version: Version label stored in the manifest. Defaults to the UTC date and time.
+        db_version: Version label stored in the manifest. Defaults to the UTC date and time,
+            or to the published version when no file changed.
         min_package_version: Oldest anta_database supporting all features of the data.
             Defaults to the value of the previous publish.
         dry_run: Only report what would be uploaded and deleted.
@@ -118,6 +119,10 @@ def publish(
         if remote["files"].get(rel, {}).get("sha256") != entry["sha256"]
     ]
     to_delete = sorted(set(remote["files"]) - set(manifest["files"])) if delete else []
+    # Same data (e.g. only min_package_version changed): keep the version, so users
+    # are not told about an update that has nothing to download
+    if not (db_version or to_upload or to_delete) and remote.get("db_version"):
+        manifest["db_version"] = remote["db_version"]
     result = {"db_version": manifest["db_version"], "uploaded": to_upload, "deleted": to_delete}
     if dry_run:
         return result
