@@ -1,62 +1,27 @@
 <!doctype html>
+<!--
+  Redirect from an old address of the viewer to antadatabase.com, filled in by publish_site.sh:
+  3d-antadatabase.com (index.html and 404.html, so every path redirects) and the old copy of the
+  viewer in the docs (/viewer/ and /viewer/download/). The download page keeps its path, everything
+  else goes to the viewer. The hash (#view=...) and the query are kept, so shared views still open.
+-->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <title>AntADatabase 3D viewer</title>
-    <meta name="description" content="Explore Antarctic radar isochrones (internal reflecting horizons) from the AntADatabase in 3D, over Bedmap3 bed and ice surface topography." />
-    <link rel="icon" type="image/png" href="/anta_database/viewer/favicon.png" />
-    <meta name="theme-color" content="#2a6aa8" />
-    <!-- Link previews (Discord, Slack, LinkedIn, ...): image URLs must be absolute -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="AntADatabase" />
-    <meta property="og:title" content="AntADatabase 3D viewer" />
-    <meta property="og:description" content="Explore Antarctic radar isochrones from the AntADatabase in 3D, over Bedmap3 topography." />
-    <meta property="og:url" content="https://3d-antadatabase.com/" />
-    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg?v=5" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones coloured by age under the ice surface, over the Bedmap3 bed topography, with flight tracks and survey aircraft" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <title>AntADatabase has moved</title>
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href="https://antadatabase.com/viewer/" />
     <script>
-      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
-      // and a light browser) was chosen
-      const theme = localStorage.getItem("theme");
-      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      // Path after the old location of the viewer
+      let path = location.pathname;
+      const old = path.indexOf("/viewer");
+      if (old >= 0) path = path.slice(old + "/viewer".length);
+      const page = path.startsWith("/download") ? "/download/" : "/viewer/";
+      location.replace("https://antadatabase.com" + page + location.search + location.hash);
     </script>
-    <script type="module" crossorigin src="/anta_database/viewer/assets/viewer-H-ruqNnm.js"></script>
-    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/theme-C03GYwUk.js">
-    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/viewer-CHw2eFSn.css">
+    <noscript><meta http-equiv="refresh" content="0; url=https://antadatabase.com/viewer/" /></noscript>
   </head>
   <body>
-    <div id="app"></div>
-    <aside id="sidebar">
-      <header>
-        <h1>AntADatabase</h1>
-        <p>Radar isochrones of Antarctica in 3D · <a href="download/">Download the data</a></p>
-      </header>
-      <div id="gui"></div>
-      <button id="sidebar-toggle" type="button" aria-label="Hide the menu" title="Hide the menu">
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-    </aside>
-    <button id="theme-toggle" class="theme-toggle" type="button"></button>
-    <div id="loading">Loading Bedmap3…</div>
-    <div id="tooltip"></div>
-    <div id="legends"></div>
-    <div id="attribution">
-      <div>
-        Topography: <a id="bedmap-doi" href="https://doi.org/10.5285/2d0e4791-8e20-46a3-80e4-f5f6716025d2" target="_blank" rel="noopener">Bedmap3</a>
-        (Pritchard et al., CC-BY 4.0)
-      </div>
-      <div id="velocity-attribution" hidden>
-        Ice velocity: <a id="velocity-doi" href="https://doi.org/10.5067/D7GK8F5J8M8R" target="_blank" rel="noopener">MEaSUREs v2</a>
-        (Rignot et al., NSIDC-0484)
-      </div>
-    </div>
+    <p>The AntADatabase has moved to <a href="https://antadatabase.com/">https://antadatabase.com</a>.</p>
   </body>
 </html>
