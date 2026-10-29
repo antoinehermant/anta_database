@@ -14,20 +14,21 @@
     <meta property="og:title" content="AntADatabase 3D viewer" />
     <meta property="og:description" content="Explore Antarctic radar isochrones from the AntADatabase in 3D, over Bedmap3 topography." />
     <meta property="og:url" content="https://3d-antadatabase.com/" />
-    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg?v=2" />
+    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg?v=5" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones coloured by age over the Bedmap3 bed topography" />
+    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones coloured by age under the ice surface, over the Bedmap3 bed topography, with flight tracks and survey aircraft" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
-      // Theme before the first paint: the saved choice, or the mode of the browser
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
       const theme = localStorage.getItem("theme");
-      const dark = theme === "Dark" || (theme !== "Light" && matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
     </script>
-    <script type="module" crossorigin src="/anta_database/viewer/assets/viewer-BEzz7uW7.js"></script>
-    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/modulepreload-polyfill-P2Xu9kJm.js">
-    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/viewer-c37kXZQN.css">
+    <script type="module" crossorigin src="/anta_database/viewer/assets/viewer-H-ruqNnm.js"></script>
+    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/theme-C03GYwUk.js">
+    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/viewer-CHw2eFSn.css">
   </head>
   <body>
     <div id="app"></div>
@@ -43,6 +44,7 @@
         </svg>
       </button>
     </aside>
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
     <div id="loading">Loading Bedmap3…</div>
     <div id="tooltip"></div>
     <div id="legends"></div>

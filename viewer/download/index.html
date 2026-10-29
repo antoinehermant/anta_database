@@ -13,23 +13,25 @@
     <meta property="og:title" content="Download the AntADatabase" />
     <meta property="og:description" content="Radar isochrones of Antarctica: choose the datasets and download them in one zip file." />
     <meta property="og:url" content="https://3d-antadatabase.com/download/" />
-    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg?v=2" />
+    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg?v=5" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
-      // Theme before the first paint, as in the viewer
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
       const theme = localStorage.getItem("theme");
-      const dark = theme === "Dark" || (theme !== "Light" && matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
     </script>
-    <script type="module" crossorigin src="/anta_database/viewer/assets/download-C1FbWXwT.js"></script>
-    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/modulepreload-polyfill-P2Xu9kJm.js">
-    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/download-0TjPAcNH.css">
+    <script type="module" crossorigin src="/anta_database/viewer/assets/download-DZaudMSQ.js"></script>
+    <link rel="modulepreload" crossorigin href="/anta_database/viewer/assets/theme-C03GYwUk.js">
+    <link rel="stylesheet" crossorigin href="/anta_database/viewer/assets/download-MYENofmu.css">
   </head>
   <body>
     <header id="top">
       <div class="wrap">
         <h1>AntADatabase</h1>
         <nav><a href="../">3D viewer</a> · <a href="https://antoinehermant.github.io/anta_database/" target="_blank" rel="noopener">Documentation</a></nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
       </div>
     </header>
     <main class="wrap">
