@@ -19,6 +19,12 @@ The basal unit (BASAL_UNIT, depth below the surface, e.g. the top of the echo-fr
 zone) is exported like an IRH, as features with "layer": "basal unit", no IRH number
 and no age.
 
+Each track also has a profile, for the stratigraphy plot of the viewer: the line along
+Distance with the surface, bed and ice thickness, and the depth of each of its layers
+(fetched when the line is clicked). It is at full resolution when it fits in
+PROFILE_MAX_BYTES (almost all lines), else averaged in the smallest bins along Distance
+that fit; tracks[].profile.resolution says which.
+
     python -m anta_database.web.irh /path/to/AntADatabase --bedmap bedmap3.nc \\
         --datasets Sanderson_2024 -o web/public/data/irh
 
@@ -31,6 +37,10 @@ Output:
     {dataset}_tracks.bin.gz  float32 track vertices (x km, y km, surface elevation m,
                              IRH_NUM, oldest age ka or NaN), packed per run
     {dataset}_track_runs.bin.gz  uint32 (track id, first vertex, vertex count) per run
+    profiles/{dataset}/{n}.bin.gz  float32 profile of the n-th track of the dataset: rows of
+                             (x km, y km, distance km, surface m, bed m, ice thickness m,
+                             depth m of each layer of tracks[].profile.layers), NaN where
+                             missing, and a row of NaN (but the distance) at each gap
 """
 
 import argparse
@@ -47,6 +57,9 @@ DEFAULT_SPACING = 1000.0  # m, along-track averaging
 DEFAULT_MAX_GAP = 5000.0  # m, larger gaps between points break the line
 FDEPTH_SCALE = 10000  # fractional depths are stored as uint16 fraction × FDEPTH_SCALE
 FDEPTH_NODATA = 65535
+# Largest profile (float32, before gzip): about 2 MB to download, fast to draw in the browser
+PROFILE_MAX_BYTES = 4_000_000
+PROFILE_COLUMNS = ["x", "y", "distance", "surface", "bed", "thickness"]
 
 
 class Bedmap3Surface:
@@ -133,6 +146,63 @@ def _average(points: np.ndarray, spacing: float, maximum=()) -> np.ndarray:
     return out
 
 
+def _profile(distance: np.ndarray, columns: np.ndarray, max_gap: float):
+    """
+    Rows of (x, y, distance km, columns...) along distance (m), and how they were made.
+
+    At full resolution when they fit in PROFILE_MAX_BYTES, else the mean of the columns
+    (NaN-aware) in bins along distance, the smallest that fit. A row of NaN (but the
+    distance) marks each gap of the line, longer than max_gap.
+    """
+    keep = np.isfinite(distance)
+    distance, columns = distance[keep], columns[keep]
+    width = columns.shape[1] + 1
+    if len(distance) == 0:
+        return np.zeros((0, width), np.float32), {"points": 0, "raw_points": 0, "bin": None, "raw_spacing": None}
+    order = np.argsort(distance, kind="stable")
+    distance, columns = distance[order], columns[order]
+    steps = np.diff(distance)
+    raw_spacing = float(np.median(steps[steps > 0])) if (steps > 0).any() else None
+    max_rows = PROFILE_MAX_BYTES // (4 * width)
+    spacing = None
+    if len(distance) <= max_rows:
+        rows = np.column_stack([columns[:, :2], distance, columns[:, 2:]])
+    else:
+        # Bins of a whole number of metres, the smallest giving at most max_rows rows
+        # (bins without points don't count: lines can have long gaps)
+        def rows_of(spacing: float) -> int:
+            return len(np.unique(np.floor((distance - distance[0]) / spacing)))
+
+        lo, hi = 1.0, float(np.ceil((distance[-1] - distance[0]) / (max_rows - 1)))
+        while hi - lo > 1:
+            mid = np.floor((lo + hi) / 2)
+            lo, hi = (lo, mid) if rows_of(mid) <= max_rows else (mid, hi)
+        spacing = hi
+        bins = np.floor((distance - distance[0]) / spacing).astype(np.int64)
+        starts = np.concatenate([[0], np.flatnonzero(np.diff(bins)) + 1])
+        valid = np.isfinite(columns)
+        sums = np.add.reduceat(np.where(valid, columns, 0.0), starts, axis=0)
+        counts = np.add.reduceat(valid.astype(np.int64), starts, axis=0)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            means = np.where(counts > 0, sums / counts, np.nan)
+        mean_distance = np.add.reduceat(distance, starts) / np.diff(np.append(starts, len(distance)))
+        rows = np.column_stack([means[:, :2], mean_distance, means[:, 2:]])
+    # Gaps: a row of NaN between rows further apart than max_gap (and than the bins)
+    gaps = np.flatnonzero(np.diff(rows[:, 2]) > max(max_gap, 3 * (spacing or 0)))
+    if len(gaps):
+        filler = np.full((len(gaps), width), np.nan)
+        filler[:, 2] = (rows[gaps, 2] + rows[gaps + 1, 2]) / 2
+        rows = np.insert(rows, gaps + 1, filler, axis=0)
+    rows[:, :3] /= 1000  # km
+    resolution = {
+        "points": int(len(rows) - len(gaps)),
+        "raw_points": int(len(distance)),
+        "bin": spacing,  # m, None at full resolution
+        "raw_spacing": None if raw_spacing is None else round(raw_spacing, 1),  # m, median
+    }
+    return rows.astype(np.float32), resolution
+
+
 def _citations(dataset_dir: str) -> Dict[int, Dict]:
     """Metadata of each IRH from raw_md.json, by IRH number."""
     path = os.path.join(dataset_dir, "raw_md.json")
@@ -173,6 +243,7 @@ def export_dataset(
     n_vertices = 0
     tracks, track_vertices, track_runs = [], [], []
     n_track_vertices = 0
+    profiles = []
 
     for path in sorted(glob.glob(os.path.join(dataset_dir, "h5", "*.h5"))):
         with xr.open_dataset(path) as ds:
@@ -201,6 +272,8 @@ def export_dataset(
             irh_num = np.zeros(len(x))
             oldest = np.full(len(x), np.nan)
             citation = None
+            # Layers of the profile: feature ids and depths
+            layer_ids, layer_depths = [], []
 
             def add_feature(depth: np.ndarray, layer: Dict, md: Dict) -> None:
                 """A (line, layer) feature, and its runs of vertices."""
@@ -210,6 +283,8 @@ def export_dataset(
                 if not feature_runs:
                     return
                 feature_id = first_feature_id + len(features)
+                layer_ids.append(feature_id)
+                layer_depths.append(depth)
                 features.append(
                     {
                         "dataset": dataset,
@@ -274,8 +349,20 @@ def export_dataset(
                     "line_id": line_id,
                     "citation": citation,
                     "surface": surface_source,
+                    "profile": {
+                        "file": f"profiles/{dataset}/{track_id}.bin.gz",
+                        "columns": PROFILE_COLUMNS,
+                        "layers": layer_ids,
+                        "bed": "BED_ELEV" if "BED_ELEV" in ds else "surface - thickness",
+                        "thickness": thickness_source,
+                    },
                 }
             )
+            bed = ds.BED_ELEV.values.astype(np.float64) if "BED_ELEV" in ds else surf - thk
+            distance = ds.Distance.values.astype(np.float64) if "Distance" in ds else np.cumsum(step)
+            rows, resolution = _profile(distance, np.column_stack([x, y, surf, bed, thk, *layer_depths]), max_gap)
+            tracks[-1]["profile"]["resolution"] = resolution
+            profiles.append(rows)
             for run in line_runs:
                 points = np.column_stack([x[run], y[run], surf[run], irh_num[run], oldest[run]])
                 v = _average(points, spacing, maximum=(3, 4))
@@ -293,6 +380,7 @@ def export_dataset(
         "track_vertices": np.concatenate(track_vertices) if track_vertices else np.zeros((0, 5), np.float32),
         "track_runs": np.asarray(track_runs, dtype=np.uint32).reshape(-1, 3),
         "tracks": tracks,
+        "profiles": profiles,
     }
 
 
@@ -370,6 +458,9 @@ def export_irh(
         }
         for file, array in files.values():
             _write_gz(array, os.path.join(output_dir, file))
+        os.makedirs(os.path.join(output_dir, "profiles", dataset), exist_ok=True)
+        for track, profile in zip(out["tracks"], out["profiles"]):
+            _write_gz(profile, os.path.join(output_dir, track["profile"]["file"]))
         index["datasets"][dataset] = {key: file for key, (file, _) in files.items()}
         index["datasets"][dataset].update(
             n_vertices=int(len(out["vertices"])),
