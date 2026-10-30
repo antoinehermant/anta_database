@@ -27,91 +27,205 @@ class IndexDatabase:
         self._assign_ages = assign_ages
         self.cpus = cpus
 
+    @staticmethod
+    def _target_ages(
+        f_irh: np.ndarray, md_raw: pd.DataFrame, assign_age_df: Union[pd.DataFrame, None]
+    ):
+        """
+        Ages to assign to the IRHs of a file (in the order of f_irh), from the metadata
+        of the dataset (raw_md.json) and the overrides of assign_ages.json (by IRH ID).
+
+        Returns (ids or None, ages, age uncertainties), NaN where unknown.
+        """
+        inconsistent_irhs = md_raw.groupby("IRH")["age"].nunique()
+        if (inconsistent_irhs > 1).any():
+            raise ValueError(
+                f"Inconsistent ages for IRHs in {md_raw['dataset'].iloc[0]}: {inconsistent_irhs[inconsistent_irhs > 1].index.tolist()}"
+            )
+        md_raw = md_raw.drop_duplicates(subset="IRH", keep="first")
+        # Ensures IRH are in the same order and fill with NaN values if some are missing
+        md_raw = md_raw.set_index("IRH").reindex(f_irh, fill_value=np.nan)
+
+        n = len(f_irh)
+        ids = md_raw["IRH ID"].to_numpy() if "IRH ID" in md_raw.columns else None
+        ages = (
+            md_raw["age"].to_numpy(dtype=float)
+            if "age" in md_raw
+            else np.full(n, np.nan)
+        )
+        uncs = (
+            md_raw["age uncertainty"].to_numpy(dtype=float)
+            if "age uncertainty" in md_raw
+            else np.full(n, np.nan)
+        )
+
+        if ids is not None and assign_age_df is not None:
+            for i, irh_id in enumerate(ids):
+                if pd.isna(irh_id) or irh_id not in assign_age_df.index:
+                    continue
+                assigned = assign_age_df.loc[irh_id]
+                ages[i] = assigned["age"]
+                if "age uncertainty" in assigned and pd.notna(assigned["age uncertainty"]):
+                    uncs[i] = assigned["age uncertainty"]
+
+        # Ages are whole years
+        for name, values in (("age", ages), ("age uncertainty", uncs)):
+            known = values[np.isfinite(values)]
+            not_years = known[known != np.round(known)]
+            if not_years.size:
+                raise ValueError(
+                    f"Ages must be whole years (e.g. 10000): {name} {not_years.tolist()} "
+                    f"in the metadata of {md_raw['dataset'].dropna().iloc[0]} or in assign_ages.json"
+                )
+        return ids, ages, uncs
+
+    @staticmethod
+    def _same_values(old, new) -> bool:
+        """Equal numbers, whatever the dtype (1000 == 1000.0), and NaN equal to NaN."""
+        old = np.asarray(old, dtype=float)
+        new = np.asarray(new, dtype=float)
+        return old.shape == new.shape and np.array_equal(old, new, equal_nan=True)
+
+    @staticmethod
+    def _stored(values: np.ndarray) -> np.ndarray:
+        """Years as integers, or floats when some are missing (NaN)."""
+        if np.all(np.isfinite(values)):
+            return values.astype(np.int64)
+        return values.astype(float)
+
+    @staticmethod
+    def _id_strings(ids) -> list:
+        return ["nan" if pd.isna(i) else str(i) for i in ids]
+
     def _do_assign_ages(
         self, h5_file: str, md_dict: dict, assign_age_df: Union[pd.DataFrame, None]
-    ):
-        # for f in tqdm(h5_files, desc="Indexing files", disable=self._disable_tqdm):
-        with h5py.File(h5_file, "a") as f_h5:
-            with xr.open_dataset(f_h5, engine="h5netcdf") as ds:
-                md_raw = md_dict[ds.dataset]
-                f_irh = ds.IRH.values
-                # Ensures IRH are in the same ordered and fill with Nan values if some missing
-                inconsistent_irhs = md_raw.groupby("IRH")["age"].nunique()
-                if (inconsistent_irhs > 1).any():
-                    raise ValueError(
-                        f"Inconsistent ages for IRHs in {ds.dataset}: {inconsistent_irhs[inconsistent_irhs > 1].index.tolist()}"
+    ) -> dict:
+        """
+        Assign the ages of the IRHs of a file, only if they changed.
+
+        The file is first read: when the ages it holds are already the ones to assign, it
+        is left untouched (the same bytes, so it is not published or synced again).
+        Returns {"file", "dataset", "status": "unchanged" | "updated" | "new", "changes"},
+        changes being (IRH, old ID, new ID, old age, new age, old unc, new unc) per IRH.
+        """
+        with xr.open_dataset(h5_file, engine="h5netcdf") as ds:
+            dataset = ds.attrs["dataset"]
+            f_irh = ds.IRH.values
+            old_ages = ds["IRH_AGE"].values if "IRH_AGE" in ds.variables else None
+            old_uncs = ds["IRH_AGE_UNC"].values if "IRH_AGE_UNC" in ds.variables else None
+            old_ids = ds["IRH_ID"].values if "IRH_ID" in ds.variables else None
+
+        ids, ages, uncs = self._target_ages(f_irh, md_dict[dataset], assign_age_df)
+        result = {"file": h5_file, "dataset": dataset, "changes": []}
+
+        assigned = old_ages is not None and old_uncs is not None
+        if ids is not None:
+            assigned = assigned and old_ids is not None
+        if assigned:
+            same_ids = ids is None or self._id_strings(old_ids) == self._id_strings(ids)
+            if (
+                same_ids
+                and self._same_values(old_ages, ages)
+                and self._same_values(old_uncs, uncs)
+            ):
+                result["status"] = "unchanged"
+                return result
+            old_id_str = self._id_strings(old_ids) if ids is not None else [None] * len(f_irh)
+            new_id_str = self._id_strings(ids) if ids is not None else [None] * len(f_irh)
+            for i, irh in enumerate(f_irh):
+                if (
+                    old_id_str[i] != new_id_str[i]
+                    or not self._same_values(old_ages[i], ages[i])
+                    or not self._same_values(old_uncs[i], uncs[i])
+                ):
+                    # None for missing values: NaN != NaN would repeat the change per file
+                    values = [
+                        None if np.isnan(v) else v
+                        for v in map(float, (old_ages[i], ages[i], old_uncs[i], uncs[i]))
+                    ]
+                    result["changes"].append(
+                        (irh.item() if hasattr(irh, "item") else irh, old_id_str[i], new_id_str[i], *values)
                     )
-                else:
-                    md_raw = md_raw.drop_duplicates(subset="IRH", keep="first")
-                md_raw = md_raw.set_index("IRH").reindex(f_irh, fill_value=np.nan)
+            result["status"] = "updated"
+        else:
+            result["status"] = "new"
 
-                if "IRH ID" in md_raw.columns:
-                    IRH_IDS = md_raw["IRH ID"]
-                    ds = ds.assign_coords(IRH_ID=("IRH", IRH_IDS))
+        # Read everything before writing: the file must be closed when it is rewritten
+        with xr.open_dataset(h5_file, engine="h5netcdf") as ds:
+            ds = ds.load()
 
-                    if "age" in md_raw:
-                        IRH_AGE = md_raw["age"]
-                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
-                        ds = ds.set_coords("IRH_AGE")
-                    else:
-                        IRH_AGE = np.full(len(ds.IRH_ID), np.nan)
-                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
-                        ds = ds.set_coords("IRH_AGE")
-                    if "age uncertainty" in md_raw:
-                        IRH_AGE_UNC = md_raw["age uncertainty"]
-                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
-                    else:
-                        IRH_AGE_UNC = np.full(len(ds.IRH_ID), np.nan)
-                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+        ds["IRH_AGE"] = ("IRH", self._stored(ages))
+        ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs))
+        if ids is not None:
+            ds = ds.assign_coords(IRH_ID=("IRH", ids))
+            ds = ds.set_coords(["IRH_ID", "IRH_AGE"])
+            ds = ds.swap_dims({"IRH": "IRH_ID"})
+            # NOTE: we swap again the dims to keep IRH as
+            # primary dim. Not sure why we need to swap twice,
+            # but it was not working without the first swap
+            ds = ds.swap_dims({"IRH_ID": "IRH"})
+        else:
+            ds = ds.set_coords("IRH_AGE")
 
-                    ds = ds.set_coords(["IRH_ID", "IRH_AGE"])
-                    ds = ds.swap_dims({"IRH": "IRH_ID"})
-                    # NOTE: we swap again the dims to keep IRH as
-                    # primary dim. Not sure why we need t swap twice,
-                    # but it was not working without the first swap
-                    ds = ds.swap_dims({"IRH_ID": "IRH"})
+        # A new file, then replaced: the age variables change type when an age becomes
+        # missing (NaN), which writing into the existing file cannot do, and a failure
+        # never leaves a half-written file
+        tmp_file = f"{h5_file}.tmp"
+        try:
+            ds.to_netcdf(tmp_file, engine="h5netcdf", mode="w")
+            os.replace(tmp_file, h5_file)
+        finally:
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
+        return result
 
-                    if assign_age_df is not None:
-                        common_irh_ids = (
-                            pd.merge(
-                                pd.DataFrame(
-                                    {
-                                        "IRH ID": pd.DataFrame(assign_age_df.index)[
-                                            "IRH ID"
-                                        ]
-                                    }
-                                ),
-                                pd.DataFrame({"IRH ID": md_raw["IRH ID"]}),
-                                on="IRH ID",
-                                how="inner",
-                            )["IRH ID"]
-                            .dropna()
-                            .unique()
-                        )
+    @staticmethod
+    def _report_age_changes(results: list) -> None:
+        """Print the age changes once per dataset, and how many files were written."""
 
-                        for irh_id in common_irh_ids:
-                            assigned_age = assign_age_df.loc[irh_id]
-                            ds["IRH_AGE"] = ds["IRH_AGE"].where(
-                                ds.IRH_ID != irh_id, assigned_age["age"]
-                            )
+        def ka(age, unc):
+            if age is None:
+                return "no age"
+            return f"{age / 1000:g} ka" if unc is None else f"{age / 1000:g} ± {unc / 1000:g} ka"
 
-                else:
-                    if "age" in md_raw:
-                        IRH_AGE = md_raw["age"]
-                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
-                        ds = ds.set_coords("IRH_AGE")
-                    else:
-                        IRH_AGE = np.full(len(ds.IRH_ID), np.nan)
-                        ds["IRH_AGE"] = ("IRH", IRH_AGE)
-                        ds = ds.set_coords("IRH_AGE")
-                    if "age uncertainty" in md_raw:
-                        IRH_AGE_UNC = md_raw["age uncertainty"]
-                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
-                    else:
-                        IRH_AGE_UNC = np.full(len(ds.IRH_ID), np.nan)
-                        ds["IRH_AGE_UNC"] = ("IRH", IRH_AGE_UNC)
+        by_dataset = {}
+        for r in results:
+            if r["status"] == "updated":
+                entry = by_dataset.setdefault(r["dataset"], {"files": 0, "changes": set()})
+                entry["files"] += 1
+                entry["changes"].update(r["changes"])
 
-                ds.to_netcdf(h5_file, engine="h5netcdf", mode="a")
+        for dataset, entry in sorted(by_dataset.items()):
+            print(f"\n Ages changed in {dataset} ({entry['files']} files):")
+            for irh, old_id, new_id, old_age, new_age, old_unc, new_unc in sorted(
+                entry["changes"], key=lambda c: (str(c[0]), str(c[1:]))
+            ):
+                line = f"   IRH {irh}: {ka(old_age, old_unc)} -> {ka(new_age, new_unc)}"
+                if old_id != new_id:
+                    line += f" (IRH ID {old_id} -> {new_id})"
+                print(line)
+
+        counts = {s: sum(r["status"] == s for r in results) for s in ("updated", "new", "unchanged")}
+        print(
+            f"\n Ages: {counts['updated']} files updated, {counts['new']} newly assigned,"
+            f" {counts['unchanged']} unchanged"
+        )
+
+    @staticmethod
+    def _same_content(db_a: str, db_b: str) -> bool:
+        """Same tables and rows (an SQL dump), whatever the SQLite version wrote in the file."""
+
+        def dump(path):
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            try:
+                return list(conn.iterdump())
+            except sqlite3.DatabaseError:
+                return None  # not a readable database: replace it
+            finally:
+                conn.close()
+
+        a = dump(db_a)
+        return a is not None and a == dump(db_b)
 
     def index_database(self):
         h5_files = []
@@ -122,7 +236,9 @@ class IndexDatabase:
         else:
             assign_age_df = None
 
-        dirs = glob.glob(f"{self._db_dir}/*/")
+        # Sorted, so the same files always give the same database (row ids), whatever
+        # order the file system lists them in
+        dirs = sorted(glob.glob(f"{self._db_dir}/*/"))
         self._dataset_list = []
         md_dict = {}
 
@@ -153,8 +269,8 @@ class IndexDatabase:
                     self._dataset_list.append(unique)
 
         for ref in self._dataset_list:
-            found_files = glob.glob(
-                f'{self._db_dir}/{ref["dataset"]}/h5/*.h5', recursive=False
+            found_files = sorted(
+                glob.glob(f'{self._db_dir}/{ref["dataset"]}/h5/*.h5', recursive=False)
             )
             if found_files:
                 h5_files.extend(found_files)
@@ -182,18 +298,20 @@ class IndexDatabase:
             )
             if num_workers > 1:
                 with Pool(num_workers) as pool:
-                    for _ in tqdm(
-                        pool.imap_unordered(partial_process, h5_files),
-                        total=num_tasks,
-                        desc="Processing",
-                        unit="file",
-                    ):
-                        pass
-            else:
-                for f in tqdm(h5_files, desc="Processing", unit="file"):
-                    self._do_assign_ages(
-                        h5_file=f, md_dict=md_dict, assign_age_df=assign_age_df
+                    results = list(
+                        tqdm(
+                            pool.imap_unordered(partial_process, h5_files),
+                            total=num_tasks,
+                            desc="Processing",
+                            unit="file",
+                        )
                     )
+            else:
+                results = [
+                    partial_process(f)
+                    for f in tqdm(h5_files, desc="Processing", unit="file")
+                ]
+            self._report_age_changes(results)
 
         # Build into a temporary file, so a failure never leaves a broken or missing database
         tmp_db = f"{self._file_db}.tmp"
@@ -553,6 +671,13 @@ class IndexDatabase:
 
         conn.commit()
         conn.close()
+
+        # Keep the existing database when nothing changed, so it is not published or
+        # synced again
+        if os.path.exists(self._file_db) and self._same_content(tmp_db, self._file_db):
+            os.remove(tmp_db)
+            print("\n The database is unchanged, kept as is.")
+            return
         os.replace(tmp_db, self._file_db)
 
         print("\n Done creating the Database table.")
