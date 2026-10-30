@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -402,7 +402,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-variables">Plot Variables</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fractional-depth">Fractional Depth</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-irh-density">Plot IRH Density</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-by-flight-id">Plot by Flight ID</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-by-line-id">Plot by Line ID</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-transect-1d">Plot Transect (1D)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting-options">Plotting Options</a></li>
 </ul>
@@ -527,8 +527,7 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase 2026.10.27-1410 successfully initiated
-A new version of the AntADatabase is available (2026.10.27-1601, published 2026-10-27): run db.sync() to update.
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase successfully initiated
 </pre></div>
 </div>
 </div>
@@ -582,8 +581,8 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <td><p>Variable(s) of interest</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'IRH_DEPTH'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ICE_THK'</span></code>, <code class="docutils literal notranslate"><span class="pre">'BED_ELEV'</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flight_id</span></code></p></td>
-<td><p>Flight line ID(s) (supports regex with <code class="docutils literal notranslate"><span class="pre">%</span></code>)</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">line_id</span></code></p></td>
+<td><p>Line ID(s) (supports regex with <code class="docutils literal notranslate"><span class="pre">%</span></code>)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'DC_LDC_DIVIDE'</span></code>, <code class="docutils literal notranslate"><span class="pre">'%WSB%'</span></code></p></td>
 </tr>
 </tbody>
@@ -593,7 +592,7 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <ul class="simple">
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> for ranges (e.g., <code class="docutils literal notranslate"><span class="pre">age='&lt;50000'</span></code> for ages younger than 50,000 years)</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">-</span></code> for ranges (e.g., <code class="docutils literal notranslate"><span class="pre">acquisition_year='2000-2010'</span></code>)</p></li>
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">%</span></code> for regex patterns (e.g., <code class="docutils literal notranslate"><span class="pre">flight_id='%WSB%'</span></code> for any ID containing ‘WSB’)</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">%</span></code> for regex patterns (e.g., <code class="docutils literal notranslate"><span class="pre">line_id='%WSB%'</span></code> for any ID containing ‘WSB’)</p></li>
 </ul>
 </section>
 <section id="query-examples">
@@ -619,9 +618,9 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;ICE_THK&#39;</span><span class="p">)</span>  <span class="c1"># Datasets with ice thickness</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;IRH_DEPTH&#39;</span><span class="p">)</span>  <span class="c1"># Datasets with IRH depth</span>
 
-<span class="c1"># Flight line queries</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>  <span class="c1"># Specific flight line</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;%WSB%&#39;</span><span class="p">)</span>  <span class="c1"># Any flight line containing &#39;WSB&#39;</span>
+<span class="c1"># Radar line queries</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">line_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>  <span class="c1"># Specific radar line</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">line_id</span><span class="o">=</span><span class="s1">&#39;%WSB%&#39;</span><span class="p">)</span>  <span class="c1"># Any radar line containing &#39;WSB&#39;</span>
 
 <span class="c1"># Combined queries</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Franke_2025&#39;</span><span class="p">,</span> <span class="s1">&#39;Winter_2018&#39;</span><span class="p">],</span> <span class="n">age</span><span class="o">=</span><span class="mi">38100</span><span class="p">)</span>  <span class="c1"># Multiple criteria</span>
@@ -651,15 +650,15 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 
   - radar_instrument: AWI-UWB, EMR
 
-  - flight_id: 20181227_02_007, 19973310, 20231211_01_022, 20231204_01_010, EPICA_IV_22, 20231129_01_016, 20181227_02_011, 20231129_01_014, 20231211_02_005, 20231129_01_017, 20231129_01_010, 20181227_03_008, 20231129_01_018, 19983201, 20023150, 19983401, EPICA_VI_35, 20181227_02_015, 20231211_01_014, EPICA_IV_23, 20023119, 20231211_02_015, 19993135, 20023115, EPICA_II_04, [ ... ] , 19993106, 20181227_02_004, 20181222_01_005, 19972313, 20181227_03_003, 20231129_01_011, 20231211_02_009, EPICA_IV_21, 20023149, 20181226_03_002, 19983207, 20181226_01_001, 20231211_01_017, 20181226_02_009, 20181227_03_007, 20053109, 20022115, 19993134, 20231129_01_013, 20181227_03_002, 19983408, 20022107, 20231211_01_020, 20181226_01_011, 20033143 (found 215, displayed 50)
+  - line_id: 20231211_02_001, 20231211_02_021, 19972415, 20181222_01_006, 20181226_02_004, 20231211_01_024, EPICA_VIII_22, 20023120, 19983403, 20231211_01_019, 20033141, EPICA_VIII_23, 20022115, 20231129_01_013, 20181226_01_010, 20181227_02_014, EPICA_IV_23, 20083126, 20181226_01_007, 20023149, 19993135, 19993131, 20231211_02_013, 20181227_02_012, 20181226_01_002, [ ... ] , 20231203_04_006, 19993105, 20181227_03_001, 20231211_02_016, 20181222_01_001, 19993115, 20181227_03_007, 20181226_02_009, 20231211_01_010, EPICA_IV_22, 20181227_02_015, 20231211_01_023, 19972307, 19972206, 19993110, 20231211_01_009, 19983205, 20231211_01_006, 20013124, 20181222_01_004, 19993136, 19972408, 19973310, 20231211_01_012, 20013010 (found 215, displayed 50)
 
   - reference: Franke et al. (2025), Winter et al. (2018)
   - dataset DOI: https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.1594/PANGAEA.895528
   - publication DOI: https://doi.org/10.5194/tc-19-1153-2025, https://doi.org/10.5194/essd-11-1069-2019
 
   - database: /home/anthe/data/isochrones/AntADatabase//AntADatabase.db
-  - query params: {&#39;dataset&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;], &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: &#39;38100&#39;, &#39;var&#39;: None, &#39;flight_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
-  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;flight_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
+  - query params: {&#39;dataset&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;], &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: &#39;38100&#39;, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
+  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
 </pre></div>
 </div>
 </div>
@@ -686,9 +685,9 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 
   - acquisition_year: 1970-1979, 1974-1978, 1998-2008, 1999-2025, 2001-2002, 2004, 2005, 2005-2019, 2007-2016, 2009, 2010, 2011, 2012, 2013, 2014, 2016, 2016-2018, 2016-2019, 2017, 2018, None
 
-  - age: 800, 2260, 2615, 3100, 3700, 4700, 4720, 4800, 4890, 5600, 6400, 6500, 6940, 7200, 7400, 7600, 8500, 9500, 10000, 10700, 11100, 12000, 12400, 13200, 13500, 15000, 15400, 16000, 16500, 16800, 17500, 17532, 18000, 23500, 25600, 29100, 29400, 31400, 36300, 36500, 37600, 38000, 38100, 38200, 38500, 43600, 46400, 48300, 51400, 52200, 62477, 64400, 72500, 73000, 73400, 73500, 74200, 75300, 82000, 90200, 90400, 91000, 93900, 95500, 96500, 106300, 117400, 118342, 121100, 127800, 128400, 129000, 135600, 160400, 161100, 161900, 166400, 169100, 170514, 200100, 220100, 244718, 254500, 277900, 327300, 341500, 352358, 366500, 399500, 419800, 482700, 516800, 560200, 611000, 708500
+  - age: 800, 2260, 2615, 3100, 3700, 4700, 4720, 4800, 4890, 5600, 6400, 6500, 6600, 6940, 7200, 7400, 7600, 8500, 9500, 10000, 10700, 11100, 12000, 12400, 13100, 13500, 15000, 15400, 16000, 16500, 16800, 17500, 17532, 18000, 23500, 25600, 29100, 29400, 31400, 36300, 36500, 37600, 37700, 38100, 38200, 38500, 43600, 46400, 48300, 51400, 52200, 62477, 64100, 72500, 73000, 73100, 73400, 74200, 75300, 82000, 90200, 90400, 90800, 91000, 93900, 95500, 96500, 106300, 117000, 118342, 121100, 122800, 127800, 128400, 129000, 135600, 160400, 161100, 161900, 166400, 169100, 170514, 200100, 220100, 244718, 254500, 277900, 327300, 341500, 352358, 366500, 399500, 419800, 482700, 516800, 560200, 611000, 708500
 
-  - age_unc: -, 920, 305, -, 1520, -, 280, 620, 568, -, -, 600, 310, 100, 800, 652, 900, 800, 300, -, 100, 800, 5210, 400, 900, 1000, 1190, -, 790, -, -, -, 900, 1700, 100, -, 900, 3000, 3600, -, -, 800, 100, 600, 2200, 4900, 900, 1200, -, 100, -, 3000, -, -, 880, 2200, 1700, 7000, 1600, 1600, 3570, 1100, -, 7500, 1800, 1900, 1200, -, 1800, 1800, 3600, -, 10300, 3900, 3500, 6760, 3600, 19000, -, 2600, 3300, -, 5500, 4900, 4100, 5600, -, 7900, 9700, 13700, 22100, 21900, 27200, 35400, 54000
+  - age_unc: -, 920, 305, -, 1520, -, 280, 600, 568, -, -, 600, 100, 310, 100, 800, 652, 900, 800, 300, -, 100, 800, 5210, 300, 900, 1000, 1190, -, 790, -, -, -, 900, 1700, 100, -, 900, 3000, 3600, -, -, 500, 100, 600, 2200, 4900, 900, 1200, -, 100, -, 2500, -, -, 1200, 900, 1700, 7000, 1600, 1600, 3570, 1400, 1100, -, 7500, 1800, 1900, 1300, -, 1800, 1000, 1800, 3600, -, 10300, 3900, 3500, 6760, 3600, 19000, -, 2600, 3300, -, 5500, 4900, 4100, 5600, -, 7900, 9700, 13700, 22100, 21900, 27200, 35400, 54000
 
   - var: BASAL_UNIT, BED_ELEV, ICE_THK, IRH_DEPTH, IRH_NUM, SURF_ELEV
 
@@ -698,15 +697,15 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 
   - radar_instrument: AWI-UWB, CORDS, DELORES, EMR, HICARS, LDC-VHF, MCORDS, PASIN, SPRI-NSF-DTU-radar, ULUR, nan
 
-  - flight_id: 20181227_02_007, HRB4-HRB5_proc2, W16, A08DLRSAR_9MI_3, BV11E-BV11B6_proc2, 20231129_01_016, SOUTH_PATCH_FLOW_LINE_proc2, PNV19___, 20231129_01_017, 20231211_02_005, c28c, SPC_GCX0d_X115a, THW_SJB2_X67a, 20231129_01_018, 19983401, THW_SJB2_Y67a, EPICA_VI_35, HRA6-RAID2_proc2, W24, 20201007, c21a, 20181227_02_015, 20231211_01_014, OIA_JKB2n_Y64a, EPICA_IV_23, [ ... ] , THW_SJB2_X73a, BV50B-BV50E_proc, BV32B-BV32E_proc2, Data_20131120, 20181107_01_001_025, THW_SJB2_X31a, 20231211_02_006, W66, BV26E-RAID2_proc2, A09A_DLRSAR_9MI, OIA_JKB2n_Y25a, SPC_GCX0d_Y83a, 20181226_03_002, 19983207, 20181022_01_026_046, 2014-12-23-P2_COMB_INT_COH4P1, VCD_JKB2g_X13a, HRB5-HRB2-2_proc2, 2014-12-19-P1_COMB_INT_COH4P1, 19983408, 20231211_01_020, THW_SJB2_X41a, W43A, 20181226_01_011, A11ADLRSAR_9MI_11 (found 948, displayed 50)
+  - line_id: 20231211_02_021, THW_SJB2_DRP06c, 2014-01-19-133718_COMB_INT_COH4p3, 20201007, THW_SJB2_Y31a, THW_SJB2_Y17a, 19972415, 20181222_01_006, 20231211_01_024, 20023120, 2014-12-20-P1_COMB_INT_COH4P1, 20231129_01_013, B18, RAID-2V11E, IRH_20172028, THW_SJB2_Y13a, 2014-01-19-093321_COMB_INT_COH4p1, OIA_JKB2n_Y77a, 2014-12-18-P2_COMB_INT_COH4P2, 2014-01-22-093246_COMB_INT_COH4p1, THW_SJB2_X61a, THW_SJB2_X21a, AV05B-AV05E_proc2, ASE1_SJB2_F06T02a, c10e, [ ... ] , 20231211_02_003, c34a, THW_SJB2_X31a, PNH11B-PNH11E_proc2, IRH_20172025, c10h, 19993105, 2014-12-23-P1_COMB_INT_COH4P6, c12b, 20181222_01_001, 19993115, BV26B-BV26E_proc2, c18d, 20181227_02_015, CORDS1, 19983253, BV46B-E_proc2, OIA_JKB2n_Y88a, 20231211_01_009, THW_SJB2_Y45a, 19993136, 19972408, W08, A63_DLRSAR_9MI, 20013010 (found 948, displayed 50)
 
   - reference: Ashmore et al. (2020), Beem et al. (2021), Bodart et al. (2021), Bodart and Sutter (2025a), Bodart and Sutter (2025b), Cavitte et al. (2020), Chung et al. (2023), Franke et al. (2025), Jacobel and Welch (2005), Leysinger-Vieli et al. (2011), Muldoon et al. (2023), Mulvaney et al. (2023), Napoleoni et al. (2026a,b), Sanderson et al. (2024), Siegert and Payne (2024), Wang et al. (2023), Winter et al. (2018), Yan et al. (2025)
   - dataset DOI: https://doi.org/10.5281/zenodo.4945301, https://doi.org/10.15784/601437, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB, https://doi.org/10.5281/zenodo.17348976, https://doi.org/10.5281/zenodo.17348094, https://doi.org/10.15784/601411, https://doi.pangaea.de/10.1594/PANGAEA.957176, https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.7265/N5R20Z9T, https://doi.org/10.5281/zenodo.15516203, https://doi.org/10.15784/601673, https://doi.pangaea.de/10.1594/PANGAEA.963470, , https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238, https://doi.org/10.1594/PANGAEA.958462, https://doi.org/10.1594/PANGAEA.895528, https://doi.org/10.5281/zenodo.14962526
   - publication DOI: https://doi.org/10.1029/2019GL086663, https://doi.org/10.5194/tc-15-1719-2021, https://doi.org/10.1029/2020JF005927, https://doi.org/10.5194/egusphere-2025-5381, https://doi.org/10.5194/essd-13-4759-2021, https://doi.org/10.5194/tc-17-3461-2023, https://doi.org/10.5194/tc-19-1153-2025, https://doi.org/10.1029/2003GL017210, https://doi.org/10.1029/2010JF001785, https://doi.org/10.1093/climatesystem/dzy004, https://doi.org/10.5194/tc-20-2793-2026, https://doi.org/10.1017/jog.2024.60, https://doi.org/10.1029/2004GL020290, https://doi.org/10.5194/tc-17-4297-2023, https://doi.org/10.5194/essd-11-1069-2019, https://doi.org/10.1017/jog.2025.15
 
   - database: /home/anthe/data/isochrones/AntADatabase//AntADatabase.db
-  - query params: {&#39;dataset&#39;: None, &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: None, &#39;var&#39;: None, &#39;flight_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
-  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;flight_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
+  - query params: {&#39;dataset&#39;: None, &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: None, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
+  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
 </pre></div>
 </div>
 </div>
@@ -753,11 +752,11 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">plot.var()</span></code></p></td>
 <td><p>Color-coded scatter plot of a specific variable</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plot.flight_id()</span></code></p></td>
-<td><p>Plot data points colored by flight ID</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plot.line_id()</span></code></p></td>
+<td><p>Plot data points colored by line ID</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">plot.stratigraphy()</span></code></p></td>
-<td><p>Plot IRH and bed depths along a flight line</p></td>
+<td><p>Plot IRH and bed depths along a radar line</p></td>
 </tr>
 </tbody>
 </table>
@@ -794,7 +793,7 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <img alt="_images/9f1d35e9a1790a5e4e52bc07c401ad7689cc59856b2c99d1597f011a80979466.png" src="_images/9f1d35e9a1790a5e4e52bc07c401ad7689cc59856b2c99d1597f011a80979466.png" />
 </div>
 </div>
-<p><strong>Note</strong>: All flight lines in the database are associated with one or more IMBIE basins. The plot above shows all flight lines with traced IRH data that cross the G-H basin at some point.</p>
+<p><strong>Note</strong>: All radar lines in the database are associated with one or more IMBIE basins. The plot above shows all radar lines with traced IRH data that cross the G-H basin at some point.</p>
 </section>
 <section id="plot-variables">
 <h3>Plot Variables<a class="headerlink" href="#plot-variables" title="Link to this heading">#</a></h3>
@@ -817,7 +816,7 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING: Multiple layers provided:  [&#39;36300&#39;, &#39;36500&#39;, &#39;37600&#39;, &#39;38000&#39;, &#39;38100&#39;, &#39;38200&#39;, &#39;38500&#39;] 
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING: Multiple layers provided:  [&#39;36300&#39;, &#39;36500&#39;, &#39;37600&#39;, &#39;37700&#39;, &#39;38100&#39;, &#39;38200&#39;, &#39;38500&#39;] 
 Select a unique age for better results
 </pre></div>
 </div>
@@ -844,7 +843,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING: Multiple layers provided:  [&#39;36300&#39;, &#39;36500&#39;, &#39;37600&#39;, &#39;38000&#39;, &#39;38100&#39;, &#39;38200&#39;, &#39;38500&#39;] 
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING: Multiple layers provided:  [&#39;36300&#39;, &#39;36500&#39;, &#39;37600&#39;, &#39;37700&#39;, &#39;38100&#39;, &#39;38200&#39;, &#39;38500&#39;] 
 Select a unique age for better results
 </pre></div>
 </div>
@@ -877,16 +876,16 @@ Select a unique age for better results
 </div>
 </div>
 </section>
-<section id="plot-by-flight-id">
-<h3>Plot by Flight ID<a class="headerlink" href="#plot-by-flight-id" title="Link to this heading">#</a></h3>
-<p>Useful for identifying specific flight lines of interest:</p>
+<section id="plot-by-line-id">
+<h3>Plot by Line ID<a class="headerlink" href="#plot-by-line-id" title="Link to this heading">#</a></h3>
+<p>Useful for identifying specific radar lines of interest:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query specific flight lines</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Winter%&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;EPICA%&#39;</span><span class="p">])</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query specific radar lines</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Winter%&#39;</span><span class="p">,</span> <span class="n">line_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;EPICA%&#39;</span><span class="p">])</span>
 
-<span class="c1"># Plot flight IDs</span>
-<span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">flight_id</span><span class="p">(</span>
+<span class="c1"># Plot line IDs</span>
+<span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">line_id</span><span class="p">(</span>
     <span class="n">results</span><span class="p">,</span>
     <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Winter et al. 2018 - EPICA&#39;</span><span class="p">,</span>
     <span class="n">marker_size</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span>
@@ -896,17 +895,17 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/f4daf875ad99d828c1f471bb7521e77f0a3818711a8b0a945b4be97b668e9e2d.png" src="_images/f4daf875ad99d828c1f471bb7521e77f0a3818711a8b0a945b4be97b668e9e2d.png" />
+<img alt="_images/353f6243920e19503f84234d0aa1ec5220e570cca7d87fb968f737f675eaaf93.png" src="_images/353f6243920e19503f84234d0aa1ec5220e570cca7d87fb968f737f675eaaf93.png" />
 </div>
 </div>
 </section>
 <section id="plot-transect-1d">
 <h3>Plot Transect (1D)<a class="headerlink" href="#plot-transect-1d" title="Link to this heading">#</a></h3>
-<p>Plot IRH and bed depths along a specific flight line:</p>
+<p>Plot IRH and bed depths along a specific radar line:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query a specific flight line</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query a specific radar line</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">line_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
 
 <span class="c1"># Basic transect plot</span>
 <span class="n">db</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">stratigraphy</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
@@ -954,8 +953,7 @@ Select a unique age for better results
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase 2026.10.27-1410 successfully initiated
-A new version of the AntADatabase is available (2026.10.27-1601, published 2026-10-27): run db.sync() to update.
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase successfully initiated
 </pre></div>
 </div>
 </div>
@@ -973,7 +971,7 @@ A new version of the AntADatabase is available (2026.10.27-1601, published 2026-
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
 <span class="c1"># Query specific data</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span><span class="c1"># Display query results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">line_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span><span class="c1"># Display query results</span>
 <span class="c1"># Get list of files</span>
 <span class="n">file_list</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get_files</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 
@@ -1013,11 +1011,11 @@ Attributes:
     project:           [&#39;ICECAP-OIA&#39;, &#39;OIB&#39;, &#39;BE-OI&#39;]
     radar instrument:  nan
     acquisition year:  none
-    flight ID:         DC_LDC_DIVIDE
-    flight ID flag:    original
     DOI dataset:       https://doi.org/10.15784/601411
     DOI publication:   https://doi.org/10.5194/essd-13-4759-2021
     IMBIE_basins:      {&quot;E-Ep&quot;: &quot;EAIS&quot;, &quot;Cp-D&quot;: &quot;EAIS&quot;}
+    line ID:           DC_LDC_DIVIDE
+    line ID flag:      original
 </pre></div>
 </div>
 <img alt="_images/4fc9b598c48cc344d9f9340f711528f0c1bc5c2fb0cf05413059f2c3f7dad464.png" src="_images/4fc9b598c48cc344d9f9340f711528f0c1bc5c2fb0cf05413059f2c3f7dad464.png" />
@@ -1056,7 +1054,7 @@ Attributes:
 </section>
 <section id="lazy-data-generation">
 <h2>6. Lazy Data Generation<a class="headerlink" href="#lazy-data-generation" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">data_generator()</span></code> method efficiently reads query results and yields pandas DataFrames for each flight line. This is memory-efficient for large datasets.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">data_generator()</span></code> method efficiently reads query results and yields pandas DataFrames for each radar line. This is memory-efficient for large datasets.</p>
 <section id="basic-usage">
 <h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h3>
 <p>Each DataFrame contains all queried variables and ages. IRH depth columns are named by age (e.g., ‘38000’ for the 38ka layer).</p>
@@ -1070,7 +1068,7 @@ Attributes:
 <span class="c1"># Generate data lazily</span>
 <span class="n">lazy_dfs</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">data_generator</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 
-<span class="c1"># Process each flight line</span>
+<span class="c1"># Process each radar line</span>
 <span class="n">mean_depth_trs</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">min_depth</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
 <span class="n">max_depth</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)</span>
@@ -1097,7 +1095,7 @@ Range: 225.5 m to 2352.19 m
 </div>
 </div>
 </div>
-<p><strong>Note</strong>: The <code class="docutils literal notranslate"><span class="pre">data_generator</span></code> returns a pandas DataFrame for each flight line, containing all queried variables and ages. IRH depth for each layer is stored in columns named by age (e.g., <code class="docutils literal notranslate"><span class="pre">df['38000']</span></code> for the 38ka layer).</p>
+<p><strong>Note</strong>: The <code class="docutils literal notranslate"><span class="pre">data_generator</span></code> returns a pandas DataFrame for each radar line, containing all queried variables and ages. IRH depth for each layer is stored in columns named by age (e.g., <code class="docutils literal notranslate"><span class="pre">df['38000']</span></code> for the 38ka layer).</p>
 <p>You can access the current DataFrame’s age using the metadata: <code class="docutils literal notranslate"><span class="pre">md['age']</span></code>.</p>
 <p>For fractional depth, use: <code class="docutils literal notranslate"><span class="pre">db.data_generator(results,</span> <span class="pre">fraction_depth=True)</span></code></p>
 </section>
@@ -1117,7 +1115,7 @@ Range: 225.5 m to 2352.19 m
 
 <span class="c1"># The data_generator also uses the last query if no results are passed</span>
 <span class="c1"># for df, md in db.data_generator():</span>
-<span class="c1">#     # Process each flight line</span>
+<span class="c1">#     # Process each radar line</span>
 <span class="c1">#     density_values = df[&#39;IRH_NUM&#39;]</span>
 <span class="c1">#     # ... your analysis code</span>
 </pre></div>
@@ -1270,7 +1268,7 @@ Range: 1 to 26
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-variables">Plot Variables</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fractional-depth">Fractional Depth</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-irh-density">Plot IRH Density</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-by-flight-id">Plot by Flight ID</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-by-line-id">Plot by Line ID</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-transect-1d">Plot Transect (1D)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting-options">Plotting Options</a></li>
 </ul>

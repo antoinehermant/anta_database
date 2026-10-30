@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css?v=6644e6bb" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -520,8 +520,8 @@ document.write(`
 <span class="c1"># Initialize database (replace with your actual database path)</span>
 <span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/AntADatabase/&#39;</span><span class="p">,</span> <span class="n">include_BEDMAP</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<span class="c1"># Filter out unwanted flight lines</span>
-<span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">flight_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
+<span class="c1"># Filter out unwanted radar lines</span>
+<span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">line_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
 
 <span class="c1"># Query specific dataset and age</span>
 <span class="n">query</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="s1">&#39;38100&#39;</span><span class="p">)</span>  <span class="c1"># Compare with 38.1 ka layer</span>
@@ -532,10 +532,7 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase 2026.10.27-1410 successfully initiated
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>A new version of the AntADatabase is available (2026.10.27-1541, published 2026-10-27): run db.sync() to update.
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase successfully initiated
 </pre></div>
 </div>
 </div>
@@ -543,7 +540,7 @@ document.write(`
 </section>
 <section id="interpolate-pism-onto-irh-locations">
 <h3>Interpolate PISM onto IRH Locations<a class="headerlink" href="#interpolate-pism-onto-irh-locations" title="Link to this heading">#</a></h3>
-<p>We need to interpolate the PISM isochronal layer depth onto the IRH flight line coordinates to compute the difference. Below are two approaches: using xarray (convenient) and h5py (faster for large datasets).</p>
+<p>We need to interpolate the PISM isochronal layer depth onto the IRH radar line coordinates to compute the difference. Below are two approaches: using xarray (convenient) and h5py (faster for large datasets).</p>
 <section id="method-1-using-xarray">
 <h4>Method 1: Using xarray<a class="headerlink" href="#method-1-using-xarray" title="Link to this heading">#</a></h4>
 <p>xarray provides a convenient interface for working with the data:</p>
@@ -652,13 +649,13 @@ document.write(`
 <p>For more detailed analysis, we can compare PISM and IRH data along specific transects. This is particularly useful for identifying systematic biases or local mismatches.</p>
 <section id="select-a-transect">
 <h3>Select a Transect<a class="headerlink" href="#select-a-transect" title="Link to this heading">#</a></h3>
-<p>First, select a specific flight line for detailed comparison:</p>
+<p>First, select a specific radar line for detailed comparison:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query a specific flight line</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">flight_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query a specific radar line</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s1">&#39;Cavitte_2020&#39;</span><span class="p">,</span> <span class="n">line_id</span><span class="o">=</span><span class="s1">&#39;DC_LDC_DIVIDE&#39;</span><span class="p">)</span>
 
-<span class="c1"># Get the file for this flight line</span>
+<span class="c1"># Get the file for this radar line</span>
 <span class="n">f</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get_files</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">irh</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </pre></div>
@@ -685,7 +682,7 @@ document.write(`
 </section>
 <section id="interpolate-pism-layers-onto-transect">
 <h3>Interpolate PISM Layers onto Transect<a class="headerlink" href="#interpolate-pism-layers-onto-transect" title="Link to this heading">#</a></h3>
-<p>Interpolate each PISM isochronal layer onto the flight line coordinates:</p>
+<p>Interpolate each PISM isochronal layer onto the radar line coordinates:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Interpolate and plot each PISM layer</span>
@@ -708,7 +705,7 @@ document.write(`
 
 <span class="c1"># Format the plot</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">3500</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Depth increases downward</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance along flight line [km]&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Distance along line [km]&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Isochronal Layer Depth [m]&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Isochronal Layer Depth Comparison along Transect&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s1">&#39;Cavitte et al. 2020 Ages [yr BP]&#39;</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">1.05</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s1">&#39;upper left&#39;</span><span class="p">)</span>
@@ -717,7 +714,7 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/89ec8bc9308314bf2ef48cbac32117adabc5609c2d0a138942aef01b7ee9590a.png" src="_images/89ec8bc9308314bf2ef48cbac32117adabc5609c2d0a138942aef01b7ee9590a.png" />
+<img alt="_images/affa043b20a6ad6e31d293b5fd42837e00e33574601824b7cd6c824e9993aa76.png" src="_images/affa043b20a6ad6e31d293b5fd42837e00e33574601824b7cd6c824e9993aa76.png" />
 </div>
 </div>
 </section>
