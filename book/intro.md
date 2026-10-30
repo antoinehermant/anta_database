@@ -28,7 +28,7 @@ The AntADatabase is a curated collection of all published isochrone datasets, st
 The `anta_database` an open-source Python package provides the tools to efficiently query, filter, visualize, and process the AntADatabase dataset. It's built for performance and ease of use, with SQLite indexing for fast data access.
 
 **Key features:**
-- **SQLite Indexing**: Fast querying by dataset, institute, project, age, region, basin, variable, or flight ID
+- **SQLite Indexing**: Fast querying by dataset, institute, project, age, region, basin, variable, or line ID
 - **Memory Efficient**: Lazy data generation to handle large datasets without loading everything into memory
 - **Visualization Tools**: Built-in plotting functions for quick data exploration on Antarctic maps
 - **Data Processing**: Tools to compile and index your own datasets

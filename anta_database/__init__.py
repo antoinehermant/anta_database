@@ -26,12 +26,16 @@ from anta_database.plotting.plotting import Plotting
 from anta_database.cloud.sync import sync
 
 if TYPE_CHECKING:
-    from anta_database.compiling.zarr_converter_simple import FlightLineZarrConverter
+    from anta_database.compiling.zarr_converter_simple import (
+        LineZarrConverter,
+        FlightLineZarrConverter,
+    )
     from anta_database.compiling.compile import CompileDatabase
     from anta_database.plotting.plotting_pism import PISMPlotting
 
 # Optional classes, imported on first access
 _LAZY_IMPORTS = {
+    "LineZarrConverter": "anta_database.compiling",
     "FlightLineZarrConverter": "anta_database.compiling",
     "CompileDatabase": "anta_database.compiling",
     "PISMPlotting": "anta_database.plotting.plotting_pism",
@@ -56,6 +60,7 @@ __all__ = [
     "Database",
     "MetadataResult",
     # Compiling classes
+    "LineZarrConverter",
     "FlightLineZarrConverter",
     "CompileDatabase",
     # Indexing functions

@@ -18,7 +18,7 @@ AntADatabase is a Python package providing efficient access to Internal Reflecti
 
 ## Key Features
 
-- **SQL Indexing**: Fast querying of IRH data by dataset, institute, project, age, region, basin, variable, or flight ID
+- **SQL Indexing**: Fast querying of IRH data by dataset, institute, project, age, region, basin, variable, or line ID
 - **HDF5 Storage**: Data stored in HDF5 format for optimal read performance
 - **Plotting Tools**: Built-in visualization functions for quick data exploration
 - **Lazy Data Generation**: Generate data for later use

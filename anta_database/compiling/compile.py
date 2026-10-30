@@ -17,6 +17,11 @@ from tqdm import tqdm
 from importlib.resources import files
 from scipy.spatial.distance import cdist
 
+# Lines were called flights before ground-based radar joined the database: the old
+# names of raw files and raw_md.json are still read as the new ones.
+OLD_COLUMN_NAMES = {"Flight_ID": "Line_ID"}
+OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
+
 
 class CompileDatabase:
     def __init__(
@@ -157,7 +162,7 @@ class CompileDatabase:
 
             print(
                 "\n",
-                "Breaking possible flight transects in separated h5 files for",
+                "Breaking possible line transects in separated h5 files for",
                 num_tasks,
                 "h5 files\n" "\n   ",
                 num_workers,
@@ -370,7 +375,9 @@ class CompileDatabase:
     def extract(self, file_dict) -> None:
 
         _, ext = os.path.splitext(file_dict["file"])
-        raw_md = pd.read_json(f"{file_dict['dir_path']}/raw_md.json")
+        raw_md = pd.read_json(f"{file_dict['dir_path']}/raw_md.json").rename(
+            columns=OLD_RAW_MD_KEYS
+        )
         original_new_columns = pd.read_csv(
             f"{file_dict['dir_path']}/original_new_column_names.csv"
         )
@@ -412,6 +419,7 @@ class CompileDatabase:
         df.columns = (
             original_new_columns[df.columns].iloc[0].values
         )  # renaming the columns
+        df = df.rename(columns=OLD_COLUMN_NAMES)
 
         values_to_replace = ["-9999", "-9999.0", "NaN", "nan", ""]
 
@@ -502,25 +510,25 @@ class CompileDatabase:
             if self._firn_correction:
                 df["IRH_DEPTH"] += self._firn_correction
 
-            df = df.astype({"Flight_ID": str})
-            df["Flight_ID"] = df["Flight_ID"].str.replace(
-                r"/\s+", "_"
+            df = df.astype({"Line_ID": str})
+            df["Line_ID"] = df["Line_ID"].str.replace(
+                r"/\s+", "_", regex=True
             )  # Replace slashes with underscores, otherwise the paths can get messy
-            df["Flight_ID"] = df["Flight_ID"].str.replace("/", "_")
-            df.set_index("Flight_ID", inplace=True)
+            df["Line_ID"] = df["Line_ID"].str.replace("/", "_")
+            df.set_index("Line_ID", inplace=True)
 
-            flight_id = []
-            flight_id_flag = "original"
+            line_id = []
+            line_id_flag = "original"
 
-            if "flight ID" in raw_md.index:
-                if not pd.isna(raw_md["flight ID"]):
-                    flight_id = raw_md["flight ID"]
-                    flight_id_flag = "not_provided"
+            if "line ID" in raw_md.index:
+                if not pd.isna(raw_md["line ID"]):
+                    line_id = raw_md["line ID"]
+                    line_id_flag = "not_provided"
 
-            if "flight ID prefix" in raw_md.index:
-                if not pd.isna(raw_md["flight ID prefix"]):
-                    df.index = [f"{raw_md['flight ID prefix']}{x}" for x in df.index]
-                    flight_id_flag = "project_acq-year_number"
+            if "line ID prefix" in raw_md.index:
+                if not pd.isna(raw_md["line ID prefix"]):
+                    df.index = [f"{raw_md['line ID prefix']}{x}" for x in df.index]
+                    line_id_flag = "project_acq-year_number"
 
             dataset = raw_md["dataset"]
             institute = raw_md["institute"]
@@ -543,19 +551,19 @@ class CompileDatabase:
             else:
                 radar_inst = "nan"
 
-            flight_ids = np.unique(df.index)
-            if flight_id_flag == "not_provided":
-                flight_ids = [flight_id]
+            line_ids = np.unique(df.index)
+            if line_id_flag == "not_provided":
+                line_ids = [line_id]
 
             def extract_year(time: str, pattern: str):
                 position = pattern.find("YYYY")
                 return time[position : position + 4]
 
-            for flight_id in flight_ids:
-                if flight_id_flag == "not_provided":
+            for line_id in line_ids:
+                if line_id_flag == "not_provided":
                     df_trace = df.copy()
                 else:
-                    df_trace = df.loc[flight_id].copy()
+                    df_trace = df.loc[line_id].copy()
 
                 if "acq_year" in pattern_values.columns:
                     pattern = pattern_values.iloc[0]["acq_year"]
@@ -566,33 +574,33 @@ class CompileDatabase:
                         unique_time = np.unique(df_trace["acq_year"])
                         if len(unique_time) > 1:
                             raise ValueError(
-                                f"flight {flight_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this"
+                                f"line {line_id} in {file_name_} contains {len(unique_time)} different acquisition year. Current code does not support this"
                             )
                         else:
                             position = pattern.find("YYYY")
                             acq_year = unique_time[0][position : position + 4]
                         df_trace.drop(columns="acq_year", inplace=True)
 
-                if flight_id == "nan":
-                    flight_id = f"{project}_{acq_year}"
-                    flight_id_flag = "not_provided"
+                if line_id == "nan":
+                    line_id = f"{project}_{acq_year}"
+                    line_id_flag = "not_provided"
 
                 # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
-                ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl"
+                ds_trace_file = f"{file_dict['dir_path']}/pkl/{line_id}/{IRH}.pkl"
 
-                flight_dir, _ = os.path.split(ds_trace_file)
-                os.makedirs(flight_dir, exist_ok=True)
+                line_dir, _ = os.path.split(ds_trace_file)
+                os.makedirs(line_dir, exist_ok=True)
                 df_trace.reset_index(drop=True, inplace=True)
                 df_trace.to_pickle(ds_trace_file)
 
-                trace_metadata = f"{flight_dir}/metadata.csv"
+                trace_metadata = f"{line_dir}/metadata.csv"
                 if not os.path.exists(trace_metadata):
                     if not pd.isna(acq_year) and acq_year == 0:
                         acq_year = pd.NA
                     trace_md = pd.DataFrame(
                         {
                             "dataset": [dataset, "original"],
-                            "flight_id": [flight_id, flight_id_flag],
+                            "line_id": [line_id, line_id_flag],
                             "institute": [institute, institute_flag],
                             "project": [project, project_flag],
                             "acq_year": [acq_year, acq_year_flag],
@@ -601,13 +609,13 @@ class CompileDatabase:
                             "doi_pub": [doi_pub, None],
                         }
                     )
-                    trace_md.set_index("flight_id", inplace=True)
+                    trace_md.set_index("line_id", inplace=True)
                     trace_md.to_csv(trace_metadata)
 
         elif raw_md.iloc[0]["file structure"] == "line":
             IRH_md = pd.read_json(f"{file_dict['dir_path']}/raw_md.json")
 
-            flight_id = file_name_
+            line_id = file_name_
             IRH_md.set_index("IRH", inplace=True)
 
             for IRH, row in IRH_md.iterrows():
@@ -645,7 +653,7 @@ class CompileDatabase:
                     project_flag = "original"
                     acq_year = row["acquisition year"]
                     acq_year_flag = "original"
-                    flight_id_flag = "original"
+                    line_id_flag = "original"
                     doi_data = row["DOI dataset"]
                     doi_pub = row["DOI publication"]
                     if "radar instrument" in row.index:
@@ -654,19 +662,19 @@ class CompileDatabase:
                         radar_inst = "nan"
 
                     # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
-                    ds_trace_file = f"{file_dict['dir_path']}/pkl/{flight_id}/{IRH}.pkl"
+                    ds_trace_file = f"{file_dict['dir_path']}/pkl/{line_id}/{IRH}.pkl"
 
-                    flight_dir, _ = os.path.split(ds_trace_file)
-                    os.makedirs(flight_dir, exist_ok=True)
+                    line_dir, _ = os.path.split(ds_trace_file)
+                    os.makedirs(line_dir, exist_ok=True)
                     df_IRH.reset_index(drop=True, inplace=True)
                     df_IRH.to_pickle(ds_trace_file)
 
-                    trace_metadata = f"{flight_dir}/metadata.csv"
+                    trace_metadata = f"{line_dir}/metadata.csv"
                     if not os.path.exists(trace_metadata):
                         trace_md = pd.DataFrame(
                             {
                                 "dataset": [dataset, "original"],
-                                "flight_id": [flight_id, flight_id_flag],
+                                "line_id": [line_id, line_id_flag],
                                 "institute": [institute, institute_flag],
                                 "project": [project, project_flag],
                                 "acq_year": [acq_year, acq_year_flag],
@@ -675,7 +683,7 @@ class CompileDatabase:
                                 "doi_pub": [doi_pub, None],
                             }
                         )
-                        trace_md.set_index("flight_id", inplace=True)
+                        trace_md.set_index("line_id", inplace=True)
                         trace_md.to_csv(trace_metadata)
 
     def combine_dfs(self, trace_dir: str) -> None:
@@ -749,7 +757,7 @@ class CompileDatabase:
                 institute = [institute]
         else:
             institute = list(institute)
-        flight_id = str(trace_md.iloc[0]["flight_id"])
+        line_id = str(trace_md.iloc[0]["line_id"])
         ds = xr.Dataset(
             coords={
                 "point": np.arange(len(merged_df)),
@@ -761,8 +769,8 @@ class CompileDatabase:
                 "project": str(trace_md.iloc[0]["project"]),
                 "radar instrument": str(trace_md.iloc[0]["radar_instrument"]),
                 "acquisition year": str(trace_md.iloc[0]["acq_year"]),
-                "flight ID": str(trace_md.iloc[0]["flight_id"]),
-                "flight ID flag": str(trace_md.iloc[1]["flight_id"]),
+                "line ID": str(trace_md.iloc[0]["line_id"]),
+                "line ID flag": str(trace_md.iloc[1]["line_id"]),
                 "DOI dataset": str(trace_md.iloc[0]["doi_data"]),
                 "DOI publication": str(trace_md.iloc[0]["doi_pub"]),
             },
@@ -811,9 +819,9 @@ class CompileDatabase:
             h5_dir = os.path.join(dataset_dir, "h5")
             os.makedirs(h5_dir, exist_ok=True)
             if not isinstance(institute, (list, tuple, set)) and institute != "nan":
-                h5_file = f"{h5_dir}/{institute}_{flight_id}.h5"
+                h5_file = f"{h5_dir}/{institute}_{line_id}.h5"
             else:
-                h5_file = f"{h5_dir}/{flight_id}.h5"
+                h5_file = f"{h5_dir}/{line_id}.h5"
 
             ds.to_netcdf(h5_file, engine="h5netcdf", encoding=encoding, mode="w")
 
@@ -821,9 +829,9 @@ class CompileDatabase:
             nc_dir = os.path.join(dataset_dir, "nc")
             os.makedirs(nc_dir, exist_ok=True)
             if not isinstance(institute, (list, tuple, set)) and institute != "nan":
-                nc_file = f"{nc_dir}/{institute}_{flight_id}.nc"
+                nc_file = f"{nc_dir}/{institute}_{line_id}.nc"
             else:
-                nc_file = f"{nc_dir}/{flight_id}.nc"
+                nc_file = f"{nc_dir}/{line_id}.nc"
 
             ds.to_netcdf(nc_file, engine="netcdf4", encoding=encoding, mode="w")
 
@@ -833,9 +841,9 @@ class CompileDatabase:
         with h5py.File(h5_file, "a") as f:
             with xr.open_dataset(f, engine="h5netcdf") as ds:
 
-                flight_id_flag = ds.attrs["flight ID flag"]
+                line_id_flag = ds.attrs["line ID flag"]
 
-                if flight_id_flag == "not_provided":
+                if line_id_flag == "not_provided":
                     x = ds["PSX"].values
                     x_diff = np.diff(x)
                     idx = np.abs(x_diff) < 50000
@@ -843,16 +851,16 @@ class CompileDatabase:
                     break_points = np.append(0, break_points)
 
                     for t in range(len(break_points) - 1):
-                        ds_flight_line = ds.isel(
+                        ds_line = ds.isel(
                             point=slice(break_points[t], break_points[t + 1])
                         ).copy()
-                        ds_flight_line["point"] = np.arange(len(ds_flight_line.point))
-                        ds_flight_line.attrs["flight ID"] += f"_{t}"
+                        ds_line["point"] = np.arange(len(ds_line.point))
+                        ds_line.attrs["line ID"] += f"_{t}"
 
-                        h5_flight_file = f"{h5_dir}/{file_}_{t}.h5"
+                        h5_line_file = f"{h5_dir}/{file_}_{t}.h5"
 
-                        ds_flight_line.to_netcdf(
-                            h5_flight_file, engine="h5netcdf", mode="a"
+                        ds_line.to_netcdf(
+                            h5_line_file, engine="h5netcdf", mode="a"
                         )
 
     def compute_fractional_depth(self, h5_file: str) -> None:
@@ -1065,7 +1073,7 @@ class CompileDatabase:
 
                     age_max_depth = np.abs(age_max_depth)
                     max_depth = np.abs(max_depth)
-                    flight_id = ds.attrs["flight ID"]
+                    line_id = ds.attrs["line ID"]
                     acq_year = ds.attrs["acquisition year"]
                     project = ds.attrs["project"]
                     instrument = ds.attrs["radar instrument"]
@@ -1080,7 +1088,7 @@ class CompileDatabase:
                             "irh_num": N.astype("int8"),
                             "max_age": age_max_depth.astype("int32"),
                             "max_depth": np.rint(max_depth).astype("int16"),
-                            # "flight_id": [flight_id] * len(N),
+                            # "line_id": [line_id] * len(N),
                             # "doi_data": [doi_data] * len(N),
                         },
                         crs="EPSG:3031",
@@ -1122,14 +1130,14 @@ class CompileDatabase:
                             max_depth[i] = depth_slice[max_idx]
                             age_max_depth[i] = ds.IRH_AGE.values[max_idx]
 
-                    flight_id = ds.attrs["flight ID"]
+                    line_id = ds.attrs["line ID"]
                     acq_year = ds.attrs["acquisition year"]
                     project = ds.attrs["project"]
                     instrument = ds.attrs["radar instrument"]
 
                     points_gdf = gpd.GeoDataFrame(
                         {
-                            "flight_id": [flight_id] * len(N),
+                            "line_id": [line_id] * len(N),
                             "geometry": [
                                 Point(x, y)
                                 for x, y in zip(ds.PSX.values, ds.PSY.values)
@@ -1141,9 +1149,9 @@ class CompileDatabase:
                         crs="EPSG:3031",
                     )
 
-                    flights_df = gpd.GeoDataFrame(
+                    lines_df = gpd.GeoDataFrame(
                         {
-                            "flight_id": flight_id,
+                            "line_id": line_id,
                             "acquisition_year": [acq_year],
                             "project": [project],
                             "instrument": [instrument],
@@ -1151,7 +1159,7 @@ class CompileDatabase:
                     )
 
                     all_points.append(points_gdf)
-                    all_md.append(flights_df)
+                    all_md.append(lines_df)
 
         df_points = gpd.GeoDataFrame(
             pd.concat(all_points, ignore_index=True), crs="EPSG:3031"
@@ -1163,4 +1171,4 @@ class CompileDatabase:
         os.makedirs(gpkg_dir, exist_ok=True)
 
         df_points.to_file(f"{gpkg_dir}/{dataset}.gpkg", layer="points", driver="GPKG")
-        df_md.to_file(f"{gpkg_dir}/{dataset}.gpkg", layer="flights", driver="GPKG")
+        df_md.to_file(f"{gpkg_dir}/{dataset}.gpkg", layer="lines", driver="GPKG")

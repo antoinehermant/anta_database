@@ -207,12 +207,12 @@ class PISMPlotting:
 
         with h5py.File(full_path, "r") as irh:
             dataset = irh.attrs["dataset"]
-            flight_id = irh.attrs["flight ID"]
+            line_id = irh.attrs["line ID"]
             if self.elevation:
                 if "SURF_ELEV" not in irh.keys():
                     print(
                         "SURF_ELEV not in",
-                        flight_id,
+                        line_id,
                         "for",
                         dataset,
                         ": cannot compute IRH elevation. Stopping the process here.",
@@ -287,7 +287,7 @@ class PISMPlotting:
         save: Optional[str] = None,
         auto_zoom: Optional[bool] = True,
         mini_map: Optional[bool] = True,
-        color_by: str = "dataset",  # 'dataset', 'flight_id', 'depth', 'density'
+        color_by: str = "dataset",  # 'dataset', 'line_id', 'depth', 'density'
         cmap: Optional["LinearSegmentedColormap"] = None,
         grounding_line: Optional[bool] = True,
         basins: Optional[bool] = True,
@@ -304,7 +304,7 @@ class PISMPlotting:
                 )
                 return
 
-        total_traces = len(metadata["flight_id"])
+        total_traces = len(metadata["line_id"])
 
         if not self._pre_plot_check(metadata):
             return
@@ -445,23 +445,23 @@ class PISMPlotting:
                 ymax = psy_max if ymax is None else max(ymax, psy_max)
 
         if color_by == "stratigraphy":
-            flight_id = list(metadata["flight_id"])
-            if len(flight_id) > 1:
-                flight_id = flight_id[0]
+            line_id = list(metadata["line_id"])
+            if len(line_id) > 1:
+                line_id = line_id[0]
                 print(
-                    "Found mutilple flight lines to plot, so will plot the first one: ",
-                    flight_id,
+                    "Found mutilple lines to plot, so will plot the first one: ",
+                    line_id,
                 )
-            elif len(flight_id) < 1:
-                print("No flight line found to plot")
+            elif len(line_id) < 1:
+                print("No line found to plot")
                 plt.close()
                 return
 
             metadata_impl = self._db.query(
-                flight_id=flight_id, dataset=metadata["dataset"], retain_query=False
+                line_id=line_id, dataset=metadata["dataset"], retain_query=False
             )
             if not title:
-                title = f"Transect {metadata_impl['flight_id'][0]} from {metadata_impl['reference'][0]}"
+                title = f"Transect {metadata_impl['line_id'][0]} from {metadata_impl['reference'][0]}"
 
             f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
             full_path = os.path.join(self._db._db_dir, f)
@@ -522,7 +522,7 @@ class PISMPlotting:
             for age, color in zip(list(map(int, ages)), colors):
                 if age not in ds.IRH_AGE:
                     print(
-                        f"{metadata_impl['flight_id'][0]} does not contain age {age}, skipping"
+                        f"{metadata_impl['line_id'][0]} does not contain age {age}, skipping"
                     )
                     continue
 

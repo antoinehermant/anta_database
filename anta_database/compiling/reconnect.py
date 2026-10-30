@@ -20,7 +20,7 @@ class Reconnect:
     def reconnect(self, cpus: int = 1):
         all_dfs = []
         print('Loading dataset where to get the variables from\n')
-        for ds, _ in tqdm(self._db.data_generator(self.query_connect_with), total=len(self.query_connect_with['flight_id']), desc='Loading', unit='file'):
+        for ds, _ in tqdm(self._db.data_generator(self.query_connect_with), total=len(self.query_connect_with['line_id']), desc='Loading', unit='file'):
             all_dfs.append(ds)
         df_connect = pd.concat(all_dfs)
         tree = cKDTree(df_connect[['PSX', 'PSY']].values)
@@ -31,7 +31,7 @@ class Reconnect:
         num_tasks = len(file_paths)
         num_workers = min(num_tasks, cpus)
 
-        print('\nReconnecting variables in individual flight lines:\n')
+        print('\nReconnecting variables in individual lines:\n')
         if num_workers > 1:
             with Pool(num_workers) as pool:
                 partial_process = partial(self.process, df_connect, tree)

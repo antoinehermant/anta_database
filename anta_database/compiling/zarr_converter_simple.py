@@ -11,14 +11,14 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore", message="Consolidated metadata is currently not part")
 
 
-class FlightLineZarrConverter:
+class LineZarrConverter:
     """
-    Convert HDF5 flight line files to Zarr format.
+    Convert HDF5 line files to Zarr format.
 
     Usage:
         base_dir = "/path/to/database/"
         dir_path_list = ["Cavitte_2020/", "Chung_2023/"]
-        converter = FlightLineZarrConverter(base_dir, dir_path_list)
+        converter = LineZarrConverter(base_dir, dir_path_list)
         converter.convert()
     """
 
@@ -51,7 +51,7 @@ class FlightLineZarrConverter:
         return all_converted
 
     def _convert_dataset(self, dir_path, dataset_name):
-        """Convert all flight lines in a dataset."""
+        """Convert all lines in a dataset."""
         # Handle both "Chung_2023" and "Chung_2023/" formats
         if not dir_path.endswith("/"):
             dir_path += "/"
@@ -74,14 +74,14 @@ class FlightLineZarrConverter:
                 h5_path = os.path.join(h5_dir, h5_file)
                 ds = xr.open_dataset(h5_path)
 
-                # Remove flight_line dimension if present
+                # Remove the flight_line dimension of old files, if present
                 if "flight_line" in ds.dims and ds.sizes["flight_line"] == 1:
                     ds = ds.squeeze("flight_line", drop=True)
                 elif "flight_line" in ds.coords:
                     ds = ds.drop_vars("flight_line")
 
-                flight_line = h5_file.replace(".h5", "")
-                zarr_path = os.path.join(zarr_dataset_dir, f"{flight_line}.zarr")
+                line = h5_file.replace(".h5", "")
+                zarr_path = os.path.join(zarr_dataset_dir, f"{line}.zarr")
 
                 # Remove existing zarr directory if it exists
                 if os.path.exists(zarr_path):
@@ -94,7 +94,7 @@ class FlightLineZarrConverter:
                 converted_files.append(
                     {
                         "dataset": dataset_name,
-                        "flight_line": flight_line,
+                        "line": line,
                         "h5_path": h5_path,
                         "zarr_path": zarr_path,
                     }
@@ -127,7 +127,7 @@ class FlightLineZarrConverter:
 
             for zarr_file in os.listdir(zarr_dir):
                 if zarr_file.endswith(".zarr"):
-                    flight_line = zarr_file.replace(".zarr", "")
+                    line = zarr_file.replace(".zarr", "")
                     zarr_path = os.path.join(zarr_dir, zarr_file)
 
                     try:
@@ -135,7 +135,7 @@ class FlightLineZarrConverter:
                         metadata.append(
                             {
                                 "dataset": os.path.basename(dir_path.rstrip("/")),
-                                "flight_line": flight_line,
+                                "line": line,
                                 "zarr_path": zarr_path,
                                 "dimensions": dict(ds.sizes),
                                 "variables": list(ds.data_vars),
@@ -162,8 +162,12 @@ def convert_to_zarr(base_dir, dir_path_list):
         base_dir: Base directory
         dir_path_list: List of subdirectories to convert
     """
-    converter = FlightLineZarrConverter(base_dir, dir_path_list)
+    converter = LineZarrConverter(base_dir, dir_path_list)
     return converter.convert()
+
+
+# Deprecated name, from before lines were renamed
+FlightLineZarrConverter = LineZarrConverter
 
 
 if __name__ == "__main__":
@@ -171,5 +175,6 @@ if __name__ == "__main__":
     base_dir = "/home/anthe/data/isochrones/database_project/myAntADatabase"
     dir_path_list = ["Cavitte_2020/", "Chung_2023/"]
 
-    converter = FlightLineZarrConverter(base_dir, dir_path_list)
+    converter = LineZarrConverter(base_dir, dir_path_list)
     converter.convert()
+

@@ -357,7 +357,7 @@ class IndexDatabase:
                 project TEXT,
                 radar_instrument TEXT,
                 acq_year TEXT,
-                flight_id TEXT,
+                line_id TEXT,
                 FOREIGN KEY (dataset) REFERENCES sources (id)
                 )
             """)
@@ -477,9 +477,10 @@ class IndexDatabase:
             _, file_name = os.path.split(f)
 
             with h5py.File(f, "r") as ds:
-                flight_id = ds.attrs["flight ID"]
-                if flight_id in ["nan", "none"]:
-                    flight_id = None
+                # "flight ID": files compiled before lines were renamed
+                line_id = ds.attrs.get("line ID", ds.attrs.get("flight ID"))
+                if line_id in ["nan", "none"]:
+                    line_id = None
 
                 institutes = ds.attrs["institute"]
                 if isinstance(institutes, str):
@@ -551,10 +552,10 @@ class IndexDatabase:
             # Insert into datasets and get the new row id
             cursor.execute(
                 """
-                INSERT INTO datasets (file_path, dataset, acq_year, flight_id)
+                INSERT INTO datasets (file_path, dataset, acq_year, line_id)
                 VALUES (?, ?, ?, ?)
             """,
-                (relative_file_path, dataset_id, str(acq_year), flight_id),
+                (relative_file_path, dataset_id, str(acq_year), line_id),
             )
             dataset_row_id = cursor.lastrowid
 

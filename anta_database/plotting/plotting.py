@@ -1,4 +1,5 @@
 import os
+import warnings
 import h5py
 import pandas as pd
 import numpy as np
@@ -155,7 +156,7 @@ class Plotting:
             mini_map=mini_map,
         )
 
-    def flight_id(
+    def line_id(
         self,
         metadata: Union[None, Dict, "MetadataResult"] = None,
         downsampling_factor: Optional[int] = None,
@@ -175,10 +176,10 @@ class Plotting:
         mini_map: Optional[bool] = True,
     ) -> None:
         """
-        Plot the data points on a Antarctic map with color-coded trace IDs
+        Plot the data points on a Antarctic map with color-coded line IDs
         """
         self._base_plot(
-            color_by="flight_id",
+            color_by="line_id",
             metadata=metadata,
             downsampling_factor=downsampling_factor,
             scale_factor=scale_factor,
@@ -196,6 +197,15 @@ class Plotting:
             auto_zoom=auto_zoom,
             mini_map=mini_map,
         )
+
+    def flight_id(self, *args, **kwargs) -> None:
+        """Deprecated, use line_id()."""
+        warnings.warn(
+            "plot.flight_id() is deprecated, use plot.line_id() instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        self.line_id(*args, **kwargs)
 
     def var(
         self,
@@ -307,7 +317,7 @@ class Plotting:
         save: Optional[str] = None,
         auto_zoom: Optional[bool] = True,
         mini_map: Optional[bool] = True,
-        color_by: str = "dataset",  # 'dataset', 'flight_id', 'depth', 'density'
+        color_by: str = "dataset",  # 'dataset', 'line_id', 'depth', 'density'
         cmap: Optional["LinearSegmentedColormap"] = None,
         grounding_line: Optional[bool] = True,
         basins: Optional[bool] = True,
@@ -315,6 +325,8 @@ class Plotting:
         ncol: Optional[int] = None,
     ) -> None:
         # --- Setup ---
+        if color_by == "flight_id":  # deprecated name
+            color_by = "line_id"
         if metadata is None:
             if hasattr(self._db, "_md") and self._db._md:
                 metadata = self._db._md
@@ -324,7 +336,7 @@ class Plotting:
                 )
                 return
 
-        total_traces = len(metadata["flight_id"])
+        total_traces = len(metadata["line_id"])
 
         if not self._pre_plot_check(metadata):
             return
@@ -399,7 +411,7 @@ class Plotting:
             }
             colors.update(bedmap_colors)
 
-            flight_ids = metadata["flight_id"]
+            line_ids = metadata["line_id"]
             for dataset in tqdm(
                 datasets,
                 desc="Plotting",
@@ -408,7 +420,7 @@ class Plotting:
                 disable=self._disable_tqdm,
             ):
                 metadata_impl = self._db.query(
-                    dataset=dataset, flight_id=flight_ids, retain_query=False
+                    dataset=dataset, line_id=line_ids, retain_query=False
                 )
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
@@ -472,7 +484,7 @@ class Plotting:
                 cmap = self._custom_cmap()
             colors = {dataset: cmap(i) for i, dataset in zip(color_indices, institutes)}
 
-            flight_ids = metadata["flight_id"]
+            line_ids = metadata["line_id"]
             for institute in tqdm(
                 institutes,
                 desc="Plotting",
@@ -481,7 +493,7 @@ class Plotting:
                 disable=self._disable_tqdm,
             ):
                 metadata_impl = self._db.query(
-                    institute=institute, flight_id=flight_ids, retain_query=False
+                    institute=institute, line_id=line_ids, retain_query=False
                 )
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
@@ -717,22 +729,22 @@ class Plotting:
                     )
 
         if color_by == "stratigraphy":
-            flight_id = list(metadata["flight_id"])
-            if len(flight_id) > 1:
-                flight_id = flight_id[0]
+            line_id = list(metadata["line_id"])
+            if len(line_id) > 1:
+                line_id = line_id[0]
                 print(
-                    "Found mutilple flight lines to plot, so will plot the first one: ",
-                    flight_id,
+                    "Found mutilple lines to plot, so will plot the first one: ",
+                    line_id,
                 )
-            elif len(flight_id) < 1:
-                print("No flight line found to plot")
+            elif len(line_id) < 1:
+                print("No line found to plot")
                 return
 
             metadata_impl = self._db.query(
-                flight_id=flight_id, dataset=metadata["dataset"], retain_query=False
+                line_id=line_id, dataset=metadata["dataset"], retain_query=False
             )
             if not title:
-                title = f"Transect {metadata_impl['flight_id'][0]} from {metadata_impl['reference'][0]}"
+                title = f"Transect {metadata_impl['line_id'][0]} from {metadata_impl['reference'][0]}"
 
             f = self._db._get_file_paths_from_metadata(metadata_impl)[0]
             full_path = os.path.join(self._db._db_dir, f)
@@ -762,7 +774,7 @@ class Plotting:
             for age, color in zip(list(map(int, metadata["age"])), colors):
                 if age not in ds.IRH_AGE:
                     print(
-                        f"{metadata_impl['flight_id'][0]} does not contain age {age}, skipping"
+                        f"{metadata_impl['line_id'][0]} does not contain age {age}, skipping"
                     )
                     continue
 
@@ -834,25 +846,25 @@ class Plotting:
                 if ds.sizes["IRH"] > 15:
                     ncol = 3
 
-        elif color_by == "flight_id":
+        elif color_by == "line_id":
             if not title:
-                title = f"AntADatabase by flight IDs"
-            flight_ids = list(metadata["flight_id"])
-            color_indices = np.linspace(0.1, 0.9, len(flight_ids))
+                title = f"AntADatabase by line IDs"
+            line_ids = list(metadata["line_id"])
+            color_indices = np.linspace(0.1, 0.9, len(line_ids))
             if cmap == None:
                 cmap = self._custom_cmap()
-            colors = {tid: cmap(i) for i, tid in zip(color_indices, flight_ids)}
+            colors = {tid: cmap(i) for i, tid in zip(color_indices, line_ids)}
 
             datasets = list(metadata["dataset"])
-            flight_ids = metadata["flight_id"]
-            for flight_id in tqdm(
-                flight_ids,
+            line_ids = metadata["line_id"]
+            for line_id in tqdm(
+                line_ids,
                 desc="Plotting",
-                total=len(flight_ids),
-                unit="flight_id",
+                total=len(line_ids),
+                unit="line_id",
                 disable=self._disable_tqdm,
             ):
-                metadata_impl = self._db.query(flight_id=flight_id, retain_query=False)
+                metadata_impl = self._db.query(line_id=line_id, retain_query=False)
                 file_paths = self._db._get_file_paths_from_metadata(metadata_impl)
                 file_paths = np.unique(file_paths)
                 all_x, all_y = [], []
@@ -867,7 +879,7 @@ class Plotting:
                 ax.scatter(
                     df["PSX"][::downsampling_factor] / 1000,
                     df["PSY"][::downsampling_factor] / 1000,
-                    color=colors[flight_id],
+                    color=colors[line_id],
                     s=marker_size,
                     linewidths=0,
                 )
@@ -875,13 +887,13 @@ class Plotting:
                 inset.scatter(
                     df["PSX"][::downsampling_factor] / 1000,
                     df["PSY"][::downsampling_factor] / 1000,
-                    color=colors[flight_id],
+                    color=colors[line_id],
                     s=marker_size,
                     linewidths=0,
                     zorder=10,
                 )
 
-                ax.plot([], [], color=colors[flight_id], label=flight_id, linewidth=3)
+                ax.plot([], [], color=colors[line_id], label=line_id, linewidth=3)
 
                 if auto_zoom:
                     psx_min, psx_max = df["PSX"].min() / 1000, df["PSX"].max() / 1000
@@ -891,7 +903,7 @@ class Plotting:
                     ymin = psy_min if ymin is None else min(ymin, psy_min)
                     ymax = psy_max if ymax is None else max(ymax, psy_max)
 
-            ncol = 2 if len(flight_ids) > 40 else 1
+            ncol = 2 if len(line_ids) > 40 else 1
 
         # --- Format Figure ---
         if not self._disable_tqdm:
@@ -934,7 +946,7 @@ class Plotting:
         # --- Legend/Colorbar ---
         if color_by in ["dataset", "institute"]:
             ax.legend(ncols=ncol, loc="lower left", fontsize=8)
-        elif color_by == "flight_id":
+        elif color_by == "line_id":
             ax.legend(
                 ncols=ncol,
                 bbox_to_anchor=(1.05, 1),

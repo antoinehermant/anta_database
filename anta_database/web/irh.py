@@ -196,7 +196,7 @@ def export_dataset(
                 thk[missing] = surface.thickness(x[missing], y[missing])
             thk[thk <= 0] = np.nan
             step = np.concatenate([[0.0], np.hypot(np.diff(x), np.diff(y))])
-            flight_id = ds.attrs.get("flight ID", os.path.splitext(os.path.basename(path))[0])
+            line_id = ds.attrs.get("line ID", os.path.splitext(os.path.basename(path))[0])
             # IRHs traced at each point, and age of the oldest (ka)
             irh_num = np.zeros(len(x))
             oldest = np.full(len(x), np.nan)
@@ -213,7 +213,7 @@ def export_dataset(
                 features.append(
                     {
                         "dataset": dataset,
-                        "flight_id": flight_id,
+                        "line_id": line_id,
                         **layer,
                         "citation": md.get("citation"),
                         "doi_dataset": md.get("DOI dataset", ds.attrs.get("DOI dataset")),
@@ -271,7 +271,7 @@ def export_dataset(
             tracks.append(
                 {
                     "dataset": dataset,
-                    "flight_id": flight_id,
+                    "line_id": line_id,
                     "citation": citation,
                     "surface": surface_source,
                 }

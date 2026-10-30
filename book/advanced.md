@@ -134,12 +134,12 @@ For datasets where each file contains data for a specific layer/age:
 
 Example dataset: Cavitte_2020
 
-#### Type 2: Flight Line-based Organization
-For datasets where each file contains multiple IRH layers organized by flight lines:
+#### Type 2: Line-based Organization
+For datasets where each file contains multiple IRH layers along one radar line (airborne or ground-based); the file name is the line ID:
 
 | Field | Description | Example Values |
 |-------|-------------|----------------|
-| `data type` | Must be set to `"flight line"` | `'flight line'` |
+| `data type` | Must be set to `"line"` | `'line'` |
 | `IRH name` | Name of the IRH layer as it appears in raw file | `'IRH1'` |
 | `age` | Age in years before present of the layer | `'10000'` |
 
@@ -165,7 +165,7 @@ When mapping your columns, use these standardized names:
 | Bed elevation | `BED_ELEV` |
 | Distance along transect | `DIST` |
 | Acquisition year | `acq_year` |
-| Flight ID | `Flight_ID` |
+| Line ID (radar line of each point) | `Line_ID` (formerly `Flight_ID`, still accepted) |
 
 ### File Format
 The CSV file should have:
@@ -178,17 +178,17 @@ The CSV file should have:
 #### Example 1: Basic layer-based dataset
 ```
 timestamp,x,y,thk_m,bedelv_mABSL,IRHdepth_m,line
-acq_year,PSX,PSY,ICE_THK,BED_ELEV,IRH_DEPTH,Flight_ID
+acq_year,PSX,PSY,ICE_THK,BED_ELEV,IRH_DEPTH,Line_ID
 YYYYxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-#### Example 2: Flight line-based dataset with multiple IRH layers
+#### Example 2: Line-based dataset with multiple IRH layers
 ```
 Longitude,Latitude,TWT [ns] (of bed),TWT [ns] (of H1),TWT [ns] (of H2),TWT [ns] (of H3)
 lon,lat,ICE_THK,IRH1,IRH2,IRH3
 ```
 
-**Note**: For flight line-based datasets, the new column names for the layers must match the names you provided in the JSON metadata file.
+**Note**: For line-based datasets, the new column names for the layers must match the names you provided in the JSON metadata file.
 
 ## File Formatting Notes
 - Header information in raw files should be commented out with `#`

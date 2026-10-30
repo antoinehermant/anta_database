@@ -6,7 +6,10 @@ Requires the optional dependencies: pip install "anta_database[compile]"
 """
 
 try:
-    from anta_database.compiling.zarr_converter_simple import FlightLineZarrConverter
+    from anta_database.compiling.zarr_converter_simple import (
+        LineZarrConverter,
+        FlightLineZarrConverter,
+    )
     from anta_database.compiling.compile import CompileDatabase
 except ImportError as e:
     raise ImportError(
@@ -14,4 +17,4 @@ except ImportError as e:
         "install them with: pip install \"anta_database[compile]\""
     ) from e
 
-__all__ = ["FlightLineZarrConverter", "CompileDatabase"]
+__all__ = ["LineZarrConverter", "FlightLineZarrConverter", "CompileDatabase"]

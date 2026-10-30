@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import warnings
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -24,6 +25,31 @@ from anta_database.cloud.sync import (
 )
 
 
+def _line_id(line_id, flight_id):
+    """line_id, or the deprecated flight_id: lines were called flights before
+    ground-based radar joined the database."""
+    if flight_id is None:
+        return line_id
+    warnings.warn(
+        "flight_id is deprecated, use line_id instead", FutureWarning, stacklevel=3
+    )
+    return flight_id if line_id is None else line_id
+
+
+class Metadata(dict):
+    """Metadata dict where the deprecated key "flight_id" still reads "line_id"."""
+
+    def __missing__(self, key):
+        if key == "flight_id" and "line_id" in self:
+            warnings.warn(
+                'metadata["flight_id"] is deprecated, use metadata["line_id"] instead',
+                FutureWarning,
+                stacklevel=2,
+            )
+            return self["line_id"]
+        raise KeyError(key)
+
+
 class Database:
     def __init__(
         self,
@@ -31,9 +57,10 @@ class Database:
         file_db: str = "AntADatabase.db",
         index_database: bool = False,
         include_BEDMAP: bool = False,
-        max_displayed_flight_ids: Optional[int] = 50,
+        max_displayed_line_ids: Optional[int] = 50,
         sync: bool = False,
         check_updates: bool = True,
+        max_displayed_flight_ids: Optional[int] = None,
     ) -> None:
         """
         Args:
@@ -41,6 +68,7 @@ class Database:
             sync: Download or update the published database before loading it.
             check_updates: Tell if a newer published version is available (fetches only the
                 small manifest, silent when offline). Only for databases downloaded with sync().
+            max_displayed_flight_ids: Old name of max_displayed_line_ids.
         """
         # Default to the directory used by sync()
         database_dir = database_dir or default_database_dir()
@@ -50,7 +78,9 @@ class Database:
         self._md = None
         self._plotting = None
         self._pism_plotting = None
-        self._max_displayed_flight_ids = max_displayed_flight_ids
+        if max_displayed_flight_ids is not None:  # old name, still accepted
+            max_displayed_line_ids = max_displayed_flight_ids
+        self._max_displayed_line_ids = max_displayed_line_ids
         self._include_BM = include_BEDMAP
         self._disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", False)
         self._excluded = {
@@ -60,7 +90,7 @@ class Database:
             "acquisition_year": [],
             "age": [],
             "var": [],
-            "flight_id": [],
+            "line_id": [],
             "region": [],
             "IMBIE_basin": [],
             "radar_instrument": [],
@@ -242,7 +272,7 @@ class Database:
             (var, "v.name"),
             (dataset, "s.name"),
             (acquisition_year, "d.acq_year"),
-            (line, "d.flight_id"),
+            (line, "d.line_id"),
             (region, "r.region"),
             (IMBIE_basin, "r.IMBIE_basin"),
         ]:
@@ -338,7 +368,7 @@ class Database:
             ("var", "v.name"),
             ("dataset", "s.name"),
             ("acquisition_year", "d.acq_year"),
-            ("flight_id", "d.flight_id"),
+            ("line_id", "d.line_id"),
             ("region", "r.region"),
             ("IMBIE_basin", "r.IMBIE_basin"),
         ]:
@@ -507,15 +537,18 @@ class Database:
         institute: Optional[Union[str, List[str]]] = None,
         project: Optional[Union[str, List[str]]] = None,
         acquisition_year: Optional[Union[str, List[str]]] = None,
-        flight_id: Optional[Union[str, List[str]]] = None,
+        line_id: Optional[Union[str, List[str]]] = None,
         region: Optional[Union[str, List[str]]] = None,
         IMBIE_basin: Optional[Union[str, List[str]]] = None,
         radar_instrument: Optional[Union[str, List[str]]] = None,
+        flight_id: Optional[Union[str, List[str]]] = None,
     ) -> None:
         """
         Add values to exclude from the query results.
         Example: filter_out(dataset='Cavitte', project='OldProject')
+        flight_id is deprecated, use line_id.
         """
+        line_id = _line_id(line_id, flight_id)
         # Map arguments to their corresponding fields
         field_mapping = {
             "age": age,
@@ -524,7 +557,7 @@ class Database:
             "institute": institute,
             "project": project,
             "acquisition_year": acquisition_year,
-            "flight_id": flight_id,
+            "line_id": line_id,
             "region": region,
             "IMBIE_basin": IMBIE_basin,
             "radar_instrument": radar_instrument,
@@ -554,7 +587,7 @@ class Database:
                         CASE WHEN v.name = 'IRH_DEPTH' THEN a.age ELSE NULL END AS age, \
                         CASE WHEN v.name = 'IRH_DEPTH' THEN a.age_unc ELSE NULL END AS age_unc, \
                         v.name AS var, \
-                        d.flight_id, \
+                        d.line_id, \
                         r.region, \
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
@@ -632,11 +665,11 @@ class Database:
         results = cursor.fetchall()
         conn.close()
 
-        metadata = {
+        metadata = Metadata({
             "dataset": results[0][0],
             "var": results[0][9],
             "age": results[0][7],
-            "flight_id": results[0][10],
+            "line_id": results[0][10],
             "DOI_dataset": results[0][2],
             "DOI_publication": results[0][3],
             "institute": results[0][4],
@@ -650,7 +683,7 @@ class Database:
             "file_path": file_path,
             "database_path": self._db_dir,
             "file_db": self._file_db,
-        }
+        })
         return metadata
 
     def query(
@@ -661,12 +694,15 @@ class Database:
         institute: Optional[Union[str, List[str]]] = None,
         project: Optional[Union[str, List[str]]] = None,
         acquisition_year: Optional[Union[str, List[str]]] = None,
-        flight_id: Optional[Union[str, List[str]]] = None,
+        line_id: Optional[Union[str, List[str]]] = None,
         region: Optional[Union[str, List[str]]] = None,
         IMBIE_basin: Optional[Union[str, List[str]]] = None,
         radar_instrument: Optional[Union[str, List[str]]] = None,
         retain_query: Optional[bool] = True,
+        flight_id: Optional[Union[str, List[str]]] = None,
     ) -> "MetadataResult":
+        """flight_id is deprecated, use line_id."""
+        line_id = _line_id(line_id, flight_id)
 
         select_clause = "s.name AS dataset, \
                         s.citation, \
@@ -678,7 +714,7 @@ class Database:
                         CASE WHEN v.name = 'IRH_DEPTH' THEN a.age ELSE NULL END AS age, \
                         CASE WHEN v.name = 'IRH_DEPTH' THEN a.age_unc ELSE NULL END AS age_unc, \
                         v.name AS var, \
-                        d.flight_id, \
+                        d.line_id, \
                         r.region, \
                         r.IMBIE_basin, \
                         radar_instruments_list.radar_instruments \
@@ -697,7 +733,7 @@ class Database:
             institute,
             project,
             acquisition_year,
-            flight_id,
+            line_id,
             region,
             IMBIE_basin,
             radar_instrument,
@@ -721,7 +757,7 @@ class Database:
             "reference": [],
             "DOI_dataset": [],
             "DOI_publication": [],
-            "flight_id": [],
+            "line_id": [],
             "region": [],
             "IMBIE_basin": [],
             "radar_instrument": [],
@@ -732,7 +768,7 @@ class Database:
                 "acquisition_year": acquisition_year,
                 "age": age,
                 "var": var,
-                "flight_id": flight_id,
+                "line_id": line_id,
                 "region": region,
                 "IMBIE_basin": IMBIE_basin,
                 "radar_instrument": radar_instrument,
@@ -744,7 +780,7 @@ class Database:
                 "acquisition_year": self._excluded["acquisition_year"],
                 "age": self._excluded["age"],
                 "var": self._excluded["var"],
-                "flight_id": self._excluded["flight_id"],
+                "line_id": self._excluded["line_id"],
                 "region": self._excluded["region"],
                 "IMBIE_basin": self._excluded["IMBIE_basin"],
                 "radar_instrument": self._excluded["radar_instrument"],
@@ -772,7 +808,7 @@ class Database:
             ages,
             ages_unc,
             vars,
-            flight_id,
+            line_id,
             regions,
             basins,
             radar_instruments,
@@ -781,7 +817,7 @@ class Database:
             metadata["reference"].append(citations)
             metadata["DOI_dataset"].append(DOI_dataset)
             metadata["DOI_publication"].append(DOI_publication)
-            metadata["flight_id"].append(flight_id)
+            metadata["line_id"].append(line_id)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
                 ages_list.append(int(ages))
@@ -867,7 +903,7 @@ class Database:
         metadata["DOI_publication"] = list(
             dict.fromkeys(df_dataset_sorted["DOI_publication"])
         )
-        metadata["flight_id"] = list(set(metadata["flight_id"]))
+        metadata["line_id"] = list(set(metadata["line_id"]))
         metadata["radar_instrument"] = sorted(set(unique_radar_instruments))
         metadata["region"] = sorted(set(region_list))
         metadata["IMBIE_basin"] = sorted(set(unique_basins))
@@ -875,7 +911,7 @@ class Database:
         if retain_query:
             self._md = metadata
 
-        return MetadataResult(metadata, self._max_displayed_flight_ids)
+        return MetadataResult(metadata, self._max_displayed_line_ids)
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
 
@@ -886,7 +922,7 @@ class Database:
         institute = query_params.get("institute")
         project = query_params.get("project")
         acq_year = query_params.get("acquisition_year")
-        line = query_params.get("flight_id")
+        line = query_params.get("line_id")
         region = query_params.get("region")
         basin = query_params.get("IMBIE_basin")
         radar = query_params.get("radar_instrument")
@@ -1018,7 +1054,7 @@ class Database:
                                 df[age] *= 100 / ds["ICE_THK"][::downsampling_factor]
                             else:
                                 df[age] = np.nan
-                                # print(f'WARNING: flight line {file_md['flight_id']} in {file_md['dataset']} does not have ICE_THK, cannot compute fraction depth, will return NaN')
+                                # print(f'WARNING: line {file_md['line_id']} in {file_md['dataset']} does not have ICE_THK, cannot compute fraction depth, will return NaN')
 
                 else:
                     if var in ds.keys():
@@ -1038,11 +1074,11 @@ class Database:
                     df = df.groupby("bin").mean().reset_index()
                     df.drop(columns=["bin"], inplace=True)
 
-            metadata = {
+            metadata = Metadata({
                 "dataset": file_md["dataset"],
                 "var": var_impl,
                 "age": age_impl,
-                "flight_id": file_md["flight_id"],
+                "line_id": file_md["line_id"],
                 "institute": file_md["institute"],
                 "project": file_md["project"],
                 "acquisition_year": file_md["acquisition_year"],
@@ -1050,11 +1086,10 @@ class Database:
                 "reference": file_md["reference"],
                 "DOI_dataset": file_md["DOI_dataset"],
                 "DOI_publication": file_md["DOI_publication"],
-                "flight_id": file_md["flight_id"],
                 "region": file_md["region"],
                 "IMBIE_basin": file_md["IMBIE_basin"],
                 "radar_instrument": file_md["radar_instrument"],
-            }
+            })
 
             yield df, metadata
 
@@ -1075,30 +1110,30 @@ class Database:
 
 
 class MetadataResult:
-    def __init__(self, metadata, max_displayed_flight_ids):
-        self._metadata = metadata
-        self._max_displayed_flight_ids = max_displayed_flight_ids
+    def __init__(self, metadata, max_displayed_line_ids):
+        self._metadata = Metadata(metadata)
+        self._max_displayed_line_ids = max_displayed_line_ids
 
     def __getitem__(self, key):
         return self._metadata[key]
 
     def __repr__(self):
-        """Pretty-print the metadata, truncating long flight_id lists."""
+        """Pretty-print the metadata, truncating long line_id lists."""
         md = self._metadata
         output = []
 
-        flight_ids = md["flight_id"]
-        if len(flight_ids) > self._max_displayed_flight_ids:
-            first_20 = flight_ids[: self._max_displayed_flight_ids // 2]
-            last_20 = flight_ids[-self._max_displayed_flight_ids // 2 :]
-            flight_id_str = (
+        line_ids = md["line_id"]
+        if len(line_ids) > self._max_displayed_line_ids:
+            first_20 = line_ids[: self._max_displayed_line_ids // 2]
+            last_20 = line_ids[-self._max_displayed_line_ids // 2 :]
+            line_id_str = (
                 ", ".join(first_20)
                 + f", [ ... ] , "
                 + ", ".join(last_20)
-                + f" (found {len(flight_ids)}, displayed {self._max_displayed_flight_ids})"
+                + f" (found {len(line_ids)}, displayed {self._max_displayed_line_ids})"
             )
         else:
-            flight_id_str = ", ".join(flight_ids)
+            line_id_str = ", ".join(line_ids)
 
         if not md["dataset"]:
             output.append(f"\nNo data found for this query.")
@@ -1127,7 +1162,7 @@ class MetadataResult:
             output.append(
                 f"\n  - radar_instrument: {', '.join(md['radar_instrument'])}"
             )
-            output.append(f"\n  - flight_id: {flight_id_str}")
+            output.append(f"\n  - line_id: {line_id_str}")
             output.append(f"\n  - reference: {', '.join(md['reference'])}")
             output.append(f"  - dataset DOI: {', '.join(md['DOI_dataset'])}")
             output.append(f"  - publication DOI: {', '.join(md['DOI_publication'])}")
