@@ -32,6 +32,7 @@ import { IceCores, type IceCore } from "./icecores";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
 import { SUBMISSION, startPreview } from "./preview";
+import { Tutorial, tutorialSeen } from "./tutorial";
 import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, type HeightAt, type Scenario } from "./outlines";
 import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
 
@@ -895,6 +896,7 @@ const view = gui.addFolder("View");
 view.add(settings, "resetView").name("Reset view");
 view.add(settings, "topView").name("Top view (map)");
 themeSetting = view.add(settings, "theme", ["Dark", "Light", "Auto"]).name("Theme").onChange(setTheme);
+view.add({ tutorial: () => tutorial.start() }, "tutorial").name("Tutorial (tour of the viewer)");
 const layers = gui.addFolder("Layers");
 layers
   .add(settings, "bed")
@@ -1146,6 +1148,58 @@ performanceFolder
 performanceFolder.add(settings, "lowResWhileMoving").name("Lower resolution while moving");
 performanceFolder.close();
 
+// Tour of the viewer, started by itself on the first visit (not in a private preview)
+const openInMenu = (folder: GUI) => () => {
+  setSidebar(true);
+  folder.open();
+  folder.domElement.scrollIntoView({ block: "nearest" });
+};
+const tutorial = new Tutorial([
+  {
+    title: "Welcome to the AntADatabase 3D viewer",
+    text:
+      "The lines under the ice surface are **radar isochrones**: layers inside the ice sheet that were " +
+      "once the surface, all of the same age, traced by radar surveys. Below them, the bed of Antarctica " +
+      "(Bedmap3). A short tour of the viewer?",
+  },
+  {
+    title: "Move around",
+    text:
+      "**Drag** to rotate, **right-drag** (or Ctrl + drag) to move, and **scroll** to zoom towards the " +
+      "mouse. On a touch screen: one finger rotates, two fingers zoom and move. The keys W A S D (or the " +
+      "arrows), Q and E, and Z and X do the same, and 0 brings back the whole continent; this pad too.",
+    target: () => document.getElementById("move-pad"),
+  },
+  {
+    title: "Layers",
+    text: "Show or hide the ice surface, the bed, the ice velocity, the grounding lines since the last ice age, the ice divides, the deep ice cores and the survey aircraft.",
+    tip: "Decrease the surface opacity to discover the isochrones under the ice!",
+    target: () => layers.domElement,
+    prepare: openInMenu(layers),
+  },
+  {
+    title: "Point and click",
+    text:
+      "**Hover** a line for its details: its dataset, age and depth. **Click** an isochrone to open the " +
+      "stratigraphy of its radar line: all its isochrones, along the line, over the bed.",
+  },
+  {
+    title: "Colours",
+    text: "The isochrones are coloured by their age, in thousands of years (ka). The legend is here; the menu can also colour them by depth, fractional depth or elevation.",
+    target: () => document.querySelector("#legends .legend:not([hidden])"),
+  },
+  {
+    title: "Filter",
+    text: "Choose the datasets and the ages shown. Every dataset can be downloaded from the Download page, with how to cite it.",
+    target: () => filters.domElement,
+    prepare: openInMenu(filters),
+  },
+  {
+    title: "Find the eggs!",
+    text: "A few strange things are hidden somewhere in Antarctica, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
+  },
+]);
+
 // Start: quick preview, then the detailed terrain
 const loading = document.getElementById("loading")!;
 if (!viewFromUrl()) resetView();
@@ -1153,6 +1207,7 @@ loadMeta(DATA_URL)
   .then(async (meta) => {
     document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
     await loadLevel(meta, PREVIEW);
+    if (!SUBMISSION && !tutorialSeen() && !document.body.classList.contains("clean")) tutorial.start();
     loading.textContent = "Loading detailed terrain…";
     await loadLevel(meta, DETAIL);
     loading.remove();
@@ -1174,4 +1229,4 @@ irhIndex
   .catch(showError);
 
 // Debugging from the browser console in development: window.viewer
-if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt } });
+if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial } });

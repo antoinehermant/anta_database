@@ -57,6 +57,7 @@ body {
 
 #move-pad:hover,
 #move-pad:focus-within,
+#move-pad.tutorial-target,
 #move-pad:active {
   opacity: 1;
 }
@@ -631,5 +632,102 @@ body:has(#sidebar:not(.closed)) #legends {
 }
 
 .clean #profile {
+  display: none;
+}
+
+/* Tour of the viewer (src/tutorial.ts): a bubble next to what it explains, and a ring around it */
+.tutorial {
+  position: fixed;
+  z-index: 40;
+  width: min(340px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  border-radius: 12px;
+  background: linear-gradient(var(--panel), var(--panel)), var(--background);
+  box-shadow: 0 6px 28px var(--shadow);
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.tutorial.centred {
+  width: min(420px, calc(100vw - 24px));
+}
+
+.tutorial h2 {
+  margin: 0 24px 6px 0;
+  font-size: 1rem;
+}
+
+.tutorial p {
+  margin: 0 0 12px;
+}
+
+.tutorial .tip {
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: var(--widget);
+}
+
+.tutorial .close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.tutorial .buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tutorial .count {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.tutorial .buttons button:not(.close) {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--widget);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tutorial .buttons button:not(.close):hover {
+  background: var(--widget-hover);
+}
+
+.tutorial .buttons button.next {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tutorial .buttons button.next:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+.tutorial-ring {
+  position: fixed;
+  z-index: 39;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent);
+  pointer-events: none;
+  transition: all 0.25s ease;
+}
+
+.clean .tutorial,
+.clean .tutorial-ring {
   display: none;
 }
