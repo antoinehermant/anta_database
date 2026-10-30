@@ -152,12 +152,14 @@ class Database:
         uri = Path(self._file_db_path).resolve().as_uri() + "?mode=ro"
         return sqlite3.connect(uri, uri=True)
 
-    def sync(self, url: Optional[str] = None, dry_run: bool = False) -> Dict:
+    def sync(self, url: Optional[str] = None, dry_run: bool = False, stats: bool = True) -> Dict:
         """
         Download the published AntADatabase into this database directory, or update it.
-        Only new or changed files are downloaded. See anta_database.cloud.sync.
+        Only new or changed files are downloaded. With stats, one anonymous count of the
+        download is sent for the statistics of the AntADatabase (off with stats=False or
+        ANTA_NO_STATS=1). See anta_database.cloud.sync.
         """
-        return _sync(self._db_dir, url=url, dry_run=dry_run)
+        return _sync(self._db_dir, url=url, dry_run=dry_run, stats=stats)
 
     def _build_query_and_params(
         self,

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Privacy · AntADatabase</title>
+    <meta name="description" content="What the AntADatabase website, its submission portal and its Python package count and keep: no cookies, no tracking, anonymous statistics." />
+    <link rel="canonical" href="https://antadatabase.com/privacy/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <link rel="stylesheet" href="/src/privacy.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <h2>Privacy</h2>
+      <p>
+        In short: no cookies, no advertising and no tracking across websites. We count visits and downloads
+        anonymously, to know how much the database is used and where in the world. Nothing that identifies you is kept,
+        except what you send us yourself (a dataset or a message).
+      </p>
+
+      <h3>Visits of the website</h3>
+      <p>
+        Visits are counted with <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a>, an
+        open-source statistics service built for privacy. For each page view it records the page, the website you came
+        from, the browser, the operating system, the screen size and the country. The country is found from your IP
+        address, which GoatCounter does not keep. It sets no cookies and cannot recognise you on another website. See
+        <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener">its privacy policy</a>.
+        The private previews of submissions are not counted.
+      </p>
+
+      <h3>Downloads</h3>
+      <p>
+        A download from the <a href="/download/">catalogue</a> is counted the same way, with the datasets chosen and
+        their size.
+      </p>
+      <p>
+        The Python package (<code>anta_database</code>) sends one anonymous count when <code>db.sync()</code> or
+        <code>anta-sync</code> downloads files: whether it is a first download or an update, the number of files and
+        bytes, and the versions of the package and of the database. It is sent to our server
+        (<code>api.antadatabase.com</code>), which passes it on to GoatCounter with your IP address for the country,
+        and keeps nothing. To turn it off:
+      </p>
+      <pre><code>export ANTA_NO_STATS=1          # for all syncs, or:
+db.sync(stats=False)
+anta-sync --no-stats</code></pre>
+
+      <h3>Submissions and messages</h3>
+      <p>
+        When you <a href="/submit/">submit a dataset</a> or <a href="/contact/">send a message</a>, we keep what you
+        send: your name, email address and affiliation, your files, and your message (with the IP address it came from,
+        against abuse). Submissions are kept to compile and review your dataset, and as the record of where the data of
+        the database comes from. Your email address is only used to answer you and to tell you about your submission.
+        Ask us at any time to see or delete what we keep about you.
+      </p>
+      <p>
+        Our server keeps logs of its requests, with their IP addresses, for security and to fix problems. They are
+        overwritten as new requests come in.
+      </p>
+
+      <h3>Stored in your browser</h3>
+      <p>
+        The website remembers a few choices in your browser (local storage, not cookies): the light or dark theme,
+        whether you have seen the tour of the viewer, the draft of a submission, and the verification of your email
+        address for the submission form. They stay on your device, except the verification, sent with your submission.
+      </p>
+
+      <h3>Hosting</h3>
+      <p>
+        The website is hosted on GitHub Pages, and the data and the 3D views on the object storage of Infomaniak, in
+        Switzerland. Like any web server, they see your IP address when your browser loads files from them. The
+        submission portal runs on a server of Infomaniak, in Switzerland.
+      </p>
+
+      <h3>Contact</h3>
+      <p>
+        The AntADatabase is run by Antoine Hermant, University of Bern:
+        <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>.
+      </p>
+    </main>
+    <footer class="wrap muted">
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>. <a href="/privacy/">Privacy</a>.
+    </footer>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

@@ -26,17 +26,19 @@ Settings: see config.py and .env.example.
 """
 
 import csv
+import hashlib
 import json
 import logging
 import os
 import re
 import secrets
 import shutil
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -530,6 +532,46 @@ def preview_file(submission_id: str, key: str, name: str):
     if not PREVIEW_FILE.match(name) or not path.is_file():
         raise HTTPException(404, "No such file")
     return FileResponse(path, headers={"Cache-Control": "private, no-cache"})
+
+
+class SyncCount(BaseModel):
+    """A download of the database by the Python package (anta_database.cloud.sync)."""
+    kind: Literal["download", "update"]
+    files: int = Field(ge=0, le=10**6)
+    bytes: int = Field(ge=0, le=10**13)
+    db_version: str = Field(default="", max_length=40)
+    package_version: str = Field(default="", max_length=40)
+
+
+def count_event(path: str, title: str, ip: str, user_agent: str) -> None:
+    """Count an event in the statistics of the site (GoatCounter), which gets the country from
+    the IP address and keeps neither."""
+    log.info("Stats: %s (%s)", path, title)
+    if not config.GOATCOUNTER_KEY:
+        return
+    body = {"no_sessions": True, "hits": [{"path": path, "title": title, "event": True, "ip": ip, "user_agent": user_agent}]}
+    request = urllib.request.Request(
+        f"{config.GOATCOUNTER_URL}/api/v0/count",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {config.GOATCOUNTER_KEY}"},
+    )
+    try:
+        urllib.request.urlopen(request, timeout=10).close()
+    except Exception:
+        log.exception("Stats: %s not counted", path)
+
+
+@app.post("/api/stats/sync", status_code=204)
+def stats_sync(body: SyncCount, request: Request, background: BackgroundTasks):
+    """Count a download of the database by db.sync(): "Python download" (first download) or
+    "Python update", in the statistics of the site. Nothing is stored here."""
+    ip = client(request)
+    # Limited per address, kept as a hash for the hour of the limit
+    if store.allow("stats", hashlib.sha256(ip.encode()).hexdigest()[:16], 30):
+        size = f"{body.bytes / 1e6:.0f} MB" if body.bytes < 1e9 else f"{body.bytes / 1e9:.2f} GB"
+        title = f"{body.files} files, {size} (database {body.db_version}, package {body.package_version})"
+        background.add_task(count_event, f"Python {body.kind}", title, ip, request.headers.get("user-agent", ""))
+    return Response(status_code=204)
 
 
 TOPICS = {

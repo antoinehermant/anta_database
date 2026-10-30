@@ -116,6 +116,17 @@ function readme(): string {
 
 let abort: AbortController | undefined;
 
+/**
+ * Count a finished download in the statistics of the site (GoatCounter, on the published site
+ * only; no cookies, no personal data kept), as an event with the datasets downloaded.
+ */
+function countDownload(full: boolean, total: number) {
+  const goatcounter = (window as unknown as { goatcounter?: { count?: (vars: object) => void } }).goatcounter;
+  const names = selection().map((d) => d.name);
+  const title = full ? `Whole database, ${formatSize(total)}` : `${names.length} dataset${names.length > 1 ? "s" : ""}, ${formatSize(total)}: ${names.join(", ")}`;
+  goatcounter?.count?.({ path: "Catalogue download", title, event: true });
+}
+
 async function download() {
   const files = zipFiles();
   const total = files.reduce((s, f) => s + f.size, 0);
@@ -147,6 +158,7 @@ async function download() {
       onProgress: showProgress,
     });
     if (!saved) return;
+    countDownload(full, total);
     progressBar.style.width = "100%";
     status.textContent = full
       ? `Downloaded ${name} (${formatSize(total)}). Unzip it to get the ${ROOT_DIR} directory.`

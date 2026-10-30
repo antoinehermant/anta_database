@@ -12,6 +12,13 @@ interrupted sync leaves a usable local database.
 
 or from the command line:
     anta-sync --dir /path/to/AntADatabase
+
+Download statistics: after a sync that downloaded files from the published database, one
+anonymous count is sent to the AntADatabase portal: first download or update, the number of
+files and bytes, and the versions of the package and the database. The portal adds it to the
+visitor statistics of antadatabase.com (country only, no IP address kept). Nothing else is
+sent, and nothing at all with ANTA_NO_STATS=1, sync(stats=False) or anta-sync --no-stats.
+See https://antadatabase.com/privacy/.
 """
 
 import argparse
@@ -48,6 +55,10 @@ BUCKET_URL = (
 DEFAULT_URL = f"{BUCKET_URL}/v{SCHEMA_VERSION}"
 
 _TIMEOUT = 60
+
+# Download statistics (see the module docstring)
+STATS_URL = "https://api.antadatabase.com/api/stats/sync"
+PRIVACY_URL = "https://antadatabase.com/privacy/"
 
 
 def default_url() -> str:
@@ -149,6 +160,36 @@ class SyncResult(dict):
         return f"SyncResult(db_version={self['db_version']!r}, {datasets + ', ' if datasets else ''}{files})"
 
 
+def _stats_enabled(stats: bool, url: str) -> bool:
+    """Count only syncs of the published database (not of a copy, or of tests), unless turned off."""
+    off = os.environ.get("ANTA_NO_STATS", "").strip().lower() not in ("", "0", "false", "no")
+    return stats and not off and url.startswith(BUCKET_URL)
+
+
+def _report_sync(kind: str, n_files: int, n_bytes: int, db_version: Optional[str]) -> None:
+    """Send the anonymous count of a sync; never fails, never waits more than a few seconds."""
+    try:
+        from importlib.metadata import version
+
+        package = version("anta_database")
+    except Exception:
+        package = "unknown"
+    body = json.dumps({
+        "kind": kind,
+        "files": n_files,
+        "bytes": n_bytes,
+        "db_version": str(db_version or ""),
+        "package_version": package,
+    }).encode()
+    request = urllib.request.Request(
+        STATS_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": f"anta_database/{package}"}
+    )
+    try:
+        urllib.request.urlopen(request, timeout=3).close()
+    except Exception:
+        pass
+
+
 def _size(n_bytes: int) -> str:
     return f"{n_bytes / 1e6:.1f} MB" if n_bytes < 1e9 else f"{n_bytes / 1e9:.2f} GB"
 
@@ -224,6 +265,7 @@ def sync(
     url: Optional[str] = None,
     dry_run: bool = False,
     delete: bool = True,
+    stats: bool = True,
 ) -> Dict:
     """
     Make a local AntADatabase identical to the published one.
@@ -235,6 +277,9 @@ def sync(
         dry_run: Only report what would be downloaded and deleted.
         delete: Remove local files that were synced before but are no longer published.
             Files that were never synced are never touched.
+        stats: Send one anonymous count of the download (first download or update, with
+            the number of files and bytes) for the statistics of the AntADatabase. Also
+            turned off by the ANTA_NO_STATS=1 environment variable. See the module docstring.
 
     Returns:
         A SyncResult: a dict with the remote "db_version", the lists of files "downloaded"
@@ -307,6 +352,15 @@ def sync(
 
     write_manifest(remote, local_manifest_path)
 
+    if to_download and _stats_enabled(stats, url):
+        first = not local["files"]
+        _report_sync("download" if first else "update", len(to_download), total, remote.get("db_version"))
+        if first:
+            print(
+                "This download was counted, anonymously, in the statistics of the AntADatabase. "
+                f"To turn this off: ANTA_NO_STATS=1 or sync(stats=False). See {PRIVACY_URL}"
+            )
+
     if to_download or to_delete:
         print(f"AntADatabase {remote.get('db_version')} synced to {database_dir}.")
     else:
@@ -323,9 +377,10 @@ def main(argv=None) -> None:
     parser.add_argument("--dry-run", action="store_true", help="Only show what would change")
     parser.add_argument("--no-delete", action="store_true", help="Keep files that are no longer published")
     parser.add_argument("--files", action="store_true", help="With --dry-run, also list the files")
+    parser.add_argument("--no-stats", action="store_true", help=f"Don't count this download in the statistics ({PRIVACY_URL})")
     args = parser.parse_args(argv)
 
-    result = sync(args.dir, args.url, dry_run=args.dry_run, delete=not args.no_delete)
+    result = sync(args.dir, args.url, dry_run=args.dry_run, delete=not args.no_delete, stats=not args.no_stats)
     if args.dry_run and args.files:
         for rel in result["downloaded"]:
             print(f"  + {rel}")

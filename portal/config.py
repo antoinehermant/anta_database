@@ -64,6 +64,12 @@ VAR_ATTRS = HERE / "var_attrs.json"
 # Longest compilation of a submission (s)
 COMPILE_TIMEOUT = int(os.environ.get("PORTAL_COMPILE_TIMEOUT", str(3 * 3600)))
 
+# Visitor statistics of the site (GoatCounter): the portal counts the downloads of the Python
+# package (db.sync(), /api/stats/sync) there, with an API key allowed to record pageviews.
+# Without the key, they are only written to the log
+GOATCOUNTER_URL = os.environ.get("PORTAL_GOATCOUNTER_URL", "https://antadatabase.goatcounter.com").rstrip("/")
+GOATCOUNTER_KEY = os.environ.get("PORTAL_GOATCOUNTER_KEY", "")
+
 # Where new submissions and contact messages are sent
 MAINTAINER_EMAIL = os.environ.get("PORTAL_MAINTAINER_EMAIL", "")
 

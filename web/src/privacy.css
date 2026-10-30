@@ -1,0 +1,26 @@
+@import "./page.css";
+
+main h2 {
+  margin: 20px 0 8px;
+}
+
+main h3 {
+  margin: 26px 0 6px;
+}
+
+main p {
+  margin: 8px 0;
+}
+
+main pre {
+  margin: 8px 0;
+  padding: 10px 14px;
+  background: var(--widget);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+main pre code {
+  padding: 0;
+  background: none;
+}

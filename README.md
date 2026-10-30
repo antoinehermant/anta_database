@@ -66,6 +66,8 @@ When loading a synced database, `Database` tells you if a newer version is publi
 
 Keep the package up to date as well (`pip install -U anta_database`): if some features of the latest data need a newer package, `sync()` and `Database` print a warning. In the unlikely case of a breaking change to the data format, each package version keeps syncing the data it can read, and a newer package is needed to get the new data.
 
+When `sync()` downloads files, it sends one anonymous count (first download or update, number of files and bytes, package and database versions) for the download statistics of the AntADatabase; nothing that identifies you is kept. Turn it off with `ANTA_NO_STATS=1`, `sync(stats=False)` or `anta-sync --no-stats`. See [antadatabase.com/privacy](https://antadatabase.com/privacy/).
+
 ## Quick Start
 
 ```python

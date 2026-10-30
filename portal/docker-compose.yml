@@ -8,6 +8,12 @@ x-portal: &portal
   env_file:
     - path: portal.env
       format: raw
+  # Logs (with the IP addresses of the requests) are rotated: 5 files of 10 MB at most
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
   volumes:
     # Records of the submissions, verification codes, the previews and Bedmap3; the files
     # themselves are in the buckets
@@ -23,6 +29,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
