@@ -135,6 +135,90 @@ def _download(url: str, path: str, entry: Dict, progress: tqdm) -> None:
     os.replace(tmp, path)
 
 
+class SyncResult(dict):
+    """
+    Result of sync(): a dict with "db_version", the files "downloaded" and "deleted", and
+    the dataset names "new", "updated" and "removed". Shown as a one-line summary.
+    """
+
+    def __repr__(self) -> str:
+        datasets = ", ".join(
+            f"{len(self[k])} {k}" for k in ("new", "updated", "removed") if self[k]
+        )
+        files = f"{len(self['downloaded'])} file(s) downloaded, {len(self['deleted'])} removed"
+        return f"SyncResult(db_version={self['db_version']!r}, {datasets + ', ' if datasets else ''}{files})"
+
+
+def _size(n_bytes: int) -> str:
+    return f"{n_bytes / 1e6:.1f} MB" if n_bytes < 1e9 else f"{n_bytes / 1e9:.2f} GB"
+
+
+def _dataset(rel: str) -> Optional[str]:
+    """Dataset directory of a file, None for files at the top (AntADatabase.db)."""
+    return rel.split("/", 1)[0] if "/" in rel else None
+
+
+def _citation(name: str, remote: Dict, database_dir: str) -> str:
+    """Citation of a dataset: from the manifest, else the local raw_md.json, else its name."""
+    if remote.get("datasets", {}).get(name):
+        return remote["datasets"][name]
+    try:
+        with open(os.path.join(database_dir, name, "raw_md.json"), encoding="utf-8") as f:
+            unique = list(dict.fromkeys(i["citation"] for i in json.load(f) if i.get("citation")))
+        if unique:
+            return "; ".join(unique)
+    except (OSError, ValueError, TypeError, KeyError):
+        pass
+    return name
+
+
+def _changed_datasets(
+    to_download: list, to_delete: list, remote: Dict, local: Dict, database_dir: str
+) -> Dict[str, list]:
+    """
+    Datasets that sync adds, updates or removes: new when nothing of it is in the local
+    database yet, removed when it is no longer published, updated otherwise.
+    """
+    changed = sorted({d for rel in to_download + to_delete if (d := _dataset(rel))})
+    published = {d for rel in remote["files"] if (d := _dataset(rel))}
+    synced = {d for rel in local["files"] if (d := _dataset(rel))}
+    groups = {"new": [], "updated": [], "removed": []}
+    for name in changed:
+        if name not in published:
+            groups["removed"].append(name)
+        elif name in synced or os.path.isfile(os.path.join(database_dir, name, "raw_md.json")):
+            groups["updated"].append(name)
+        else:
+            groups["new"].append(name)
+    return groups
+
+
+def _print_plan(
+    groups: Dict[str, list], remote: Dict, local: Dict, database_dir: str,
+    total: int, index_only: bool, dry_run: bool,
+) -> None:
+    """Tell which datasets will change, before downloading."""
+    version = remote.get("db_version")
+    if not local["files"] and not groups["updated"] and not groups["removed"]:
+        # First download: the list of all datasets would only be long
+        verb = "Would download" if dry_run else "Downloading"
+        print(
+            f"{verb} the AntADatabase {version} ({len(groups['new'])} datasets, "
+            f"{_size(total)}) to {database_dir}"
+        )
+        return
+    old = local.get("db_version")
+    since = f" from {old}" if old and old != version else ""
+    verb = "Would update" if dry_run else "Updating"
+    print(f"{verb} the AntADatabase in {database_dir}{since} to {version} ({_size(total)}):")
+    labels = {"new": "New dataset", "updated": "Updated dataset", "removed": "Removed dataset"}
+    for key, label in labels.items():
+        for name in groups[key]:
+            print(f"  {label}: {_citation(name, remote, database_dir)}")
+    if index_only:
+        print("  Updated index of the database (AntADatabase.db)")
+
+
 def sync(
     database_dir: Optional[str] = None,
     url: Optional[str] = None,
@@ -153,7 +237,8 @@ def sync(
             Files that were never synced are never touched.
 
     Returns:
-        A dict with the remote "db_version" and the lists "downloaded" and "deleted".
+        A SyncResult: a dict with the remote "db_version", the lists of files "downloaded"
+        and "deleted", and the lists of datasets "new", "updated" and "removed".
     """
     database_dir = database_dir or default_database_dir()
     url = (url or default_url()).rstrip("/")
@@ -178,16 +263,24 @@ def sync(
     to_download.sort(key=lambda rel: (rel == DB_FILE, rel))
     to_delete = sorted(set(local["files"]) - set(remote["files"])) if delete else []
 
-    result = {
-        "db_version": remote.get("db_version"),
-        "downloaded": to_download,
-        "deleted": to_delete,
-    }
+    groups = _changed_datasets(to_download, to_delete, remote, local, database_dir)
+    result = SyncResult(
+        db_version=remote.get("db_version"),
+        downloaded=to_download,
+        deleted=to_delete,
+        **groups,
+    )
+    total = sum(remote["files"][rel]["size"] for rel in to_download)
+    if to_download or to_delete:
+        # The index alone changes when a dataset is fixed without changing its files
+        index_only = not any(groups.values()) and DB_FILE in to_download
+        _print_plan(groups, remote, local, database_dir, total, index_only, dry_run)
+    elif dry_run:
+        print(f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}.")
     if dry_run:
         return result
 
     os.makedirs(database_dir, exist_ok=True)
-    total = sum(remote["files"][rel]["size"] for rel in to_download)
     if total:
         free = shutil.disk_usage(database_dir).free
         if free < total:
@@ -215,10 +308,7 @@ def sync(
     write_manifest(remote, local_manifest_path)
 
     if to_download or to_delete:
-        print(
-            f"AntADatabase {remote.get('db_version')} synced to {database_dir}: "
-            f"{len(to_download)} file(s) downloaded, {len(to_delete)} removed."
-        )
+        print(f"AntADatabase {remote.get('db_version')} synced to {database_dir}.")
     else:
         print(f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}.")
     return result
@@ -232,12 +322,11 @@ def main(argv=None) -> None:
     parser.add_argument("--url", help=f"URL of the published database (default: {default_url()})")
     parser.add_argument("--dry-run", action="store_true", help="Only show what would change")
     parser.add_argument("--no-delete", action="store_true", help="Keep files that are no longer published")
+    parser.add_argument("--files", action="store_true", help="With --dry-run, also list the files")
     args = parser.parse_args(argv)
 
     result = sync(args.dir, args.url, dry_run=args.dry_run, delete=not args.no_delete)
-    if args.dry_run:
-        print(f"Remote version: {result['db_version']}")
-        print(f"Would download {len(result['downloaded'])} file(s), delete {len(result['deleted'])}.")
+    if args.dry_run and args.files:
         for rel in result["downloaded"]:
             print(f"  + {rel}")
         for rel in result["deleted"]:

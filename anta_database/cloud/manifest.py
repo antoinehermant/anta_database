@@ -8,7 +8,8 @@ A manifest lists every file of a published database with its checksum:
         "min_package_version": "0.6.0",
         "db_version": "2026.10.27-1530",
         "created": "2026-10-27T15:30:00+00:00",
-        "files": {"AntADatabase.db": {"sha256": "...", "size": 123}, ...}
+        "files": {"AntADatabase.db": {"sha256": "...", "size": 123}, ...},
+        "datasets": {"Cavitte_2020": "Cavitte et al. (2020)", ...}
     }
 Paths are relative to the database directory and always use "/".
 
@@ -16,6 +17,9 @@ Paths are relative to the database directory and always use "/".
 changes with breaking changes, which are published under a new bucket prefix
 (v1/, v2/, ...), so each package version keeps syncing data it can read.
 Manifests without it are schema 1.
+
+"datasets" (optional) gives the citation of each dataset directory, so sync can tell
+which datasets it updates before downloading them.
 
 "min_package_version" (optional) is the oldest anta_database that supports all
 features of the published data. Older packages still work, with a warning.
@@ -63,6 +67,22 @@ def list_published_files(database_dir: str) -> list:
     return sorted(files)
 
 
+def dataset_citations(database_dir: str) -> Dict[str, str]:
+    """Citation of each dataset directory, from its raw_md.json."""
+    citations = {}
+    for path in sorted(glob.glob(os.path.join(database_dir, "*", "raw_md.json"))):
+        name = os.path.basename(os.path.dirname(path))
+        try:
+            with open(path, encoding="utf-8") as f:
+                items = json.load(f)
+        except (OSError, ValueError):
+            continue
+        unique = list(dict.fromkeys(i["citation"] for i in items if i.get("citation")))
+        if unique:
+            citations[name] = "; ".join(unique)
+    return citations
+
+
 def build_manifest(
     database_dir: str,
     db_version: Optional[str] = None,
@@ -86,6 +106,7 @@ def build_manifest(
         "db_version": db_version or now.strftime("%Y.%m.%d-%H%M"),
         "created": now.isoformat(timespec="seconds"),
         "files": files,
+        "datasets": dataset_citations(database_dir),
     }
     if min_package_version:
         manifest["min_package_version"] = min_package_version
