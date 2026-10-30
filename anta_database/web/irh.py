@@ -1,22 +1,36 @@
 """
 Export isochrones (IRHs) as 3D polylines for the web viewer.
 
-For every flight line (h5 file) and IRH, the elevation of the IRH is
+For every line (h5 file) and IRH, the elevation of the IRH is
 
     IRH_ELEV = SURF_ELEV - IRH_DEPTH
 
 using the SURF_ELEV of the dataset when it has one, and otherwise the Bedmap3
-surface elevation at the point (500 m grid). Each (flight line, IRH) is a
+surface elevation at the point (500 m grid). The fractional depth is
+IRH_DEPTH / ICE_THK, with the Bedmap3 ice thickness where ICE_THK is missing. Each (line, IRH) is a
 feature with its metadata; its points are split into runs wherever the IRH is
 missing or consecutive points are far apart, and averaged along-track.
+
+Each line is also exported as a "track" at the ice surface, where at
+least one IRH is traced, with the number of IRHs traced (IRH_NUM) and the age
+of the oldest one at each point.
+
+The basal unit (BASAL_UNIT, depth below the surface, e.g. the top of the echo-free
+zone) is exported like an IRH, as features with "layer": "basal unit", no IRH number
+and no age.
 
     python -m anta_database.web.irh /path/to/AntADatabase --bedmap bedmap3.nc \\
         --datasets Sanderson_2024 -o web/public/data/irh
 
 Output:
-    irh.json                 features (metadata) and per-dataset file names
+    irh.json                 features and tracks (metadata), and per-dataset file names
     {dataset}.bin.gz         float32 vertices (x km, y km, elevation m), packed per run
+    {dataset}_depth.bin.gz   uint16 depth (m) of each vertex
+    {dataset}_fdepth.bin.gz  uint16 fractional depth × 10000 of each vertex (65535: unknown)
     {dataset}_runs.bin.gz    uint32 (feature id, first vertex, vertex count) per run
+    {dataset}_tracks.bin.gz  float32 track vertices (x km, y km, surface elevation m,
+                             IRH_NUM, oldest age ka or NaN), packed per run
+    {dataset}_track_runs.bin.gz  uint32 (track id, first vertex, vertex count) per run
 """
 
 import argparse
@@ -31,29 +45,47 @@ import xarray as xr
 
 DEFAULT_SPACING = 1000.0  # m, along-track averaging
 DEFAULT_MAX_GAP = 5000.0  # m, larger gaps between points break the line
+FDEPTH_SCALE = 10000  # fractional depths are stored as uint16 fraction × FDEPTH_SCALE
+FDEPTH_NODATA = 65535
 
 
 class Bedmap3Surface:
-    """Bedmap3 surface elevation, sampled at the nearest 500 m cell."""
+    """Bedmap3 surface elevation and ice thickness, sampled at the nearest 500 m cell."""
 
-    def __init__(self, path: str):
-        ds = xr.open_dataset(path)
-        self.x0 = float(ds.x[0])
-        self.y0 = float(ds.y[0])
-        self.dx = float(ds.x[1] - ds.x[0])
-        self.dy = float(ds.y[1] - ds.y[0])
-        self.usurf = ds.usurf.values.astype(np.float32)
+    def __init__(self, path: str, bbox: Optional[tuple] = None):
+        """bbox (xmin, xmax, ymin, ymax, in m): only load that part of the grid, e.g. on a
+        server with little memory (the whole grid is 1.4 GB)."""
+        with xr.open_dataset(path) as ds:
+            if bbox is not None:
+                xmin, xmax, ymin, ymax = bbox
+                i = np.flatnonzero((ds.x.values >= xmin - 1000) & (ds.x.values <= xmax + 1000))
+                j = np.flatnonzero((ds.y.values >= ymin - 1000) & (ds.y.values <= ymax + 1000))
+                ds = ds.isel(x=slice(i[0], i[-1] + 1), y=slice(j[0], j[-1] + 1))
+            self.x0 = float(ds.x[0])
+            self.y0 = float(ds.y[0])
+            self.dx = float(ds.x[1] - ds.x[0])
+            self.dy = float(ds.y[1] - ds.y[0])
+            self.usurf = ds.usurf.values.astype(np.float32)
+            self.thk = ds.thk.values.astype(np.float32)
 
     def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """Surface elevation (m)."""
+        return self._sample(self.usurf, x, y)
+
+    def thickness(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """Ice thickness (m)."""
+        return self._sample(self.thk, x, y)
+
+    def _sample(self, grid: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         finite = np.isfinite(x) & np.isfinite(y)
         i = np.full(x.shape, -1, dtype=np.int64)
         j = np.full(x.shape, -1, dtype=np.int64)
         i[finite] = np.rint((x[finite] - self.x0) / self.dx)
         j[finite] = np.rint((y[finite] - self.y0) / self.dy)
-        ny, nx = self.usurf.shape
+        ny, nx = grid.shape
         inside = (i >= 0) & (i < nx) & (j >= 0) & (j < ny)
         out = np.full(x.shape, np.nan, dtype=np.float32)
-        out[inside] = self.usurf[j[inside], i[inside]]
+        out[inside] = grid[j[inside], i[inside]]
         return out
 
 
@@ -77,23 +109,28 @@ def _runs(valid: np.ndarray, step: np.ndarray, max_gap: float) -> List[slice]:
     return [r for r in runs if r.stop - r.start >= 2]
 
 
-def _average(x: np.ndarray, y: np.ndarray, z: np.ndarray, spacing: float) -> np.ndarray:
+def _average(points: np.ndarray, spacing: float, maximum=()) -> np.ndarray:
     """
-    Mean of the points in consecutive along-track bins of length spacing, as (n, 3).
+    Mean of the points (rows of x, y, ...) in consecutive along-track bins of
+    length spacing, or their maximum for the columns in maximum.
 
     Runs shorter than one bin keep their two end points. Points sparser than
     spacing are kept as they are.
     """
-    points = np.column_stack([x, y, z])
-    if spacing <= 0 or len(x) <= 2:
+    if spacing <= 0 or len(points) <= 2:
         return points
+    x, y = points[:, 0], points[:, 1]
     dist = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
     bins = np.floor(dist / spacing).astype(np.int64)
     edges = np.flatnonzero(np.diff(bins)) + 1
     if len(edges) == 0:
         return points[[0, -1]]
-    counts = np.diff(np.concatenate([[0], edges, [len(x)]]))
-    return np.add.reduceat(points, np.concatenate([[0], edges]), axis=0) / counts[:, None]
+    starts = np.concatenate([[0], edges])
+    counts = np.diff(np.append(starts, len(points)))
+    out = np.add.reduceat(points, starts, axis=0) / counts[:, None]
+    for k in maximum:
+        out[:, k] = np.fmax.reduceat(points[:, k], starts)
+    return out
 
 
 def _citations(dataset_dir: str) -> Dict[int, Dict]:
@@ -129,11 +166,13 @@ def export_dataset(
     spacing: float = DEFAULT_SPACING,
     max_gap: float = DEFAULT_MAX_GAP,
 ):
-    """Vertices, runs and features of one dataset."""
+    """IRH lines (vertices, depths, fractional depths, runs, features) and tracks of one dataset."""
     dataset = os.path.basename(os.path.normpath(dataset_dir))
     irh_md = _citations(dataset_dir)
-    features, vertices, runs = [], [], []
+    features, vertices, depths, fdepths, runs = [], [], [], [], []
     n_vertices = 0
+    tracks, track_vertices, track_runs = [], [], []
+    n_track_vertices = 0
 
     for path in sorted(glob.glob(os.path.join(dataset_dir, "h5", "*.h5"))):
         with xr.open_dataset(path) as ds:
@@ -149,47 +188,112 @@ def export_dataset(
                 surface_source = "Bedmap3"
             else:
                 continue
+            # Ice thickness: of the dataset, completed with Bedmap3
+            thk = ds.ICE_THK.values.astype(np.float64) if "ICE_THK" in ds else np.full(len(x), np.nan)
+            thickness_source = "ICE_THK" if "ICE_THK" in ds else "Bedmap3"
+            if surface is not None and not np.isfinite(thk).all():
+                missing = ~np.isfinite(thk)
+                thk[missing] = surface.thickness(x[missing], y[missing])
+            thk[thk <= 0] = np.nan
             step = np.concatenate([[0.0], np.hypot(np.diff(x), np.diff(y))])
             flight_id = ds.attrs.get("flight ID", os.path.splitext(os.path.basename(path))[0])
+            # IRHs traced at each point, and age of the oldest (ka)
+            irh_num = np.zeros(len(x))
+            oldest = np.full(len(x), np.nan)
+            citation = None
 
-            for irh in ds.IRH.values:
-                sel = ds.sel(IRH=irh)
-                depth = sel.IRH_DEPTH.values.astype(np.float64)
+            def add_feature(depth: np.ndarray, layer: Dict, md: Dict) -> None:
+                """A (line, layer) feature, and its runs of vertices."""
+                nonlocal n_vertices
                 elev = surf - depth
-                valid = np.isfinite(elev) & np.isfinite(x) & np.isfinite(y)
-                feature_runs = _runs(valid, step, max_gap)
+                feature_runs = _runs(np.isfinite(elev) & np.isfinite(x) & np.isfinite(y), step, max_gap)
                 if not feature_runs:
-                    continue
-
-                age = _scalar(sel.IRH_AGE.values) if "IRH_AGE" in sel.coords or "IRH_AGE" in sel else None
-                age_unc = _scalar(sel.IRH_AGE_UNC.values) if "IRH_AGE_UNC" in sel else None
-                md = irh_md.get(int(irh), {})
+                    return
                 feature_id = first_feature_id + len(features)
                 features.append(
                     {
                         "dataset": dataset,
                         "flight_id": flight_id,
-                        "irh": int(irh),
-                        "age_ka": None if age is None else round(age / 1000, 2),
-                        "age_unc_ka": None if age_unc is None else round(age_unc / 1000, 2),
+                        **layer,
                         "citation": md.get("citation"),
                         "doi_dataset": md.get("DOI dataset", ds.attrs.get("DOI dataset")),
                         "doi_publication": md.get("DOI publication", ds.attrs.get("DOI publication")),
                         "institute": ds.attrs.get("institute"),
                         "surface": surface_source,
+                        "thickness": thickness_source,
                     }
                 )
                 for run in feature_runs:
-                    v = _average(x[run], y[run], elev[run], spacing)
+                    v = _average(np.column_stack([x[run], y[run], elev[run], depth[run], depth[run] / thk[run]]), spacing)
                     v[:, :2] /= 1000  # km
-                    v = v.astype(np.float32)
-                    vertices.append(v)
+                    vertices.append(v[:, :3].astype(np.float32))
+                    depths.append(np.clip(np.rint(v[:, 3]), 0, 65535).astype(np.uint16))
+                    fdepth = np.clip(np.rint(v[:, 4] * FDEPTH_SCALE), 0, FDEPTH_NODATA - 1)
+                    fdepths.append(np.where(np.isfinite(fdepth), fdepth, FDEPTH_NODATA).astype(np.uint16))
                     runs.append((feature_id, n_vertices, len(v)))
                     n_vertices += len(v)
 
-    vertices = np.concatenate(vertices) if vertices else np.zeros((0, 3), np.float32)
-    runs = np.asarray(runs, dtype=np.uint32).reshape(-1, 3)
-    return vertices, runs, features
+            for irh in ds.IRH.values:
+                sel = ds.sel(IRH=irh)
+                depth = sel.IRH_DEPTH.values.astype(np.float64)
+                valid = np.isfinite(surf - depth) & np.isfinite(x) & np.isfinite(y)
+                age = _scalar(sel.IRH_AGE.values) if "IRH_AGE" in sel.coords or "IRH_AGE" in sel else None
+                irh_num += valid
+                if age is not None:
+                    oldest[valid] = np.fmax(oldest[valid], age / 1000)
+                if not valid.any():
+                    continue
+                age_unc = _scalar(sel.IRH_AGE_UNC.values) if "IRH_AGE_UNC" in sel else None
+                md = irh_md.get(int(irh), {})
+                citation = citation or md.get("citation")
+                add_feature(depth, {
+                    "irh": int(irh),
+                    "age_ka": None if age is None else round(age / 1000, 2),
+                    "age_unc_ka": None if age_unc is None else round(age_unc / 1000, 2),
+                }, md)
+
+            # Basal unit: a layer without age (not an IRH, nor in IRH_NUM), same metadata as the IRHs
+            if "BASAL_UNIT" in ds and ds.BASAL_UNIT.dims == ("point",):
+                md = next(iter(irh_md.values()), {})
+                citation = citation or md.get("citation")
+                add_feature(
+                    ds.BASAL_UNIT.values.astype(np.float64),
+                    {"irh": None, "layer": "basal unit", "age_ka": None, "age_unc_ka": None},
+                    md,
+                )
+
+            # Track at the surface, where IRHs are traced
+            on_track = (irh_num > 0) & np.isfinite(surf) & np.isfinite(x) & np.isfinite(y)
+            line_runs = _runs(on_track, step, max_gap)
+            if not line_runs:
+                continue
+            track_id = len(tracks)
+            tracks.append(
+                {
+                    "dataset": dataset,
+                    "flight_id": flight_id,
+                    "citation": citation,
+                    "surface": surface_source,
+                }
+            )
+            for run in line_runs:
+                points = np.column_stack([x[run], y[run], surf[run], irh_num[run], oldest[run]])
+                v = _average(points, spacing, maximum=(3, 4))
+                v[:, :2] /= 1000  # km
+                track_vertices.append(v.astype(np.float32))
+                track_runs.append((track_id, n_track_vertices, len(v)))
+                n_track_vertices += len(v)
+
+    return {
+        "vertices": np.concatenate(vertices) if vertices else np.zeros((0, 3), np.float32),
+        "depths": np.concatenate(depths) if depths else np.zeros(0, np.uint16),
+        "fdepths": np.concatenate(fdepths) if fdepths else np.zeros(0, np.uint16),
+        "runs": np.asarray(runs, dtype=np.uint32).reshape(-1, 3),
+        "features": features,
+        "track_vertices": np.concatenate(track_vertices) if track_vertices else np.zeros((0, 5), np.float32),
+        "track_runs": np.asarray(track_runs, dtype=np.uint32).reshape(-1, 3),
+        "tracks": tracks,
+    }
 
 
 def _write_gz(array: np.ndarray, path: str) -> None:
@@ -199,6 +303,18 @@ def _write_gz(array: np.ndarray, path: str) -> None:
     os.replace(tmp, path)
 
 
+def _bbox(dataset_dirs: List[str]) -> Optional[tuple]:
+    """Extent (xmin, xmax, ymin, ymax, in m) of the lines of datasets."""
+    xs, ys = [], []
+    for dataset_dir in dataset_dirs:
+        for path in glob.glob(os.path.join(dataset_dir, "h5", "*.h5")):
+            with xr.open_dataset(path) as ds:
+                xs += [float(ds.PSX.min()), float(ds.PSX.max())]
+                ys += [float(ds.PSY.min()), float(ds.PSY.max())]
+    xs, ys = [v for v in xs if np.isfinite(v)], [v for v in ys if np.isfinite(v)]
+    return (min(xs), max(xs), min(ys), max(ys)) if xs and ys else None
+
+
 def export_irh(
     database_dir: str,
     output_dir: str,
@@ -206,6 +322,7 @@ def export_irh(
     bedmap_path: Optional[str] = None,
     spacing: float = DEFAULT_SPACING,
     max_gap: float = DEFAULT_MAX_GAP,
+    crop: bool = False,
 ) -> Dict:
     """
     Export the IRHs of a database directory to output_dir.
@@ -214,10 +331,11 @@ def export_irh(
         database_dir: Database directory (with one directory per dataset).
         output_dir: Output directory, e.g. web/public/data/irh.
         datasets: Names of the datasets to export. Defaults to all.
-        bedmap_path: Bedmap3 netCDF (500 m), for datasets without SURF_ELEV.
-            Without it, these datasets are skipped.
+        bedmap_path: Bedmap3 netCDF (500 m), for datasets without SURF_ELEV
+            (skipped without it) and points without ICE_THK.
         spacing: Along-track averaging distance (m), e.g. the resolution of the terrain.
         max_gap: Distance (m) between consecutive points above which the line is broken.
+        crop: Only load Bedmap3 around the lines, to save memory (a few datasets).
 
     Returns:
         The irh.json content.
@@ -227,26 +345,43 @@ def export_irh(
         datasets = sorted(
             d for d in os.listdir(database_dir) if os.path.isdir(os.path.join(database_dir, d, "h5"))
         )
-    surface = Bedmap3Surface(bedmap_path) if bedmap_path else None
+    surface = None
+    if bedmap_path:
+        bbox = _bbox([os.path.join(database_dir, d) for d in datasets]) if crop else None
+        surface = Bedmap3Surface(bedmap_path, bbox)
 
-    index = {"format": 1, "datasets": {}, "features": []}
+    index = {"format": 1, "datasets": {}, "features": [], "tracks": []}
     for dataset in datasets:
-        vertices, runs, features = export_dataset(
+        out = export_dataset(
             os.path.join(database_dir, dataset), surface, len(index["features"]), spacing, max_gap
         )
-        if not features:
+        if not out["features"]:
             print(f"{dataset}: no IRH exported")
             continue
-        _write_gz(vertices, os.path.join(output_dir, f"{dataset}.bin.gz"))
-        _write_gz(runs, os.path.join(output_dir, f"{dataset}_runs.bin.gz"))
-        index["datasets"][dataset] = {
-            "vertices": f"{dataset}.bin.gz",
-            "runs": f"{dataset}_runs.bin.gz",
-            "n_vertices": int(len(vertices)),
-            "n_runs": int(len(runs)),
+        # Track ids are global, like feature ids
+        out["track_runs"][:, 0] += len(index["tracks"])
+        files = {
+            "vertices": (f"{dataset}.bin.gz", out["vertices"]),
+            "depths": (f"{dataset}_depth.bin.gz", out["depths"]),
+            "fdepths": (f"{dataset}_fdepth.bin.gz", out["fdepths"]),
+            "runs": (f"{dataset}_runs.bin.gz", out["runs"]),
+            "tracks": (f"{dataset}_tracks.bin.gz", out["track_vertices"]),
+            "track_runs": (f"{dataset}_track_runs.bin.gz", out["track_runs"]),
         }
-        index["features"].extend(features)
-        print(f"{dataset}: {len(features)} lines, {len(runs)} runs, {len(vertices)} vertices")
+        for file, array in files.values():
+            _write_gz(array, os.path.join(output_dir, file))
+        index["datasets"][dataset] = {key: file for key, (file, _) in files.items()}
+        index["datasets"][dataset].update(
+            n_vertices=int(len(out["vertices"])),
+            n_runs=int(len(out["runs"])),
+            n_track_vertices=int(len(out["track_vertices"])),
+        )
+        index["features"].extend(out["features"])
+        index["tracks"].extend(out["tracks"])
+        print(
+            f"{dataset}: {len(out['features'])} lines, {len(out['runs'])} runs, "
+            f"{len(out['vertices'])} vertices, {len(out['tracks'])} tracks"
+        )
 
     with open(os.path.join(output_dir, "irh.json"), "w") as f:
         json.dump(index, f, indent=0)
