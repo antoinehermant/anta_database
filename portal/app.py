@@ -38,7 +38,7 @@ from typing import Literal, Optional
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from . import config, mail, storage, store
@@ -483,9 +483,43 @@ def preview_status(submission_id: str, key: str):
         out["warnings"] = report.get("warnings", [])
         out["errors"] = report.get("errors", [])
         out["bbox"] = report.get("summary", {}).get("bbox")
+    if status == "ready":
+        # Files of the compiled dataset to download (from the preview, /files/<path>), and their size
+        out["downloads"] = record.get("downloads") or {}
     if status == "ready" and not (config.PREVIEWS / submission_id / "irh.json").exists():
         out["status"] = "closed"
     return out
+
+
+@app.get("/api/previews/{submission_id}/{key}/files/{name:path}")
+def preview_download(submission_id: str, key: str, name: str):
+    """A file of the compiled dataset of a submission, for its contributor (the download frame
+    of the preview), until the review is done. The compiled datasets are in private buckets:
+    the portal reads them there and passes them on."""
+    record = preview_record(submission_id, key)
+    downloads = record.get("downloads") or {}
+    # Only the files listed by the pipeline, so the name cannot point anywhere else
+    if record.get("status") != "ready" or name not in downloads or not (config.PREVIEWS / submission_id / "irh.json").exists():
+        raise HTTPException(404, "No such file")
+    filename = name.rsplit("/", 1)[-1]
+    headers = {"Cache-Control": "private, no-store", "Content-Disposition": f'attachment; filename="{filename}"'}
+    bucket = config.COMPILED_BUCKET if record.get("licence") == "redistribute" else config.REVIEW_BUCKET
+    if not bucket:
+        path = config.DATA / "compiled" / submission_id / name
+        if not path.is_file():
+            raise HTTPException(404, "No such file")
+        return FileResponse(path, media_type="application/octet-stream", headers=headers)
+    try:
+        item = storage.open_object(bucket, f"{submission_id}/{name}")
+    except Exception:
+        log.exception("%s: %s not found in bucket %s", submission_id, name, bucket)
+        raise HTTPException(404, "No such file")
+    log.info("%s: download of %s", submission_id, name)
+    return StreamingResponse(
+        item["Body"].iter_chunks(1024**2),
+        media_type="application/octet-stream",
+        headers={**headers, "Content-Length": str(item["ContentLength"])},
+    )
 
 
 @app.get("/api/previews/{submission_id}/{key}/{name:path}")

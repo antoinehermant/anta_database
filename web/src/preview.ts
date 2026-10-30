@@ -19,6 +19,8 @@ export interface PreviewStatus {
   waiting?: number;
   warnings?: string[];
   errors?: string[];
+  /** Files of the compiled dataset to download (path: size in bytes), once ready */
+  downloads?: Record<string, number>;
   /** Extent of the dataset, EPSG:3031 (m): xmin, xmax, ymin, ymax */
   bbox?: [number, number, number, number] | null;
 }

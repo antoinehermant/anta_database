@@ -78,14 +78,14 @@ db.sync()   # downloads the database, or updates it</code></pre>
         </p>
       </section>
 
-      <section id="toolbar">
+      <section id="toolbar" class="dl-toolbar">
         <label class="check"><input id="select-all" type="checkbox" /> Select all (whole database, recommended)</label>
-        <span id="summary"></span>
+        <span id="summary" class="dl-summary"></span>
         <span class="spacer"></span>
-        <button id="download" type="button" disabled>Download zip</button>
+        <button id="download" class="dl-download" type="button" disabled>Download zip</button>
         <button id="cancel" type="button" hidden>Cancel</button>
-        <div id="progress" hidden><div id="progress-bar"></div></div>
-        <p id="status" role="status"></p>
+        <div id="progress" class="dl-progress" hidden><div id="progress-bar" class="dl-progress-bar"></div></div>
+        <p id="status" class="dl-status" role="status"></p>
       </section>
 
       <section id="datasets"><p class="muted">Loading the datasets…</p></section>

@@ -1,4 +1,5 @@
 @import "./theme.css";
+@import "./datasets.css";
 
 html,
 body {
@@ -397,14 +398,25 @@ body:has(#sidebar:not(.closed)) #legends {
 }
 
 /* Private preview of a submission (src/preview.ts): progress, then what the checks found */
-#preview {
+/* Private preview of a submission: its progress, then the download of the compiled dataset */
+#preview-stack {
   position: fixed;
   top: 52px;
   right: 10px;
   z-index: 5;
-  width: min(380px, calc(100vw - 20px));
-  max-height: calc(100vh - 110px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, calc(100vw - 20px));
+  /* Above the move pad */
+  max-height: calc(100vh - 160px);
   overflow: auto;
+}
+
+#preview,
+#preview-download {
+  position: relative;
+  flex: none;
   padding: 12px 16px;
   border-radius: 12px;
   background: var(--panel);
@@ -428,7 +440,12 @@ body:has(#sidebar:not(.closed)) #legends {
   color: var(--muted);
 }
 
-#preview .close {
+#preview-download .muted {
+  color: var(--muted);
+}
+
+#preview .close,
+#preview-download .close {
   position: absolute;
   top: 6px;
   right: 8px;
@@ -473,7 +490,39 @@ body:has(#sidebar:not(.closed)) #legends {
   padding-left: 18px;
 }
 
-.clean #preview {
+#preview-download h2 {
+  margin: 0 24px 6px 0;
+  font-size: 0.95rem;
+}
+
+#preview-download > p {
+  margin: 6px 0 10px;
+}
+
+#preview-download .dl-toolbar {
+  padding: 8px 10px;
+  box-shadow: none;
+  background: var(--widget);
+}
+
+/* The card of the download page, as on a narrow page: the map under the description */
+#preview-download .dataset {
+  grid-template-columns: auto 1fr;
+  margin: 10px 0 0;
+  box-shadow: none;
+  background: var(--widget);
+}
+
+#preview-download .dataset canvas {
+  grid-column: 2;
+  grid-row: auto;
+}
+
+#preview-download .dataset h3 {
+  font-size: 0.95rem;
+}
+
+.clean #preview-stack {
   display: none;
 }
 

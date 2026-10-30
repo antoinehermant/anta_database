@@ -4,9 +4,12 @@
 2. compile them with CompileDatabase, then IndexDatabase assigns the ages;
 3. check the compiled dataset (checks.check_compiled): warnings for the review;
 4. export it for the 3D viewer (anta_database.web.irh) into the private preview
-   (<PORTAL_DATA>/previews/<id>/), served by the portal to whoever has the key;
+   (<PORTAL_DATA>/previews/<id>/), served by the portal to whoever has the key, with its entry
+   of the catalogue of the download page (anta_database.web.catalog, catalog.json);
 5. store the compiled dataset and the report in the bucket of its purpose: compiled (to add
-   to the database after review) or review (kept private).
+   to the database after review) or review (kept private). The files the contributor can
+   download from the preview (the h5 files, raw_md.json and the index) are listed in
+   submission.json ("downloads").
 
 The progress is written to submission.json (status "processing", "step"), for the preview page.
 
@@ -23,6 +26,10 @@ from pathlib import Path
 from . import checks, config, storage
 
 log = logging.getLogger("portal.pipeline")
+
+# Files of the compiled dataset the contributor can download from the preview, as in the
+# published database: the index, and raw_md.json and the h5 files of the dataset
+DOWNLOADS = ("AntADatabase.db", "*/raw_md.json", "*/h5/*.h5")
 
 # Steps shown on the preview page
 STEPS = {
@@ -76,6 +83,7 @@ def raw_files(directory: Path, record: dict) -> Path:
 def run(submission_id: str) -> dict:
     """Process a submission; its record, with the report."""
     from anta_database import CompileDatabase, IndexDatabase
+    from anta_database.web.catalog import export_catalog
     from anta_database.web.irh import Bedmap3Surface, _bbox, export_irh
 
     directory = config.SUBMISSIONS / submission_id
@@ -138,9 +146,20 @@ def run(submission_id: str) -> dict:
 
     step("exporting")
     export_irh(str(work), str(preview), [dataset_name], bedmap, crop=True)
+    try:
+        export_catalog(str(work), str(preview))
+    except Exception:
+        # The download frame of the preview then only lists the files
+        log.exception("%s: no catalogue entry for the preview", submission_id)
 
     step("storing")
     shutil.rmtree(dataset / "raw")  # already in the bucket of the submissions
+    downloads = {
+        p.relative_to(work).as_posix(): p.stat().st_size
+        for pattern in DOWNLOADS
+        for p in sorted(work.glob(pattern))
+        if p.is_file()
+    }
     bucket = config.COMPILED_BUCKET if record["licence"] == "redistribute" else config.REVIEW_BUCKET
     if bucket:
         storage.upload(work, bucket, submission_id)
@@ -155,7 +174,8 @@ def run(submission_id: str) -> dict:
     if config.SUBMISSIONS_BUCKET:
         storage.clean(directory)
 
-    return update(directory, status="ready", step=None, processed=now(), compiled=location, report=report.to_dict())
+    return update(directory, status="ready", step=None, processed=now(), compiled=location, downloads=downloads,
+                  report=report.to_dict())
 
 
 def main(argv=None) -> None:

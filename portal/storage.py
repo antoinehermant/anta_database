@@ -41,6 +41,11 @@ def upload(directory: Path, bucket: str, prefix: str) -> None:
         s3.upload_file(str(path), bucket, f"{prefix}/{path.relative_to(directory).as_posix()}")  # multipart for large files
 
 
+def open_object(bucket: str, key: str) -> dict:
+    """An object of a bucket, to stream: its "Body" and "ContentLength"."""
+    return _client().get_object(Bucket=bucket, Key=key)
+
+
 def download(bucket: str, prefix: str, directory: Path) -> int:
     """Download the files under <prefix>/ of a bucket into a directory, but the records (those
     on the server are more recent); their number."""

@@ -359,6 +359,9 @@ const irhIndex = SUBMISSION
         submissionBox = status.bbox;
         frameBox(submissionBox);
       }
+      import("./preview-download")
+        .then(({ showDownload }) => showDownload(document.getElementById("preview-download")!, SUBMISSION!.url, status))
+        .catch(console.error);
       return loadIndex(IRH_URL);
     })
   : loadIndex(IRH_URL);
