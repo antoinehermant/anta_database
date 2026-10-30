@@ -44,12 +44,21 @@ body {
   right: 10px;
   bottom: 44px;
   display: grid;
-  grid-template-areas: "tl up tr" "left down right";
-  grid-template-columns: repeat(3, 34px);
+  grid-template-areas: "tl up tr in" "left down right out";
+  grid-template-columns: repeat(3, 34px) 40px;
   grid-auto-rows: 34px;
   gap: 4px;
   user-select: none;
   touch-action: none;
+  /* Discreet until used: the mouse is the main way to move */
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+#move-pad:hover,
+#move-pad:focus-within,
+#move-pad:active {
+  opacity: 1;
 }
 
 #move-pad button {
@@ -70,6 +79,12 @@ body {
 #move-pad button:active {
   background: var(--accent);
   color: var(--panel);
+}
+
+#move-pad button.zoom {
+  justify-self: end;
+  width: 34px;
+  font-size: 1.1rem;
 }
 
 #move-pad button.turn {

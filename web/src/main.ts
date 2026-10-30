@@ -190,7 +190,7 @@ function viewToUrl(): void {
 }
 controls.addEventListener("end", viewToUrl);
 // W A S D, the arrow keys and the pad in the bottom right corner move the view too
-const keyNavigation = new KeyNavigation(camera, controls, viewToUrl);
+const keyNavigation = new KeyNavigation(camera, controls, viewToUrl, resetView);
 keyNavigation.addPad(document.body);
 controls.addEventListener("end", () => {
   // Still flow lines are spread again over the new view
