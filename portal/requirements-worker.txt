@@ -1,0 +1,18 @@
+# The worker (worker.py, pipeline.py): anta_database with its compile extra (pyproject.toml).
+# The package itself is copied into the image by deploy.sh (package/anta_database)
+numpy
+pandas
+pyarrow
+xarray
+h5netcdf
+h5py
+matplotlib
+colormaps
+tqdm
+shapely
+geopandas
+pyproj
+scipy
+dask
+netcdf4
+zarr

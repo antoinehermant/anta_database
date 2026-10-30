@@ -1,0 +1,24 @@
+#cloud-config
+# Set up of the portal server at its creation (see README.md): Docker, and automatic security
+# updates with a nightly reboot when one needs it
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - rsync
+  - unattended-upgrades
+write_files:
+  - path: /etc/apt/apt.conf.d/52portal-upgrades
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+# Room for the compilations of the worker, with 2 GB of memory
+swap:
+  filename: /swapfile
+  size: 2G
+  maxsize: 2G
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+  - install -d -o ubuntu -g ubuntu /opt/portal

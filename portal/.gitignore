@@ -1,0 +1,6 @@
+# Local virtual environment, stored submissions and fake data (portal/dev/make_fake_data.py)
+.venv/
+data/
+dev/fake_data/
+.env*
+!.env.example

@@ -1,0 +1,14 @@
+[
+    {"variable": "IRH_DEPTH", "units": "m", "long_name": "IRH depth", "description": "Depth of IRHs below the surface in meters"},
+    {"variable": "IRH_FRAC_DEPTH", "units": "%", "long_name": "IRH fraction depth", "description": "Ratio of IRH depths and nearest ice thickness point"},
+    {"variable": "ICE_THK", "units": "m", "long_name": "Ice thickness", "description": "Thickness of the ice in meters"},
+    {"variable": "SURF_ELEV", "units": "m a.s.l.", "long_name": "Surface elevation", "description": "Elevation of the surface above sea level in meters"},
+    {"variable": "BED_ELEV", "units": "m a.s.l.", "long_name": "Bedrock elevation", "description": "Elevation of the bedrock above sea level in meters"},
+    {"variable": "BASAL_UNIT", "units": "m", "long_name": "Basal unit", "description": "Depth of the free echo zone in meters below the surface"},
+    {"variable": "IRH_NUM", "units": "1", "long_name": "IRH density", "description": "Number of traced IRHs at one point"},
+    {"variable": "IRH_AGE", "units": "years", "long_name": "IRH age", "description": "Ages of IRHs in years before the present (1950)"},
+    {"variable": "IRH_AGE_UNC", "units": "years", "long_name": "IRH age uncertainty", "description": "Uncertainty on the age of IRHs from ice cores or models"},
+    {"variable": "PSX", "units": "m", "long_name": "Polar Stereographic X", "description": "Polar Stereographic X coordinates (metres; EPSG: 3031)"},
+    {"variable": "PSY", "units": "m", "long_name": "Polar Stereographic Y", "description": "Polar Stereographic Y coordinates (metres; EPSG: 3031)"},
+    {"variable": "Distance", "units": "m", "long_name": "Along_track distance", "description": "Along-track distance along radar transect"}
+]

@@ -1,0 +1,4 @@
+# HTTPS for the portal: Caddy gets and renews the certificate of the domain by itself
+api.antadatabase.com {
+	reverse_proxy portal:8000
+}

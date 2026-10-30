@@ -1,0 +1,36 @@
+# The portal on its server (/opt/portal, see deploy.sh): the app, its worker, and Caddy for HTTPS
+x-portal: &portal
+  build: .
+  image: antadatabase-portal
+  restart: unless-stopped
+  # Read as is ("raw"): no variables, so a "$" in a password stays. Not named ".env", which
+  # Compose would also read for its own variables
+  env_file:
+    - path: portal.env
+      format: raw
+  volumes:
+    # Records of the submissions, verification codes, the previews and Bedmap3; the files
+    # themselves are in the buckets
+    - ./data:/data
+services:
+  portal:
+    <<: *portal
+  worker:
+    <<: *portal
+    command: ["python", "-m", "portal.worker"]
+    # A compilation using too much memory is stopped, not the whole server
+    mem_limit: 1400m
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # HTTPS certificates
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:
