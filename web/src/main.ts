@@ -19,6 +19,9 @@ import {
 } from "./terrain";
 import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, loadIndex, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Track } from "./irh";
 import { closer, type Hit, type LineLayer } from "./lines";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { PivotField } from "./pivot";
 import { BED_STOPS, SPEED, ticks } from "./colormaps";
 import { Legend } from "./legend";
@@ -29,6 +32,8 @@ import { IceCores, type IceCore } from "./icecores";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
 import { SUBMISSION, startPreview } from "./preview";
+import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, type HeightAt, type Scenario } from "./outlines";
+import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
 
 // Data exported by anta_database.web: served with the app in development
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
@@ -37,6 +42,7 @@ const DATA_URL = `${DATA_ROOT}/terrain`;
 // The isochrones of the database, or of a submission in its private preview (?preview=<id>&key=<key>)
 const IRH_URL = SUBMISSION ? SUBMISSION.url : `${DATA_ROOT}/irh`;
 const VELOCITY_URL = `${DATA_ROOT}/velocity`;
+const OUTLINES_URL = `${DATA_ROOT}/outlines`;
 // Resolution of the quick preview, then of the shading texture
 const PREVIEW = "8km";
 const DETAIL = "2km";
@@ -89,6 +95,9 @@ controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon of the rotat
 // screen, updated when an interaction starts. The centre moves along the line
 // of sight, so the view doesn't jump.
 let pivotField: PivotField | null = null;
+// Heights of the terrain as drawn, once the first (coarse) level is loaded
+let terrainReady: (heights: HeightAt) => void;
+const terrainHeights = new Promise<HeightAt>((resolve) => (terrainReady = resolve));
 controls.addEventListener("start", () => {
   if (!pivotField) return;
   const direction = camera.getWorldDirection(new THREE.Vector3());
@@ -229,8 +238,8 @@ window.addEventListener("resize", () => {
 
 const stats = new Stats();
 if (import.meta.env.DEV) {
-  // Top right, below the links to the other pages and the theme button
-  Object.assign(stats.dom.style, { left: "auto", right: "10px", top: "52px" });
+  // Bottom right, above the move pad (the profile window opens top right)
+  Object.assign(stats.dom.style, { left: "auto", right: "10px", top: "auto", bottom: "130px" });
   stats.dom.id = "stats";
   document.body.appendChild(stats.dom);
 }
@@ -291,6 +300,7 @@ renderer.setAnimationLoop((time: number) => {
   if (iceCores.group.visible) iceCores.update(camera, renderer.domElement.clientHeight);
   // Dashes of the tracks: the same length on screen at any zoom
   tracks.lines.setDashPixel(pixelAtTarget());
+  if (groundingLines.group.visible) groundingLines.setDashPixel(pixelAtTarget());
   renderer.render(scene, camera);
   stats.update();
 });
@@ -329,6 +339,19 @@ for (const layer of lineLayers) {
   layer.setExaggeration(shared.exaggeration.value);
   scene.add(layer.group);
 }
+// Grounding lines (RAISED and present) on the bed, and ice divides (IMBIE2 basins); off at start
+const groundingLines = new GroundingLines();
+const iceDivides = new IceDivides();
+groundingLines.setVisible(false);
+iceDivides.setVisible(false);
+for (const layer of [...groundingLines.lineLayers, iceDivides.lines]) {
+  layer.setResolution(window.innerWidth, window.innerHeight);
+  layer.setExaggeration(shared.exaggeration.value);
+  lineLayers.push(layer);
+}
+iceDivides.setExaggeration(shared.exaggeration.value);
+scene.add(groundingLines.group, iceDivides.group);
+
 const irhIndex = SUBMISSION
   ? startPreview(document.getElementById("preview")!).then((status) => {
       if (status.bbox && !window.location.hash) {
@@ -444,6 +467,7 @@ function showVelocity(): void {
 const legends = document.getElementById("legends")!;
 const isochroneLegend = new Legend(legends);
 const velocityLegend = new Legend(legends);
+const groundingLineLegend = new Legend(legends);
 
 function showIsochroneLegend(): void {
   if (!settings.isochrones || !isochrones.lines.loaded) return isochroneLegend.hide();
@@ -544,6 +568,10 @@ function showTooltip(heading: string, rows: [string, string][], footnote: string
   }
 }
 
+function showTip(tip: Tooltip): void {
+  showTooltip(tip.title, tip.rows, tip.note);
+}
+
 function placeTooltip(x: number, y: number): void {
   // Keep the tooltip inside the window
   const left = Math.min(x + 16, window.innerWidth - tooltip.offsetWidth - 8);
@@ -613,7 +641,9 @@ function updateHover(): void {
     tooltip.style.visibility = "hidden";
   } else {
     if (best.layer === tracks.lines) trackTooltip(tracks.tracks[best.hit.feature], best.hit);
-    else isochroneTooltip(isochrones.features[best.hit.feature], best.hit);
+    else if (best.layer === isochrones.lines) isochroneTooltip(isochrones.features[best.hit.feature], best.hit);
+    else if (best.layer === iceDivides.lines) showTip(iceDivides.describe(best.hit));
+    else showTip(groundingLines.describe(best.layer, best.hit));
     placeTooltip(pointer.x, pointer.y);
   }
   const next = best ? { layer: best.layer, feature: best.hit.feature } : null;
@@ -625,6 +655,82 @@ function updateHover(): void {
   }
   renderer.domElement.style.cursor = next === null && core === null && egg === null ? "" : "pointer";
 }
+
+// Stratigraphy of a line: click an isochrone or a track to open its profile
+const profileMarker = new THREE.Group();
+const markerMaterial = new LineMaterial({ linewidth: 3, color: 0xff4d4d, depthTest: false, transparent: true });
+markerMaterial.resolution.set(window.innerWidth, window.innerHeight);
+window.addEventListener("resize", () => markerMaterial.resolution.set(window.innerWidth, window.innerHeight));
+const markerGeometry = new LineSegmentsGeometry();
+const markerLine = new LineSegments2(markerGeometry, markerMaterial);
+markerLine.frustumCulled = false;
+markerLine.renderOrder = 11;
+profileMarker.add(markerLine);
+profileMarker.visible = false;
+profileMarker.scale.z = shared.exaggeration.value / 1000;
+scene.add(profileMarker);
+
+/** Mark a point of the profile in 3D: a vertical line through the ice, from the bed to the surface. */
+function markProfilePoint(point: ProfilePoint | null): void {
+  profileMarker.visible = point !== null;
+  if (point) {
+    const top = Number.isFinite(point.surface) ? point.surface : (pivotField?.surfaceAt(point.x, point.y) ?? 0);
+    const bottom = Number.isFinite(point.bed) ? point.bed : (pivotField?.bedAt(point.x, point.y) ?? top - 1000);
+    markerGeometry.setPositions([point.x, point.y, bottom, point.x, point.y, top + 300]);
+  }
+  requestRender();
+}
+
+const profile = new ProfilePanel({
+  colorOf: (feature) => isochrones.ageColor(feature),
+  describeLayer: (feature, depth, point) => {
+    const f = isochrones.features[feature];
+    const rows: [string, string][] = isBasalUnit(f) ? [["Layer", "Basal unit (no age)"]] : [["Age", formatAge(f)]];
+    rows.push(["Elevation", `${Math.round(point.surface - depth)} m`], ["Depth", `${Math.round(depth)} m`]);
+    if (point.thickness > 0) rows.push(["Fractional depth", (depth / point.thickness).toFixed(2)]);
+    rows.push(["Line ID", f.line_id]);
+    if (!isBasalUnit(f)) rows.push(["IRH", String(f.irh)]);
+    return { title: f.citation ?? f.dataset, rows, note: f.surface !== "SURF_ELEV" ? `Elevation from depth and the ${f.surface} surface` : null };
+  },
+  showTooltip: (tip, x, y) => {
+    showTip(tip);
+    placeTooltip(x, y);
+  },
+  hideTooltip: () => (tooltip.style.visibility = "hidden"),
+  onPoint: markProfilePoint,
+});
+
+// Lines (tracks) by dataset and line ID, with their profiles
+const linesById = new Map<string, Track>();
+irhIndex.then((index) => {
+  for (const t of index.tracks) linesById.set(`${t.dataset}\u0000${t.line_id}`, t);
+});
+
+/** Open the profile of the isochrone or track under a pixel of the canvas, if any. */
+function openProfileAt(x: number, y: number): void {
+  const canvas = renderer.domElement;
+  let best: { layer: LineLayer; hit: Hit } | null = null;
+  for (const layer of [isochrones.lines, tracks.lines]) {
+    if (!layer.group.visible || (layer === isochrones.lines && isochronesUnderIce())) continue;
+    const hit = layer.pick(camera, x, y, canvas.clientWidth, canvas.clientHeight);
+    if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
+  }
+  if (!best) return;
+  const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
+  const track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
+  if (track) profile.open(track, IRH_URL).catch(showError);
+}
+
+// A click (not a drag) on a line opens its profile
+let pressed: { x: number; y: number; time: number } | null = null;
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  pressed = event.button === 0 ? { x: event.clientX, y: event.clientY, time: performance.now() } : null;
+});
+renderer.domElement.addEventListener("pointerup", (event) => {
+  const click = pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 5 && performance.now() - pressed.time < 500;
+  pressed = null;
+  if (click) openProfileAt(event.offsetX, event.offsetY);
+});
 
 let maskTexture: THREE.DataTexture | null = null;
 // Grid and data coverage of the current height textures, to rebuild the meshes
@@ -642,6 +748,8 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
   const grid = gridOf(level);
   if (!pivotField) {
     pivotField = PivotField.fromLayers(grid, bedTex.userData as never, surfaceTex.userData as never);
+    const field = pivotField;
+    terrainReady((layer, x, y) => field.smoothAt(layer, x, y));
     eggs.place();
     if (!window.location.hash) {
       if (submissionBox) frameBox(submissionBox);
@@ -693,6 +801,11 @@ const settings = {
   colorBy: "Age" as ColorBy,
   tracks: true,
   iceCores: false,
+  groundingLines: false,
+  groundingLineScenario: "A" as Scenario,
+  // Times shown (ka, 0 for the present), by checkbox
+  groundingLineTimes: Object.fromEntries(GROUNDING_LINE_COLORS.map(([age]) => [String(age), true])) as Record<string, boolean>,
+  iceDivides: false,
   aircraft: true,
   lineWidth: 2.5,
   lightAzimuth: 315, // degrees clockwise from grid north (+y)
@@ -770,6 +883,8 @@ gui
     viewToUrl();
     shared.exaggeration.value = v;
     for (const layer of lineLayers) layer.setExaggeration(v);
+    iceDivides.setExaggeration(v);
+    profileMarker.scale.z = v / 1000;
     iceCores.setExaggeration(v);
     aircraft.setExaggeration(v);
     eggs.setExaggeration(v);
@@ -861,6 +976,67 @@ layers
     pointerMoved = true;
     requestRender();
   });
+layers.add(settings, "groundingLines").name("Grounding lines (RAISED)").onChange(showGroundingLines);
+// Options of the grounding lines, right under them, only shown with them
+const groundingLineOptions = layers.addFolder("Grounding line options");
+groundingLineOptions
+  .add(settings, "groundingLineScenario", ["A", "B", "A and B"])
+  .name("RAISED scenario")
+  .onChange(showGroundingLines);
+// The present grounding line, then the RAISED times from the youngest
+for (const [age, , label] of GROUNDING_LINE_COLORS) {
+  groundingLineOptions
+    .add(settings.groundingLineTimes, String(age))
+    .name(age === 0 ? "Present grounding line" : `Grounding line at ${label}`)
+    .onChange(showGroundingLines);
+}
+groundingLineOptions.hide();
+layers.add(settings, "iceDivides").name("Ice divides (IMBIE2)").onChange(showIceDivides);
+
+function showGroundingLines(): void {
+  const on = settings.groundingLines;
+  groundingLines.setVisible(on);
+  groundingLineOptions.show(on);
+  document.getElementById("raised-attribution")!.hidden = !on;
+  const apply = () => {
+    groundingLines.scenario = settings.groundingLineScenario;
+    groundingLines.hiddenAges.clear();
+    for (const [age] of GROUNDING_LINE_COLORS) if (!settings.groundingLineTimes[age]) groundingLines.hiddenAges.add(age);
+    groundingLines.applyFilter();
+    for (const layer of groundingLines.lineLayers) layer.invalidate();
+    showGroundingLineLegend();
+    pointerMoved = true;
+    requestRender();
+  };
+  if (on) terrainHeights.then((heights) => groundingLines.load(OUTLINES_URL, heights)).then(apply).catch(showError);
+  apply();
+}
+
+function showGroundingLineLegend(): void {
+  if (!settings.groundingLines) return groundingLineLegend.hide();
+  const times = GROUNDING_LINE_COLORS.filter(([age]) => settings.groundingLineTimes[age]).map(
+    ([, color, label]): [string, string, null] => [label, color, null],
+  );
+  const styles = CONFIDENCE_STYLES.map(([confidence, dash]): [string, string, [number, number] | null] => [confidence, "#8d97a3", dash]);
+  groundingLineLegend.showLines("Grounding lines", [times, styles]);
+}
+
+function showIceDivides(): void {
+  const on = settings.iceDivides;
+  iceDivides.setVisible(on);
+  document.getElementById("imbie-attribution")!.hidden = !on;
+  if (on) {
+    terrainHeights
+      .then((heights) => iceDivides.load(OUTLINES_URL, heights))
+      .then(() => {
+        pointerMoved = true;
+        requestRender();
+      })
+      .catch(showError);
+  }
+  pointerMoved = true;
+  requestRender();
+}
 
 function showTracks(): void {
   tracks.group.visible = settings.tracks;
@@ -998,4 +1174,4 @@ irhIndex
   .catch(showError);
 
 // Debugging from the browser console in development: window.viewer
-if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes } });
+if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt } });

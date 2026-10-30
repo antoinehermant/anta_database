@@ -41,6 +41,38 @@ export class Legend {
     this.el.hidden = false;
   }
 
+  /**
+   * Samples of lines: groups of (label, CSS colour, dash and gap in px or null for solid),
+   * each group as a column.
+   */
+  showLines(title: string, groups: [label: string, color: string, dash: [number, number] | null][][]): void {
+    const heading = document.createElement("div");
+    heading.textContent = title;
+    const columns = document.createElement("div");
+    columns.className = "line-samples";
+    for (const group of groups) {
+      const column = document.createElement("div");
+      for (const [text, color, dash] of group) {
+        const item = document.createElement("div");
+        item.className = "swatch";
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", "24");
+        svg.setAttribute("height", "6");
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        Object.entries({ x1: "1", y1: "3", x2: "23", y2: "3", stroke: color, "stroke-width": "2.5", "stroke-linecap": "round" }).forEach(
+          ([k, v]) => line.setAttribute(k, v),
+        );
+        if (dash) line.setAttribute("stroke-dasharray", `${dash[0]} ${dash[1] + 2.5}`);
+        svg.append(line);
+        item.append(svg, text);
+        column.append(item);
+      }
+      columns.append(column);
+    }
+    this.el.replaceChildren(heading, columns);
+    this.el.hidden = false;
+  }
+
   hide(): void {
     this.el.hidden = true;
   }

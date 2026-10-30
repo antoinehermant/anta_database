@@ -41,6 +41,35 @@ export class PivotField {
     return this.valueAt(this.surface, x, y);
   }
 
+  /**
+   * Bed or ice surface elevation (m) at a point (km), interpolated between the cells
+   * around it, like the terrain mesh between its vertices; null without data around.
+   */
+  smoothAt(layer: "bed" | "surface", x: number, y: number): number | null {
+    const values = layer === "bed" ? this.bed : this.surface;
+    const { nx, ny, dx, x0, y0 } = this.grid;
+    const fi = (x - x0) / dx;
+    const fj = (y - y0) / dx;
+    const i0 = Math.floor(fi);
+    const j0 = Math.floor(fj);
+    let sum = 0;
+    let weights = 0;
+    for (const [i, j, w] of [
+      [i0, j0, (1 - (fi - i0)) * (1 - (fj - j0))],
+      [i0 + 1, j0, (fi - i0) * (1 - (fj - j0))],
+      [i0, j0 + 1, (1 - (fi - i0)) * (fj - j0)],
+      [i0 + 1, j0 + 1, (fi - i0) * (fj - j0)],
+    ]) {
+      if (i < 0 || i >= nx || j < 0 || j >= ny || w <= 0) continue;
+      const h = values[j * nx + i];
+      if (Number.isNaN(h)) continue;
+      sum += w * h;
+      weights += w;
+    }
+    // Cells without data are left out, the others weigh more
+    return weights > 0.05 ? sum / weights : null;
+  }
+
   private valueAt(values: Float32Array, x: number, y: number): number | null {
     const { nx, ny, dx, x0, y0 } = this.grid;
     const i = Math.round((x - x0) / dx);

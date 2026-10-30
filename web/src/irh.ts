@@ -15,6 +15,7 @@
 import * as THREE from "three";
 import { fetchBytes, fetchData } from "./terrain";
 import { LineLayer } from "./lines";
+import type { ProfileInfo } from "./profile";
 import { AGE, AGE_LEGEND, AGE_LEGEND_SPLIT_T, AGE_SPLIT_KA, AGE_SPLIT_T, DEPTH, ELEVATION, scaleT, ticks, type Colormap, type Scale, type Tick } from "./colormaps";
 
 export interface Feature {
@@ -37,6 +38,7 @@ export interface Track {
   line_id: string;
   citation: string | null;
   surface: string;
+  profile?: ProfileInfo; // missing in exports before the profiles
 }
 
 interface DatasetFiles {
@@ -206,6 +208,14 @@ export class Isochrones {
         return age === null ? color.copy(NO_AGE) : AGE.at(scaleT(this.ageScale, age), color);
       });
     }
+  }
+
+  /** CSS colour of a feature by its age, whatever the colouring (for the profiles). */
+  ageColor(feature: number): string {
+    const f = this.features[feature];
+    if (!f) return `#${NO_AGE.getHexString()}`;
+    if (isBasalUnit(f)) return BASAL_UNIT_COLOR;
+    return f.age_ka === null ? `#${NO_AGE.getHexString()}` : `#${AGE.at(scaleT(this.ageScale, f.age_ka), new THREE.Color()).getHexString()}`;
   }
 
   /** Title, colormap and ticks of the current colours. */
