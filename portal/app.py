@@ -46,7 +46,9 @@ from . import config, mail, storage, store
 FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.(csv|tab)$")
 DATASET_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*_\d{4}[a-z]?$")
 SUBMISSION_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{8}$")
-PREVIEW_FILE = re.compile(r"^[A-Za-z0-9_.-]+\.(json|bin\.gz)$")
+# Files of a preview, and the profiles of its lines (profiles/<dataset>/<n>.bin.gz); no part
+# of the path starts with a dot, so it never leaves the preview directory
+PREVIEW_FILE = re.compile(r"^(profiles/[A-Za-z0-9_-][A-Za-z0-9_.-]*/)?[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(json|bin\.gz)$")
 GB = 1024**3
 REDUCE = "Try to reduce the size of your files, or contact us."
 EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -486,7 +488,7 @@ def preview_status(submission_id: str, key: str):
     return out
 
 
-@app.get("/api/previews/{submission_id}/{key}/{name}")
+@app.get("/api/previews/{submission_id}/{key}/{name:path}")
 def preview_file(submission_id: str, key: str, name: str):
     """Files of the 3D preview of a submission (anta_database.web.irh)."""
     preview_record(submission_id, key)
