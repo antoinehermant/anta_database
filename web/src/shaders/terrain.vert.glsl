@@ -6,8 +6,10 @@ uniform vec2 texSize; // texels
 uniform float exaggeration;
 
 varying vec2 vUv;
+varying vec2 vPos; // km
 
 void main() {
+  vPos = position.xy;
   vUv = (position.xy - texOrigin) / (texDx * texSize) + 0.5 / texSize;
   float h = texture(heightTex, vUv).r;
   vec3 p = vec3(position.xy, h * exaggeration / 1000.0);

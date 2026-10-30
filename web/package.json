@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "client-zip": "^2.5.1",
     "lil-gui": "^0.21.0",
     "three": "^0.186.1"
   },

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Contact the AntADatabase</title>
+    <meta name="description" content="Questions, problems or suggestions about the AntADatabase, its data, the 3D viewer or the Python package: send us a message." />
+    <link rel="canonical" href="https://antadatabase.com/contact/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AntADatabase" />
+    <meta property="og:title" content="Contact the AntADatabase" />
+    <meta property="og:description" content="Questions, problems or suggestions about the AntADatabase." />
+    <meta property="og:url" content="https://antadatabase.com/contact/" />
+    <meta property="og:image" content="https://antadatabase.com/og-image.jpg?v=5" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/src/submit.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/" aria-current="page">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <section id="intro">
+        <h2>Contact</h2>
+        <p>
+          A question about submitting your data, a problem with the data, the 3D viewer or the Python package, or a
+          suggestion? Send us a message, we will answer by email. For bugs and feature requests you can also
+          <a href="https://github.com/antoinehermant/anta_database/issues" target="_blank" rel="noopener">open an issue on GitHub</a>.
+        </p>
+      </section>
+
+      <form id="contact-form" class="step" novalidate>
+        <div class="grid">
+          <label>Name <input id="name" autocomplete="name" required /></label>
+          <label>Email <input id="email" type="email" autocomplete="email" required /></label>
+          <label>Topic
+            <select id="topic">
+              <option value="submission">Submitting data</option>
+              <option value="data">The data of the database</option>
+              <option value="viewer">The 3D viewer or the website</option>
+              <option value="python">The Python package</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+        <label class="wide">Message <textarea id="message" rows="8" required></textarea></label>
+        <label class="wide">Files <span class="muted">(optional: e.g. an example of your data, or a screenshot. Up to
+            10 files and 500 MB in total: .csv, .tab, .txt, .zip, .pdf, .png, .jpg)</span>
+          <input id="files" type="file" multiple accept=".csv,.tab,.txt,.zip,.pdf,.png,.jpg,.jpeg" />
+        </label>
+        <div id="verification" hidden>
+          <p id="verify-status" class="muted">To send files, verify your email address with a code we send you.</p>
+          <p class="with-button"><button type="button" id="send-code">Send a code</button></p>
+          <label id="code-field" hidden>Code from the email
+            <span class="with-button">
+              <input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" />
+              <button type="button" id="check-code">Verify</button>
+            </span>
+          </label>
+        </div>
+        <!-- Left empty by people, filled by bots -->
+        <label class="hp" aria-hidden="true">Website <input id="website" tabindex="-1" autocomplete="off" /></label>
+        <p class="actions">
+          <button type="submit" id="send">Send</button>
+          <span id="status" class="muted"></span>
+        </p>
+      </form>
+
+      <section id="sent" class="step" hidden>
+        <h3>Thank you!</h3>
+        <p>Your message was sent. We will answer you at <strong id="sent-email"></strong>.</p>
+      </section>
+    </main>
+
+    <footer class="wrap muted">
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>.
+    </footer>
+    <script type="module" src="/src/contact.ts"></script>
+  </body>
+</html>

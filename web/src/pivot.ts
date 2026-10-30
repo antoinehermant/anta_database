@@ -9,6 +9,8 @@ export class PivotField {
   private constructor(
     private grid: Grid,
     private heights: Float32Array, // m
+    private bed: Float32Array, // m, NaN without data
+    private surface: Float32Array, // m, NaN without ice
   ) {}
 
   /** From the bed and surface heights and validities of the same grid. */
@@ -18,11 +20,34 @@ export class PivotField {
     surface: { heights: Float32Array; valid: Uint8Array },
   ): PivotField {
     const heights = new Float32Array(bed.heights.length);
+    const bedHeights = new Float32Array(bed.heights.length);
+    const surfaceHeights = new Float32Array(bed.heights.length);
     for (let i = 0; i < heights.length; i++) {
+      bedHeights[i] = bed.valid[i] ? bed.heights[i] : NaN;
+      surfaceHeights[i] = surface.valid[i] ? surface.heights[i] : NaN;
       if (surface.valid[i]) heights[i] = (surface.heights[i] + bed.heights[i]) / 2;
       else if (bed.valid[i]) heights[i] = Math.max(bed.heights[i], 0);
     }
-    return new PivotField(grid, heights);
+    return new PivotField(grid, heights, bedHeights, surfaceHeights);
+  }
+
+  /** Bed elevation (m) at a point (km), null outside the data. */
+  bedAt(x: number, y: number): number | null {
+    return this.valueAt(this.bed, x, y);
+  }
+
+  /** Ice surface elevation (m) at a point (km), null where there is no ice. */
+  surfaceAt(x: number, y: number): number | null {
+    return this.valueAt(this.surface, x, y);
+  }
+
+  private valueAt(values: Float32Array, x: number, y: number): number | null {
+    const { nx, ny, dx, x0, y0 } = this.grid;
+    const i = Math.round((x - x0) / dx);
+    const j = Math.round((y - y0) / dx);
+    if (i < 0 || i >= nx || j < 0 || j >= ny) return null;
+    const h = values[j * nx + i];
+    return Number.isNaN(h) ? null : h;
   }
 
   /** Height (m) at a point (km), 0 outside the grid. */

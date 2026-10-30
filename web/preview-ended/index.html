@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Private preview · AntADatabase</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <link rel="stylesheet" href="/src/submit.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <!-- Where the private 3D preview of a submission (viewer/?preview=...) sends to once it is
+           closed: src/preview.ts, with ?status= the status of the submission -->
+      <section class="step">
+        <h3 id="title">Thank you for your submission!</h3>
+        <p id="message">The review of your submission is done, and its private 3D preview is now closed. Please check your emails for the outcome.</p>
+        <p id="links" class="muted">
+          Questions? Reply to our email, or use the <a href="/contact/">contact page</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer class="wrap muted">
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>.
+    </footer>
+    <script type="module" src="/src/preview-ended.ts"></script>
+  </body>
+</html>

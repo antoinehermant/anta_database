@@ -12,8 +12,16 @@ uniform float ambient;
 uniform vec3 baseColor;
 uniform vec3 shelfColor;
 uniform float opacity;
+#if USE_VELOCITY
+// Speed texture (R = m/a, G = validity) on its own grid; colormapRange is log10(m/a)
+uniform sampler2D velocityTex;
+uniform vec2 velocityOrigin; // centre of the first texel, km
+uniform float velocityDx; // km
+uniform vec2 velocitySize; // texels
+#endif
 
 varying vec2 vUv;
+varying vec2 vPos;
 
 float heightAt(vec2 uv) {
   return texture(heightTex, uv).r;
@@ -31,7 +39,13 @@ void main() {
   vec3 normal = normalize(vec3(-dzdx * scale, -dzdy * scale, 1.0));
   float diffuse = max(dot(normal, normalize(lightDir)), 0.0);
 
-#if USE_COLORMAP
+#if USE_VELOCITY
+  vec2 vuv = (vPos - velocityOrigin) / (velocityDx * velocitySize) + 0.5 / velocitySize;
+  vec2 speed = texture(velocityTex, vuv).rg;
+  if (speed.g < 0.5) discard;
+  float c = (log(max(speed.r, 1.0)) / log(10.0) - colormapRange.x) / (colormapRange.y - colormapRange.x);
+  vec3 color = texture(colormapTex, vec2(clamp(c, 0.0, 1.0), 0.5)).rgb;
+#elif USE_COLORMAP
   float c = (h - colormapRange.x) / (colormapRange.y - colormapRange.x);
   vec3 color = texture(colormapTex, vec2(clamp(c, 0.0, 1.0), 0.5)).rgb;
 #else

@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Redirect from an old address of the viewer to antadatabase.com, filled in by publish_site.sh:
+  3d-antadatabase.com (index.html and 404.html, so every path redirects) and the old copy of the
+  viewer in the docs (/viewer/ and /viewer/download/). The download page keeps its path, everything
+  else goes to the viewer. The hash (#view=...) and the query are kept, so shared views still open.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AntADatabase has moved</title>
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href="__SITE__/viewer/" />
+    <script>
+      // Path after the old location of the viewer
+      let path = location.pathname;
+      const old = path.indexOf("__STRIP__");
+      if (old >= 0) path = path.slice(old + "__STRIP__".length);
+      const page = path.startsWith("/download") ? "/download/" : "/viewer/";
+      location.replace("__SITE__" + page + location.search + location.hash);
+    </script>
+    <noscript><meta http-equiv="refresh" content="0; url=__SITE__/viewer/" /></noscript>
+  </head>
+  <body>
+    <p>The AntADatabase has moved to <a href="__SITE__/">__SITE__</a>.</p>
+  </body>
+</html>

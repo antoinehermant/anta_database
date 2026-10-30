@@ -1,0 +1,516 @@
+@import "./page.css";
+
+/* Elements styled with a display (labels...) stay hidden when hidden */
+[hidden] {
+  display: none !important;
+}
+
+#intro h2 {
+  margin: 28px 0 8px;
+}
+
+#intro p {
+  max-width: 800px;
+}
+
+.notice {
+  padding: 10px 14px;
+  border-left: 4px solid #d1a10f;
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+/* Steps of the form */
+.step {
+  margin: 20px 0;
+  padding: 18px 22px 20px;
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: 0 1px 6px var(--shadow);
+}
+
+.step h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.step .number {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+}
+
+.step > p {
+  margin: 6px 0 12px;
+}
+
+/* File structure: two large buttons */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.choice strong {
+  font-size: 17px;
+}
+
+.choice[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
+.choice .example {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Fields */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 20px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+label .muted {
+  font-weight: normal;
+}
+
+label.wide {
+  margin-top: 12px;
+}
+
+label.check {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: normal;
+}
+
+label.check input {
+  margin-top: 3px;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+select,
+textarea {
+  font: inherit;
+  font-weight: normal;
+  padding: 6px 8px;
+  border: 1px solid var(--widget-hover);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--text);
+  min-width: 0;
+}
+
+:root[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea {
+  background: #fff;
+}
+
+input:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.with-button input {
+  flex: 1;
+}
+
+.with-button button {
+  white-space: nowrap;
+}
+
+.result {
+  font-weight: 600;
+}
+
+.result:empty {
+  display: none;
+}
+
+/* Lists of names */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--widget-hover);
+  border-radius: 6px;
+  cursor: text;
+}
+
+.tags input {
+  flex: 1;
+  min-width: 120px;
+  border: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 12px;
+  background: var(--widget-hover);
+  font-weight: normal;
+}
+
+.tag button {
+  padding: 0 6px;
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Files */
+.help ul {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+
+.help p {
+  margin: 6px 0;
+}
+
+#dropzone {
+  display: block;
+  margin: 14px 0;
+  padding: 26px;
+  border: 2px dashed var(--widget-hover);
+  border-radius: 10px;
+  text-align: center;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+#dropzone.over,
+#dropzone:hover {
+  border-color: var(--accent);
+}
+
+#dropzone input {
+  display: none;
+}
+
+#dropzone span {
+  display: block;
+  margin-top: 4px;
+}
+
+.file {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-left: 4px solid #3a9a5b;
+  border-radius: 6px;
+  background: var(--widget);
+}
+
+.file.has-errors {
+  border-left-color: #c94a3a;
+}
+
+.file header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.file .remove {
+  margin-left: auto;
+  padding: 2px 10px;
+  font-size: 13px;
+}
+
+.file {
+  margin: 6px 0;
+  padding: 6px 12px;
+}
+
+.file details summary {
+  width: max-content;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.scroll {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  padding: 3px 10px 3px 0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.preview th {
+  font-family: ui-monospace, monospace;
+}
+
+.preview td {
+  color: var(--muted);
+}
+
+/* Layers */
+.layers {
+  font-size: 14px;
+}
+
+.layers input {
+  width: 110px;
+}
+
+.layers input.irh-number {
+  width: 56px;
+}
+
+/* Problems found */
+.issues {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issues li {
+  margin: 4px 0;
+  padding-left: 24px;
+  position: relative;
+}
+
+.issues li::before {
+  position: absolute;
+  left: 2px;
+  font-weight: 700;
+}
+
+.issues .error::before {
+  content: "✕";
+  color: #d0503f;
+}
+
+.issues .warning::before {
+  content: "!";
+  left: 7px;
+  color: #d1a10f;
+}
+
+.issues .ok::before {
+  content: "✓";
+  color: #3a9a5b;
+}
+
+/* Check and submit */
+#review {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+#map {
+  width: 300px;
+  height: 300px;
+  border-radius: 8px;
+  background: var(--widget);
+}
+
+#summary {
+  margin-top: 0;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 16px;
+}
+
+#submit {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+#submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 700px) {
+  .choices,
+  .grid,
+  #review {
+    grid-template-columns: 1fr;
+  }
+
+  #map {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+}
+
+/* Email verification and consent */
+#verify-status.verified {
+  color: #3a9a5b;
+  font-weight: 600;
+}
+
+.consent {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--widget-hover);
+  border-radius: 8px;
+}
+
+.consent legend {
+  padding: 0 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.consent label.check {
+  margin: 6px 0;
+}
+
+/* Honeypot: out of sight for people */
+.hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Contact */
+#send {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+label .hint {
+  font-weight: normal;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+#licence-message {
+  margin: 10px 0 2px;
+}
+
+/* Discreet link to the development version of the page, bottom right */
+.dev-link {
+  float: right;
+  margin-left: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.dev-link:hover {
+  opacity: 1;
+}
+
+/* Placeholder until the portal is public */
+#construction {
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 28px 32px;
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: 0 1px 6px var(--shadow);
+  text-align: center;
+}
+
+#construction .icon {
+  width: 56px;
+  height: 56px;
+  color: #d1a10f;
+}
+
+#construction h2 {
+  margin: 8px 0;
+}
+
+#construction .lead {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#construction p {
+  margin: 10px 0;
+}
+
+/* Link to the private 3D preview, on the receipt */
+a.button {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.button:hover {
+  filter: brightness(1.1);
+}
+
+/* Sending of the files */
+#submit-progress {
+  width: 100%;
+  accent-color: var(--accent);
+}

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AntADatabase 3D viewer</title>
+    <meta name="description" content="Explore Antarctic radar isochrones (internal reflecting horizons) from the AntADatabase in 3D, over Bedmap3 bed and ice surface topography." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <!-- Link previews (Discord, Slack, LinkedIn, ...): image URLs must be absolute -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AntADatabase" />
+    <meta property="og:title" content="AntADatabase 3D viewer" />
+    <meta property="og:description" content="Explore Antarctic radar isochrones from the AntADatabase in 3D, over Bedmap3 topography." />
+    <meta property="og:url" content="https://antadatabase.com/viewer/" />
+    <meta property="og:image" content="https://antadatabase.com/og-image.jpg?v=5" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones coloured by age under the ice surface, over the Bedmap3 bed topography, with radar tracks and survey aircraft" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <aside id="sidebar">
+      <header>
+        <h1>AntADatabase</h1>
+        <p>Radar isochrones of Antarctica in 3D</p>
+      </header>
+      <div id="gui"></div>
+      <button id="sidebar-toggle" type="button" aria-label="Hide the menu" title="Hide the menu">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </aside>
+    <nav id="site-nav" aria-label="AntADatabase">
+      <a href="/" class="home">← Home</a>
+      <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+      <a href="/download/">Download</a>
+      <a href="/submit/">Submit</a>
+      <a href="/contact/">Contact</a>
+    </nav>
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
+    <section id="preview" hidden></section>
+    <div id="loading">Loading Bedmap3…</div>
+    <div id="tooltip"></div>
+    <div id="legends"></div>
+    <div id="attribution">
+      <div>
+        Topography: <a id="bedmap-doi" href="https://doi.org/10.5285/2d0e4791-8e20-46a3-80e4-f5f6716025d2" target="_blank" rel="noopener">Bedmap3</a>
+        (Pritchard et al., CC-BY 4.0)
+      </div>
+      <div id="velocity-attribution" hidden>
+        Ice velocity: <a id="velocity-doi" href="https://doi.org/10.5067/D7GK8F5J8M8R" target="_blank" rel="noopener">MEaSUREs v2</a>
+        (Rignot et al., NSIDC-0484)
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

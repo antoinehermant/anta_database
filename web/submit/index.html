@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Submit your data to the AntADatabase</title>
+    <meta name="description" content="Submit published radar isochrones (internal reflecting horizons) of Antarctica to the AntADatabase: upload CSV or TAB files with their ages and metadata, checked in your browser before sending." />
+    <link rel="canonical" href="https://antadatabase.com/submit/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AntADatabase" />
+    <meta property="og:title" content="Submit your data to the AntADatabase" />
+    <meta property="og:description" content="Add your published radar isochrones of Antarctica to the AntADatabase." />
+    <meta property="og:url" content="https://antadatabase.com/submit/" />
+    <meta property="og:image" content="https://antadatabase.com/og-image.jpg?v=5" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/src/submit.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/" aria-current="page">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <!-- Until the portal is public (VITE_PORTAL_PUBLIC=true): this placeholder instead of the form,
+           which is in the development version of the page (/submit/?dev) -->
+      <section id="construction" hidden>
+        <svg class="icon" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round">
+          <path d="M32 6 59 54H5Z" />
+          <path d="M32 24v14M32 45v1" stroke-linecap="round" />
+        </svg>
+        <h2>Submit your data</h2>
+        <p class="lead">This portal is under construction. Please come back later.</p>
+        <p>
+          Soon you will be able to upload your radar isochrones here, as CSV files, with their metadata (ages, institute,
+          project, radar system, citation and DOIs). They will be checked and converted to the format of the database, and
+          added to the next release after review.
+        </p>
+        <p>
+          In the meantime, if you have published isochrones that are not in the database yet, we would be glad to add
+          them: please <a href="/contact/?topic=submission">contact us</a>.
+        </p>
+      </section>
+      <section id="intro" hidden>
+        <h2>Submit your data</h2>
+        <p>
+          Add your published radar isochrones (internal reflecting horizons) to the AntADatabase. Upload your files with
+          their ages and metadata: they are checked in your browser first, then converted to the format of the database
+          and added to the next release after review. You will be credited through the citation and DOIs of your
+          publication.
+        </p>
+        <p>Need help, or something does not work? <a href="/contact/">Contact us</a>.</p>
+        <p id="closed" class="notice" hidden>
+          <span id="closed-message">The portal is not open for submissions at the moment.</span> You can still fill in
+          the form and check your files, but sending them is not possible. Please
+          <a href="mailto:antoine.hermant@unibe.ch">email us</a> in the meantime.
+        </p>
+        <p id="dev-banner" class="notice" hidden>
+          <strong>Development version</strong> of the submission portal, for tests: submissions sent from this page are
+          marked as tests. <a href="/submit/">Public page</a>
+        </p>
+        <p id="dev-tools" hidden>
+          <button type="button" id="dev-fill">Fill with the fake submission</button>
+          <span class="muted">Development only: fills the fields with the metadata of the fake dataset made by
+            portal/dev/make_fake_data.py (dev/fake_submission.json); then add its files.</span>
+        </p>
+      </section>
+
+      <form id="form" novalidate hidden>
+        <section class="step" id="step-structure">
+          <h3><span class="number">1</span> How are your files organised?</h3>
+          <div class="choices">
+            <button type="button" class="choice" data-structure="layer">
+              <strong>One file per layer</strong>
+              <span>Each file holds one isochrone (IRH) over all radar lines, with a <code>Line_ID</code> column. This is
+                how most data repositories (PANGAEA, USAP-DC...) distribute isochrones.</span>
+              <span class="example">
+                IRH1.csv, IRH2.csv, ...<br />
+                <code>Line_ID, PSX, PSY, IRH_DEPTH</code><br />
+                and optionally ICE_THK.csv...<br />
+                <code>Line_ID, PSX, PSY, ICE_THK</code>
+              </span>
+            </button>
+            <button type="button" class="choice" data-structure="line">
+              <strong>One file per radar line</strong>
+              <span>Each file holds one radar line with all its isochrones as columns. The file name is the line
+                ID.</span>
+              <span class="example">
+                F01.csv, F02.csv, ...<br />
+                <code>PSX, PSY, ICE_THK, IRH1, IRH2, IRH3</code>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <div id="steps" hidden>
+          <section class="step" id="step-publication">
+            <h3><span class="number">2</span> Publication</h3>
+            <p class="muted">The dataset is named and cited after the publication describing it.</p>
+            <div class="grid">
+              <label>DOI of the publication
+                <span class="with-button">
+                  <input data-bind="publication.doi_publication" placeholder="10.5194/tc-17-3461-2023" />
+                  <button type="button" id="doi-fill">Fill from DOI</button>
+                </span>
+              </label>
+              <label>DOI or URL of the dataset
+                <input data-bind="publication.doi_dataset" placeholder="10.1594/PANGAEA.957176" />
+                <span class="hint">Optional, but if your data is in a repository (PANGAEA, Zenodo, USAP-DC, the UK Polar
+                  Data Centre...), please give it: it is how users find and cite the original data.</span>
+              </label>
+              <label>Family name of the first author
+                <input data-bind="publication.first_author" placeholder="Chung" autocomplete="off" />
+              </label>
+              <label>Year of publication
+                <input data-bind="publication.year" inputmode="numeric" maxlength="4" placeholder="2023" />
+              </label>
+              <label class="check"><input type="checkbox" data-bind="publication.et_al" /> More than one author (et al.)</label>
+            </div>
+            <p id="doi-status" class="muted"></p>
+            <p id="citation" class="result"></p>
+            <ul id="publication-issues" class="issues"></ul>
+          </section>
+
+          <section class="step" id="step-survey">
+            <h3><span class="number">3</span> Survey</h3>
+            <p class="muted">
+              For the whole dataset. Choose from the names already in the database where possible (start typing), so that
+              the filters find your data with the others. Press Enter or comma to add a name.
+            </p>
+            <div class="grid">
+              <label>Institute(s)
+                <span class="tags" data-tags="survey.institutes" data-suggest="institutes"><input placeholder="UTIG" /></span>
+              </label>
+              <label>Project(s)
+                <span class="tags" data-tags="survey.projects" data-suggest="projects"><input placeholder="BE-OI" /></span>
+              </label>
+              <label>Radar instrument(s)
+                <span class="tags" data-tags="survey.radar_instruments" data-suggest="radar_instruments"><input placeholder="HiCARS" /></span>
+              </label>
+              <label>Acquisition year
+                <input data-bind="survey.acquisition_year" inputmode="numeric" maxlength="4" placeholder="2019" />
+              </label>
+            </div>
+            <datalist id="suggest-institutes"></datalist>
+            <datalist id="suggest-projects"></datalist>
+            <datalist id="suggest-radar_instruments"></datalist>
+          </section>
+
+          <section class="step" id="step-files">
+            <h3><span class="number">4</span> Files</h3>
+            <div id="columns-help"></div>
+            <label id="dropzone">
+              <input type="file" id="file-input" multiple accept=".csv,.tab" />
+              <strong>Drop your files here</strong> or click to choose them
+              <span class="muted">.csv (comma separated) or .tab (tab separated): up to 100 files, 1 GB per file and 5 GB in total</span>
+            </label>
+            <p id="files-status" class="muted"></p>
+            <p id="files-reload" class="notice" hidden></p>
+            <div id="file-list"></div>
+          </section>
+
+          <section class="step" id="step-layers">
+            <h3><span class="number">5</span> Ages of the layers</h3>
+            <p class="muted">
+              Age and uncertainty of each isochrone in years, as published (e.g. 38100 ± 900). Leave the age empty for an
+              undated layer.
+            </p>
+            <div id="layers"><p class="muted">Add your files first.</p></div>
+          </section>
+
+          <section class="step" id="step-contributor">
+            <h3><span class="number">6</span> About you</h3>
+            <p class="muted">To contact you about the submission. Your details are not published.</p>
+            <div class="grid">
+              <label>Name <input data-bind="contributor.name" autocomplete="name" /></label>
+              <label>Affiliation <input data-bind="contributor.affiliation" autocomplete="organization" /></label>
+              <label>Email
+                <span class="with-button">
+                  <input type="email" data-bind="contributor.email" autocomplete="email" />
+                  <button type="button" id="send-code">Send a code</button>
+                </span>
+              </label>
+              <label>ORCID <span class="muted">(optional)</span>
+                <input data-bind="contributor.orcid" placeholder="0000-0002-1825-0097" /></label>
+              <label id="code-field" hidden>Code from the email
+                <span class="with-button">
+                  <input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" />
+                  <button type="button" id="check-code">Verify</button>
+                </span>
+              </label>
+            </div>
+            <p id="verify-status" class="muted">We send you a code to verify your email address before you can submit.</p>
+            <label class="wide">Notes <span class="muted">(optional: wave speed and firn correction used, processing, anything we should know)</span>
+              <textarea data-bind="notes" rows="3"></textarea>
+            </label>
+            <fieldset class="consent">
+              <legend>Can the AntADatabase redistribute your data?</legend>
+              <label class="check">
+                <input type="radio" name="licence" value="yes" data-bind="licence" />
+                <span><strong>Yes:</strong> the data is published (or about to be), and I am entitled to share it so that
+                the AntADatabase redistributes it openly, with the citation and DOIs above.</span>
+              </label>
+              <label class="check">
+                <input type="radio" name="licence" value="review" data-bind="licence" />
+                <span><strong>Review only:</strong> the data is not published yet, or must not be redistributed, but I
+                would like the AntADatabase team to check that it follows the standards of the database (e.g. before
+                publishing it). It stays private and is not added to the database; you can submit it again once it can
+                be shared.</span>
+              </label>
+              <label class="check">
+                <input type="radio" name="licence" value="no" data-bind="licence" />
+                <span><strong>No:</strong> I am not entitled to share this data.</span>
+              </label>
+              <p id="licence-message" class="notice" hidden></p>
+            </fieldset>
+            <!-- Left empty by people, filled by bots -->
+            <label class="hp" aria-hidden="true">Website <input id="website" name="website" tabindex="-1" autocomplete="off" /></label>
+          </section>
+
+          <section class="step" id="step-review">
+            <h3><span class="number">7</span> Check and submit</h3>
+            <div id="review">
+              <canvas id="map" title="Points of the submitted files"></canvas>
+              <div>
+                <p id="summary"></p>
+                <ul id="issues" class="issues"></ul>
+              </div>
+            </div>
+            <p class="actions">
+              <button type="submit" id="submit">Submit</button>
+              <button type="button" id="reset">Clear the form</button>
+              <span id="submit-status" class="muted"></span>
+            </p>
+            <progress id="submit-progress" hidden></progress>
+          </section>
+        </div>
+      </form>
+
+      <section id="receipt" class="step" hidden>
+        <h3>Thank you!</h3>
+        <p>Your submission <code id="receipt-id"></code> was received.</p>
+        <p>
+          It is now checked and converted to the format of the database. You will hear from us at
+          <strong id="receipt-email"></strong> once it is reviewed.
+        </p>
+        <p id="receipt-preview-text" hidden>
+          <a id="receipt-preview" class="button" target="_blank" rel="noopener">See your dataset in 3D</a><br />
+          <span class="muted">A private preview, only for people with the link (also in your email). It shows the
+          progress while your dataset is prepared, usually a few minutes, and is removed once the review is done.</span>
+        </p>
+        <p><button type="button" id="new-submission">Submit another dataset</button></p>
+      </section>
+    </main>
+
+    <footer class="wrap muted">
+      <a id="dev-link" class="dev-link" href="/submit/?dev">Development version</a>
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>.
+    </footer>
+    <script type="module" src="/src/submit/main.ts"></script>
+  </body>
+</html>

@@ -46,8 +46,17 @@ export function gridOf(level: Level): Grid {
   return { nx: level.nx, ny: level.ny, dx: level.dx / 1000, x0: level.x0 / 1000, y0: level.y0 / 1000 };
 }
 
+/**
+ * Fetch data, always checking that a cached copy is still current: the bucket
+ * sends no Cache-Control, and stale files from an older export would not match
+ * the new ones. Unchanged files are only revalidated (304 Not Modified).
+ */
+export function fetchData(url: string): Promise<Response> {
+  return fetch(url, { cache: "no-cache" });
+}
+
 export async function fetchBytes(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url);
+  const response = await fetchData(url);
   if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer, 0, 2);
@@ -58,7 +67,7 @@ export async function fetchBytes(url: string): Promise<ArrayBuffer> {
 }
 
 export async function loadMeta(baseUrl: string): Promise<TerrainMeta> {
-  const response = await fetch(`${baseUrl}/terrain.json`);
+  const response = await fetchData(`${baseUrl}/terrain.json`);
   if (!response.ok) {
     throw new Error(
       `${baseUrl}/terrain.json not found. Export it with: python -m anta_database.web.terrain bedmap3.nc -o web/public/data/terrain`,
@@ -214,7 +223,7 @@ export function gridGeometry(grid: Grid, positions: THREE.BufferAttribute, keep?
   return geometry;
 }
 
-/** 1D colormap texture from [elevation (m), css colour] stops. */
+/** 1D colormap texture from [value, css colour] stops. */
 export function colormapTexture(stops: [number, string][], size = 512): {
   texture: THREE.DataTexture;
   range: THREE.Vector2;
@@ -248,7 +257,7 @@ export interface TerrainUniforms {
 /** Uniforms shared by all layers (exaggeration, light). */
 export function sharedUniforms(): TerrainUniforms {
   return {
-    exaggeration: { value: 30 },
+    exaggeration: { value: 50 },
     lightDir: { value: new THREE.Vector3(-1, 1, 1).normalize() },
     ambient: { value: 0.35 },
   };
@@ -261,6 +270,8 @@ export interface LayerOptions {
   // Colour of floating ice shelves, using the mask texture
   shelfColor?: THREE.Color;
   opacity?: number;
+  // Colour by ice speed (texture and its grid) with the colormap, on a log10 range
+  velocity?: { texture: THREE.DataTexture; grid: Grid };
 }
 
 export function terrainMaterial(shared: TerrainUniforms, options: LayerOptions): THREE.ShaderMaterial {
@@ -273,6 +284,7 @@ export function terrainMaterial(shared: TerrainUniforms, options: LayerOptions):
     side: THREE.DoubleSide,
     defines: {
       USE_COLORMAP: options.colormap ? 1 : 0,
+      USE_VELOCITY: options.velocity ? 1 : 0,
     },
     uniforms: {
       ...shared,
@@ -287,6 +299,10 @@ export function terrainMaterial(shared: TerrainUniforms, options: LayerOptions):
       baseColor: { value: options.color ?? new THREE.Color("#ffffff") },
       shelfColor: { value: options.shelfColor ?? options.color ?? new THREE.Color("#ffffff") },
       opacity: { value: options.opacity ?? 1 },
+      velocityTex: { value: options.velocity?.texture ?? null },
+      velocityOrigin: { value: new THREE.Vector2(options.velocity?.grid.x0, options.velocity?.grid.y0) },
+      velocityDx: { value: options.velocity?.grid.dx ?? 1 },
+      velocitySize: { value: new THREE.Vector2(options.velocity?.grid.nx ?? 1, options.velocity?.grid.ny ?? 1) },
     },
   });
 }

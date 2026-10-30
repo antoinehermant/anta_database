@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Download the AntADatabase</title>
+    <meta name="description" content="Download radar isochrones (internal reflecting horizons) of Antarctica from the AntADatabase: with the anta_database Python package, or choose datasets and get them in one zip file." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AntADatabase" />
+    <meta property="og:title" content="Download the AntADatabase" />
+    <meta property="og:description" content="Radar isochrones of Antarctica: choose the datasets and download them in one zip file." />
+    <meta property="og:url" content="https://antadatabase.com/download/" />
+    <link rel="canonical" href="https://antadatabase.com/download/" />
+    <meta property="og:image" content="https://antadatabase.com/og-image.jpg?v=5" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/src/download.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/" aria-current="page">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <section id="intro">
+        <h2>Download the data</h2>
+        <p>
+          The AntADatabase gathers published radar isochrones (internal reflecting horizons, IRHs) of Antarctica, with
+          their ages, in one format. Each radar line is an HDF5 (netCDF) file, with the depth of each IRH along the line.
+          It is free to download. Please cite the datasets you use.
+        </p>
+      </section>
+
+      <section id="recommended">
+        <h3><span class="badge">Recommended</span> With the Python package</h3>
+        <p>
+          The <a href="https://pypi.org/project/anta_database/" target="_blank" rel="noopener">anta_database</a> package
+          downloads the whole database for you (about 630 MB) and checks every file. Later updates only download what
+          changed, and the package tells you when a new version is published.
+        </p>
+        <pre><code>pip install anta_database</code></pre>
+        <pre><code>from anta_database import Database
+
+db = Database()
+db.sync()   # downloads the database, or updates it</code></pre>
+        <p>
+          Or from the command line: <code>anta-sync</code>. Then query, plot and load the data in Python: see the
+          <a href="https://docs.antadatabase.com/quick_start.html#getting-the-database">Quick Start guide</a>.
+        </p>
+      </section>
+
+      <section id="catalogue">
+        <h2>Or choose datasets in the catalogue</h2>
+        <p>
+          Choose datasets below and download them in one zip file. With <em>Select all</em><span id="total-size"></span>,
+          the zip holds the whole database (an <code>AntADatabase</code> directory, with its index
+          <code>AntADatabase.db</code>), which also works with the Python package: <code>Database("path/to/AntADatabase")</code>.
+          With some datasets only, the zip holds the directories of the chosen datasets.
+        </p>
+      </section>
+
+      <section id="toolbar">
+        <label class="check"><input id="select-all" type="checkbox" /> Select all (whole database, recommended)</label>
+        <span id="summary"></span>
+        <span class="spacer"></span>
+        <button id="download" type="button" disabled>Download zip</button>
+        <button id="cancel" type="button" hidden>Cancel</button>
+        <div id="progress" hidden><div id="progress-bar"></div></div>
+        <p id="status" role="status"></p>
+      </section>
+
+      <section id="datasets"><p class="muted">Loading the datasets…</p></section>
+    </main>
+    <footer class="wrap muted">
+      Map: <a href="https://doi.org/10.5285/2d0e4791-8e20-46a3-80e4-f5f6716025d2" target="_blank" rel="noopener">Bedmap3</a>
+      mask (Pritchard et al., CC-BY 4.0). The data of each dataset is under the licence of its original publication.
+    </footer>
+    <script type="module" src="/src/download.ts"></script>
+  </body>
+</html>

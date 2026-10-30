@@ -17,32 +17,31 @@ import {
   type Grid,
   type TerrainMeta,
 } from "./terrain";
-import { ageGradientCss, Isochrones, type Feature } from "./irh";
+import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, loadIndex, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Track } from "./irh";
+import { closer, type Hit, type LineLayer } from "./lines";
 import { PivotField } from "./pivot";
+import { BED_STOPS, SPEED, ticks } from "./colormaps";
+import { Legend } from "./legend";
+import { KeyNavigation } from "./keys";
+import { EasterEggs } from "./eggs";
+import { onThemeChange, savedTheme, setTheme, themeButton } from "./theme";
+import { IceCores, type IceCore } from "./icecores";
+import { Aircraft, flightLines, type FlightLine } from "./aircraft";
+import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
+import { SUBMISSION, startPreview } from "./preview";
 
 // Data exported by anta_database.web: served with the app in development
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
 const DATA_ROOT = (import.meta.env.VITE_DATA_URL || `${import.meta.env.BASE_URL}data`).replace(/\/$/, "");
 const DATA_URL = `${DATA_ROOT}/terrain`;
-const IRH_URL = `${DATA_ROOT}/irh`;
+// The isochrones of the database, or of a submission in its private preview (?preview=<id>&key=<key>)
+const IRH_URL = SUBMISSION ? SUBMISSION.url : `${DATA_ROOT}/irh`;
+const VELOCITY_URL = `${DATA_ROOT}/velocity`;
 // Resolution of the quick preview, then of the shading texture
 const PREVIEW = "8km";
 const DETAIL = "2km";
 // Mesh resolution of each quality setting; the shading is always from the texture
 const QUALITY: Record<string, string> = { Fast: "8km", Detailed: "4km" };
-
-const BED_COLORS: [number, string][] = [
-  [-7000, "#071a3d"],
-  [-4000, "#0d3a73"],
-  [-1500, "#2a6aa8"],
-  [-300, "#6aa3d0"],
-  [0, "#a7cfe4"],
-  [1, "#5f7d4e"],
-  [600, "#8c8a5a"],
-  [1500, "#a6835c"],
-  [2500, "#c4ae93"],
-  [4000, "#f3efe8"],
-];
 
 // Renderer, scene, camera
 const container = document.getElementById("app")!;
@@ -55,12 +54,27 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#0b1320");
+scene.background = new THREE.Color();
+// Light or dark theme (dark by default): from the settings or the button in the corner
+let themeSetting: ReturnType<GUI["add"]> | null = null;
+function applyTheme(): void {
+  // Same background as the page, from the stylesheet
+  const background = getComputedStyle(document.documentElement).getPropertyValue("--background").trim();
+  (scene.background as THREE.Color).set(background || "#1c2633");
+  settings.theme = savedTheme();
+  themeSetting?.updateDisplay();
+  requestRender();
+}
+onThemeChange(applyTheme);
+themeButton(document.getElementById("theme-toggle") as HTMLButtonElement);
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 50000);
 camera.up.set(0, 0, 1);
-// Home view, relative to the centre of the continent (the target)
-const HOME_OFFSET = new THREE.Vector3(0, -5200, 6200);
+// Home view: the camera relative to the rotation centre (the target), tilted by
+// 47°, and the centre a bit towards the viewer from the middle of the continent,
+// so the continent sits higher in the frame and fills more of it
+const HOME_OFFSET = new THREE.Vector3(0, -4205, 4500);
+const HOME_CENTRE = new THREE.Vector2(0, -400);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -83,15 +97,83 @@ controls.addEventListener("start", () => {
 });
 
 function resetView(): void {
-  const centreZ = pivotField ? (pivotField.heightAt(0, 0) * shared.exaggeration.value) / 1000 : 0;
-  controls.target.set(0, 0, centreZ);
+  const { x, y } = HOME_CENTRE;
+  const centreZ = pivotField ? (pivotField.heightAt(x, y) * shared.exaggeration.value) / 1000 : 0;
+  controls.target.set(x, y, centreZ);
   camera.position.copy(controls.target).add(HOME_OFFSET);
   controls.update();
-  history.replaceState(null, "", window.location.pathname);
+  history.replaceState(null, "", window.location.pathname + window.location.search);
   requestRender();
 }
 
+// Extent of the dataset of a private preview, looked at once known (and again with the terrain heights)
+let submissionBox: number[] | null = null;
+
+/** Look at an area (EPSG:3031, m: xmin, xmax, ymin, ymax) from the direction of the home view. */
+function frameBox([xmin, xmax, ymin, ymax]: number[]): void {
+  const x = (xmin + xmax) / 2000;
+  const y = (ymin + ymax) / 2000;
+  const size = Math.max(xmax - xmin, ymax - ymin) / 1000;
+  const z = pivotField ? (pivotField.heightAt(x, y) * shared.exaggeration.value) / 1000 : 0;
+  controls.target.set(x, y, z);
+  const distance = THREE.MathUtils.clamp(4 * size, 200, controls.maxDistance);
+  camera.position.copy(controls.target).add(HOME_OFFSET.clone().setLength(distance));
+  controls.update();
+  requestRender();
+}
+
+// Momentum after a drag: the view glides on, but stops once it barely moves
+// (under MOMENTUM_STOP_PX per frame) or after MOMENTUM_MS at most, so the full
+// resolution and the hover come back quickly
+const MOMENTUM_MS = 1500;
+const MOMENTUM_STOP_PX = 0.1;
+let interacting = false;
+let releasedAt = 0;
+const previousCamera = new THREE.Vector3();
+controls.addEventListener("start", () => {
+  interacting = true;
+});
+controls.addEventListener("end", () => {
+  interacting = false;
+  releasedAt = performance.now();
+});
+
+/** Size of a pixel (km) at the rotation centre. */
+function pixelAtTarget(): number {
+  const distance = camera.position.distanceTo(controls.target);
+  return (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance) / renderer.domElement.clientHeight;
+}
+
+function stopMomentum(): void {
+  if (interacting || !releasedAt) return;
+  const moved = camera.position.distanceTo(previousCamera) / pixelAtTarget();
+  if (moved < MOMENTUM_STOP_PX || performance.now() - releasedAt > MOMENTUM_MS) {
+    // Remaining rotation and pan of the damping (fields of OrbitControls)
+    const internal = controls as unknown as { _sphericalDelta: THREE.Spherical; _panOffset: THREE.Vector3 };
+    internal._sphericalDelta.set(0, 0, 0);
+    internal._panOffset.set(0, 0, 0);
+    releasedAt = 0;
+  }
+}
+
 // The view is kept in the URL (#view=camera x,y,z,target x,y,z in km), so it can be shared
+/**
+ * Look straight down, grid north up, like a map: at the middle of the
+ * continent when the whole continent is in view (from about the home view
+ * distance), else at the centre of the view.
+ */
+function topView(): void {
+  const distance = camera.position.distanceTo(controls.target);
+  if (distance >= 0.8 * HOME_OFFSET.length()) {
+    const centreZ = pivotField ? (pivotField.heightAt(0, 0) * shared.exaggeration.value) / 1000 : 0;
+    controls.target.set(0, 0, centreZ);
+  }
+  camera.position.set(controls.target.x, controls.target.y, controls.target.z + distance);
+  controls.update();
+  viewToUrl();
+  requestRender();
+}
+
 function viewFromUrl(): boolean {
   const match = window.location.hash.match(/view=([-\d.,]+)/);
   const v = match?.[1].split(",").map(Number);
@@ -104,9 +186,20 @@ function viewFromUrl(): boolean {
 
 function viewToUrl(): void {
   const v = [...camera.position.toArray(), ...controls.target.toArray()].map((x) => x.toFixed(0));
-  history.replaceState(null, "", `#view=${v.join(",")}`);
+  history.replaceState(null, "", `${window.location.search}#view=${v.join(",")}`);
 }
 controls.addEventListener("end", viewToUrl);
+// W A S D, the arrow keys and the pad in the bottom right corner move the view too
+const keyNavigation = new KeyNavigation(camera, controls, viewToUrl);
+keyNavigation.addPad(document.body);
+controls.addEventListener("end", () => {
+  // Still flow lines are spread again over the new view
+  if (flowLines && !settings.animateFlow) {
+    updateFlowArea();
+    flowLines.respawn();
+    requestRender();
+  }
+});
 
 // Render on demand: only when the view or a setting changed
 let needsRender = true;
@@ -118,7 +211,7 @@ function requestRender(): void {
 let lastViewChange = 0;
 controls.addEventListener("change", () => {
   lastViewChange = performance.now();
-  isochrones.invalidate();
+  for (const layer of lineLayers) layer.invalidate();
   clearHover();
   requestRender();
 });
@@ -126,17 +219,67 @@ window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  isochrones.setResolution(window.innerWidth, window.innerHeight);
-  isochrones.invalidate();
+  for (const layer of lineLayers) {
+    layer.setResolution(window.innerWidth, window.innerHeight);
+    layer.invalidate();
+  }
+  flowLines?.setResolution(window.innerWidth, window.innerHeight);
   requestRender();
 });
 
 const stats = new Stats();
-if (import.meta.env.DEV) document.body.appendChild(stats.dom);
+if (import.meta.env.DEV) {
+  // Top right, below the links to the other pages and the theme button
+  Object.assign(stats.dom.style, { left: "auto", right: "10px", top: "52px" });
+  stats.dom.id = "stats";
+  document.body.appendChild(stats.dom);
+}
 
-renderer.setAnimationLoop(() => {
+// Flow lines move at most 30 times per second, to spare the GPU
+const FLOW_INTERVAL = 1000 / 30;
+let lastFlowUpdate = 0;
+
+let lastAircraftUpdate = 0;
+
+// Animations (aircraft, flow lines) redraw the whole scene 30 times a second,
+// which keeps the GPU busy. They pause while the window is in the background
+// or nobody used the viewer for IDLE_MS, so the GPU is idle again, and go on
+// with the next mouse move, touch or key.
+const IDLE_MS = 2 * 60 * 1000;
+let lastInput = performance.now();
+for (const type of ["pointermove", "pointerdown", "wheel", "keydown"]) {
+  window.addEventListener(type, () => (lastInput = performance.now()), { passive: true });
+}
+function animating(): boolean {
+  return document.hasFocus() && performance.now() - lastInput < IDLE_MS;
+}
+
+let lastFrame = 0;
+renderer.setAnimationLoop((time: number) => {
+  keyNavigation.update(Math.min(0.1, (time - lastFrame) / 1000));
+  lastFrame = time;
   controls.update();
+  const animate = animating();
+  stopMomentum();
+  previousCamera.copy(camera.position);
   updateHover();
+  if (!animate) {
+    // Go on from where they stopped, without a jump
+    lastAircraftUpdate = lastFlowUpdate = time;
+  }
+  if (animate && aircraft.group.visible && time - lastAircraftUpdate >= FLOW_INTERVAL) {
+    const dt = Math.min(0.1, (time - lastAircraftUpdate) / 1000);
+    aircraft.update(dt, camera, renderer.domElement.clientHeight);
+    eggs.update(dt);
+    lastAircraftUpdate = time;
+    needsRender = true;
+  }
+  if (animate && flowLines?.mesh.visible && settings.animateFlow && time - lastFlowUpdate >= FLOW_INTERVAL) {
+    updateFlowArea();
+    flowLines.update(Math.min(0.1, (time - lastFlowUpdate) / 1000));
+    lastFlowUpdate = time;
+    needsRender = true;
+  }
   const moving = performance.now() - lastViewChange < 200;
   const ratio = moving && settings.lowResWhileMoving ? MOVING_PIXEL_RATIO : FULL_PIXEL_RATIO;
   if (renderer.getPixelRatio() !== ratio) {
@@ -145,6 +288,9 @@ renderer.setAnimationLoop(() => {
   }
   if (!needsRender) return;
   needsRender = false;
+  if (iceCores.group.visible) iceCores.update(camera, renderer.domElement.clientHeight);
+  // Dashes of the tracks: the same length on screen at any zoom
+  tracks.lines.setDashPixel(pixelAtTarget());
   renderer.render(scene, camera);
   stats.update();
 });
@@ -153,14 +299,15 @@ renderer.setAnimationLoop(() => {
 const shared = sharedUniforms();
 const bed = new THREE.Mesh(
   new THREE.BufferGeometry(),
-  terrainMaterial(shared, { colormap: colormapTexture(BED_COLORS) }),
+  // Colours are at fractions of the colour range, set with the range uniform
+  terrainMaterial(shared, { colormap: colormapTexture(BED_STOPS) }),
 );
 const surface = new THREE.Mesh(
   new THREE.BufferGeometry(),
   terrainMaterial(shared, {
     color: new THREE.Color("#f4f8fc"),
     shelfColor: new THREE.Color("#bcd8ee"),
-    opacity: 0.5,
+    opacity: 0.9,
   }),
 );
 for (const mesh of [bed, surface]) {
@@ -168,20 +315,157 @@ for (const mesh of [bed, surface]) {
   mesh.visible = false;
   scene.add(mesh);
 }
-// The transparent surface is drawn after everything opaque underneath it
+// The transparent surface is drawn after everything opaque underneath it,
+// then the velocities, the tracks and the flow lines on top of it
 surface.renderOrder = 1;
 
-// Isochrones
+// Isochrones, and their radar tracks at the surface (loaded when first shown)
 const isochrones = new Isochrones();
-isochrones.setResolution(window.innerWidth, window.innerHeight);
-isochrones.setExaggeration(shared.exaggeration.value);
-scene.add(isochrones.group);
+const tracks = new Tracks();
+tracks.group.renderOrder = 3;
+const lineLayers: LineLayer[] = [isochrones.lines, tracks.lines];
+for (const layer of lineLayers) {
+  layer.setResolution(window.innerWidth, window.innerHeight);
+  layer.setExaggeration(shared.exaggeration.value);
+  scene.add(layer.group);
+}
+const irhIndex = SUBMISSION
+  ? startPreview(document.getElementById("preview")!).then((status) => {
+      if (status.bbox && !window.location.hash) {
+        submissionBox = status.bbox;
+        frameBox(submissionBox);
+      }
+      return loadIndex(IRH_URL);
+    })
+  : loadIndex(IRH_URL);
+
+// Deep ice core sites
+const iceCores = new IceCores();
+iceCores.setExaggeration(shared.exaggeration.value);
+iceCores.group.visible = false; // off by default
+scene.add(iceCores.group);
+
+// Survey aircraft flying along the tracks, with their radar pulses
+// One per dataset, flying the legs of its tracks, found once the tracks are loaded
+const AIRCRAFT_DATASETS = ["Franke_2025", "Sanderson_2024", "Yan_2025", "Wang_2023", "Cavitte_2020", "Bodart_2021", "Bodart_2025b"];
+let legs: Map<string, FlightLine[]> | null = null;
+function aircraftLegs(dataset: string): FlightLine[] {
+  if (!tracks.lines.loaded) return [];
+  legs ??= flightLines(
+    tracks.lines.featureCount,
+    (f) => tracks.lines.featureSegments(f),
+    (f) => tracks.tracks[f]?.dataset ?? "",
+  );
+  return legs.get(dataset) ?? [];
+}
+const aircraft = new Aircraft(
+  AIRCRAFT_DATASETS,
+  aircraftLegs,
+  (f) => tracks.lines.isHidden(f),
+  (x, y) => pivotField?.bedAt(x, y) ?? null,
+);
+aircraft.setExaggeration(shared.exaggeration.value);
+scene.add(aircraft.group);
+
+// Two hidden things to find
+const ground = (x: number, y: number): number | null => {
+  const [top, bed] = [pivotField?.surfaceAt(x, y) ?? null, pivotField?.bedAt(x, y) ?? null];
+  return top === null ? bed : bed === null ? top : Math.max(top, bed);
+};
+// The grid of the bed mesh, for the fossil to lie on it
+const bedMesh = { meshOrigin: { value: new THREE.Vector2() }, meshDx: { value: 8 } };
+const u = bed.material.uniforms;
+const eggs = new EasterEggs(
+  ground,
+  (x, y) => pivotField?.bedAt(x, y) ?? null,
+  (x, y) => pivotField?.surfaceAt(x, y) ?? null,
+  { heightTex: u.heightTex, texOrigin: u.texOrigin, texDx: u.texDx, texSize: u.texSize, exaggeration: shared.exaggeration, ...bedMesh },
+);
+eggs.setExaggeration(shared.exaggeration.value);
+scene.add(eggs.group);
+
+// Ice velocity (loaded when first shown): the ice surface coloured by speed, and flow lines
+let velocity: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
+let flowLines: FlowLines | null = null;
+let velocityLoading: Promise<void> | null = null;
+
+function loadVelocity(): Promise<void> {
+  velocityLoading ??= (async () => {
+    const meta = await loadVelocityMeta(VELOCITY_URL);
+    const [speed, field] = await Promise.all([
+      loadSpeedTexture(VELOCITY_URL, meta),
+      FlowField.load(VELOCITY_URL, meta),
+    ]);
+    const colormap = colormapTexture(SPEED.stops);
+    const material = terrainMaterial(shared, {
+      colormap: { texture: colormap.texture, range: LOG_SPEED_RANGE },
+      opacity: settings.velocityOpacity,
+      velocity: { texture: speed, grid: gridOf(meta.grids.speed) },
+    });
+    // Same heights as the ice surface, updated with it
+    const u = surface.material.uniforms;
+    for (const name of ["heightTex", "maskTex", "texOrigin", "texDx", "texSize"]) material.uniforms[name] = u[name];
+    velocity = new THREE.Mesh(surface.geometry, material);
+    velocity.frustumCulled = false;
+    velocity.renderOrder = 2;
+    scene.add(velocity);
+
+    flowLines = new FlowLines(field, u);
+    flowLines.mesh.renderOrder = 4;
+    scene.add(flowLines.mesh);
+    updateFlowArea();
+    flowLines.respawn();
+    document.getElementById("velocity-doi")?.setAttribute("href", meta.doi);
+  })();
+  return velocityLoading;
+}
+
+/** Flow lines live around the centre of the view, over about the visible width. */
+function updateFlowArea(): void {
+  if (!flowLines) return;
+  const halfHeight = camera.position.distanceTo(controls.target) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  flowLines.setArea(new THREE.Vector2(controls.target.x, controls.target.y), 1.2 * halfHeight * Math.max(1, camera.aspect));
+}
+
+function showVelocity(): void {
+  const on = settings.velocity;
+  if (on && !velocity) loadVelocity().then(showVelocity).catch(showError);
+  if (velocity) velocity.visible = on;
+  if (flowLines) flowLines.mesh.visible = on && settings.flowLines;
+  document.getElementById("velocity-attribution")!.hidden = !on;
+  velocityOptions.show(on);
+  if (on && velocity) {
+    velocityLegend.show("Ice speed (m/a)", SPEED, ticks({ min: 1, max: 10 ** LOG_SPEED_RANGE.y, log: true }));
+  } else velocityLegend.hide();
+  requestRender();
+}
+
+// Colour bars
+const legends = document.getElementById("legends")!;
+const isochroneLegend = new Legend(legends);
+const velocityLegend = new Legend(legends);
+
+function showIsochroneLegend(): void {
+  if (!settings.isochrones || !isochrones.lines.loaded) return isochroneLegend.hide();
+  const scale = isochrones.colorScale();
+  isochroneLegend.show(scale.title, scale.colormap, scale.ticks, isochrones.showsBasalUnit() ? [["Basal unit", BASAL_UNIT_COLOR]] : []);
+}
+
+function showError(error: Error): void {
+  console.error(error);
+  const message = document.createElement("div");
+  message.className = "error";
+  message.textContent = String(error.message ?? error);
+  document.body.append(message);
+  setTimeout(() => message.remove(), 8000);
+}
 
 // Hover: find the line under the cursor at most once per frame, not while dragging
 const tooltip = document.getElementById("tooltip")!;
 let pointer: { x: number; y: number } | null = null;
 let pointerMoved = false;
-let hovered: number | null = null;
+let hovered: { layer: LineLayer; feature: number } | null = null;
+let hoveredCore: IceCore | null = null;
 
 renderer.domElement.addEventListener("pointermove", (event) => {
   pointer = event.buttons ? null : { x: event.offsetX, y: event.offsetY };
@@ -197,16 +481,52 @@ function formatAge(f: Feature): string {
   return f.age_unc_ka === null ? `${f.age_ka} ka` : `${f.age_ka} ± ${f.age_unc_ka} ka`;
 }
 
-function showTooltip(f: Feature, x: number, y: number): void {
+function isochroneTooltip(f: Feature, hit: Hit): void {
+  const rows: [string, string][] = isBasalUnit(f) ? [["Layer", "Basal unit (no age)"]] : [["Age", formatAge(f)]];
+  rows.push(["Elevation", `${Math.round(isochrones.lines.elevation(hit.segment, hit.end))} m`]);
+  const depth = isochrones.depth(hit.segment, hit.end);
+  if (depth !== null) rows.push(["Depth", `${depth} m`]);
+  const fdepth = isochrones.fractionalDepth(hit.segment, hit.end);
+  if (fdepth !== null) rows.push(["Fractional depth", fdepth.toFixed(2)]);
+  rows.push(["Line ID", f.line_id]);
+  if (!isBasalUnit(f)) rows.push(["IRH", String(f.irh)]);
+  const notes: string[] = [];
+  if (f.surface !== "SURF_ELEV") notes.push(`Elevation from depth and the ${f.surface} surface`);
+  if (fdepth !== null && f.thickness === "Bedmap3") notes.push("Fractional depth with the Bedmap3 ice thickness");
+  showTooltip(f.citation ?? f.dataset, rows, notes.length ? notes.join(". ") : null);
+}
+
+function trackTooltip(t: Track, hit: Hit): void {
+  const p = tracks.point(hit.segment, hit.end);
+  const { ages, noAge, basalUnit } = tracks.datasetAges.get(t.dataset) ?? { ages: [], noAge: 0, basalUnit: false };
+  const list = ages.map((a) => String(Number(a.toFixed(2))));
+  if (noAge) list.push(`${noAge} without age`);
   const rows: [string, string][] = [
-    ["Age", formatAge(f)],
-    ["Flight ID", f.flight_id],
-    ["IRH", String(f.irh)],
+    ["Line ID", t.line_id],
+    ["Surface elevation", `${Math.round(p.surface)} m`],
+    ["Traced IRHs (IRH_NUM)", String(Math.round(p.irhNum))],
+    [`IRH ages of the dataset${ages.length ? " (ka)" : ""}`, list.join(", ") || "none"],
   ];
+  if (basalUnit) rows.push(["Also in the dataset", "a basal unit layer"]);
+  showTooltip(t.citation ?? t.dataset, rows, t.surface === "SURF_ELEV" ? null : `Surface elevation from ${t.surface}`);
+}
+
+function iceCoreTooltip(core: IceCore): void {
+  const rows: [string, string][] = [
+    ["Position", `${Math.abs(core.lat).toFixed(2)}° S, ${Math.abs(core.lon).toFixed(2)}° ${core.lon < 0 ? "W" : "E"}`],
+    ["Surface elevation", `${core.elevation} m`],
+    ["Drilled depth", `${core.depth} m`],
+  ];
+  if (core.bottomAge) rows.push(["Oldest ice", core.bottomAge]);
+  rows.push(["Drilled", core.drilled]);
+  showTooltip(`${core.site} ice core`, rows, core.reference);
+}
+
+function showTooltip(heading: string, rows: [string, string][], footnote: string | null): void {
   tooltip.replaceChildren();
   const title = document.createElement("div");
   title.className = "title";
-  title.textContent = f.citation ?? f.dataset;
+  title.textContent = heading;
   tooltip.append(title);
   for (const [key, value] of rows) {
     const row = document.createElement("div");
@@ -216,12 +536,15 @@ function showTooltip(f: Feature, x: number, y: number): void {
     row.append(k, value);
     tooltip.append(row);
   }
-  if (f.surface !== "SURF_ELEV") {
+  if (footnote) {
     const note = document.createElement("div");
     note.className = "note";
-    note.textContent = `Elevation from depth and the ${f.surface} surface`;
+    note.textContent = footnote;
     tooltip.append(note);
   }
+}
+
+function placeTooltip(x: number, y: number): void {
   // Keep the tooltip inside the window
   const left = Math.min(x + 16, window.innerWidth - tooltip.offsetWidth - 8);
   const top = y + 16 + tooltip.offsetHeight > window.innerHeight ? y - tooltip.offsetHeight - 12 : y + 16;
@@ -231,10 +554,27 @@ function showTooltip(f: Feature, x: number, y: number): void {
 
 function clearHover(): void {
   tooltip.style.visibility = "hidden";
+  if (hoveredCore) {
+    iceCores.setHighlight(null);
+    hoveredCore = null;
+    renderer.domElement.style.cursor = "";
+  }
   if (hovered === null) return;
+  hovered.layer.setHighlight(null);
   hovered = null;
-  isochrones.setHighlight(null);
   renderer.domElement.style.cursor = "";
+}
+
+/**
+ * Whether the isochrones are hidden under a nearly opaque ice surface: the
+ * camera is above the surface, which is at least 80 % opaque. Then they can't
+ * be hovered (from below the surface, they can).
+ */
+function isochronesUnderIce(): boolean {
+  if (!surface.visible || settings.surfaceOpacity < 0.8 || !pivotField) return false;
+  const { x, y, z } = camera.position;
+  const top = pivotField.surfaceAt(x, y);
+  return top === null || z > (top * shared.exaggeration.value) / 1000;
 }
 
 function updateHover(): void {
@@ -246,20 +586,44 @@ function updateHover(): void {
   }
   pointerMoved = false;
   const canvas = renderer.domElement;
-  const feature = pointer
-    ? isochrones.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight)
-    : null;
-  if (feature === null || !pointer) {
-    tooltip.style.visibility = "hidden";
-  } else {
-    showTooltip(isochrones.features[feature], pointer.x, pointer.y);
-  }
-  if (feature !== hovered) {
-    hovered = feature;
-    isochrones.setHighlight(feature);
-    renderer.domElement.style.cursor = feature === null ? "" : "pointer";
+  // Ice cores first: few, and drawn over the lines
+  const core = pointer ? iceCores.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
+  if (core !== hoveredCore) {
+    iceCores.setHighlight(core);
+    hoveredCore = core;
     requestRender();
   }
+  const egg = pointer && !core ? eggs.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
+  // Closest line of all layers
+  let best: { layer: LineLayer; hit: Hit } | null = null;
+  if (pointer && !core && !egg) {
+    for (const layer of lineLayers) {
+      if (layer === isochrones.lines && isochronesUnderIce()) continue;
+      const hit = layer.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight);
+      if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
+    }
+  }
+  if (core && pointer) {
+    iceCoreTooltip(core);
+    placeTooltip(pointer.x, pointer.y);
+  } else if (egg && pointer) {
+    showTooltip(egg.title, egg.rows, egg.note);
+    placeTooltip(pointer.x, pointer.y);
+  } else if (!best || !pointer) {
+    tooltip.style.visibility = "hidden";
+  } else {
+    if (best.layer === tracks.lines) trackTooltip(tracks.tracks[best.hit.feature], best.hit);
+    else isochroneTooltip(isochrones.features[best.hit.feature], best.hit);
+    placeTooltip(pointer.x, pointer.y);
+  }
+  const next = best ? { layer: best.layer, feature: best.hit.feature } : null;
+  if (next?.layer !== hovered?.layer || next?.feature !== hovered?.feature) {
+    hovered?.layer.setHighlight(null);
+    next?.layer.setHighlight(next.feature);
+    hovered = next;
+    requestRender();
+  }
+  renderer.domElement.style.cursor = next === null && core === null && egg === null ? "" : "pointer";
 }
 
 let maskTexture: THREE.DataTexture | null = null;
@@ -278,7 +642,11 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
   const grid = gridOf(level);
   if (!pivotField) {
     pivotField = PivotField.fromLayers(grid, bedTex.userData as never, surfaceTex.userData as never);
-    if (!window.location.hash) resetView();
+    eggs.place();
+    if (!window.location.hash) {
+      if (submissionBox) frameBox(submissionBox);
+      else resetView();
+    }
   }
   textureGrid = grid;
   coverage = { bed: bedTex.userData.valid, surface: surfaceTex.userData.valid };
@@ -297,11 +665,14 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
 function buildMeshes(res: string): void {
   if (!terrainMeta || !textureGrid || !coverage) return;
   const grid = gridOf(terrainMeta.resolutions[res]);
+  bedMesh.meshOrigin.value.set(grid.x0, grid.y0);
+  bedMesh.meshDx.value = grid.dx;
   const positions = gridPositions(grid);
   bed.geometry.dispose();
   surface.geometry.dispose();
   bed.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.bed));
   surface.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.surface));
+  if (velocity) velocity.geometry = surface.geometry;
   bed.visible = settings.bed;
   surface.visible = settings.surface;
   requestRender();
@@ -311,16 +682,54 @@ function buildMeshes(res: string): void {
 const settings = {
   exaggeration: shared.exaggeration.value as number,
   bed: true,
+  bedRange: 7000, // m, colours from -bedRange to +bedRange
   surface: true,
-  surfaceOpacity: 0.5,
+  surfaceOpacity: 0.9,
+  velocity: false,
+  velocityOpacity: 0.8,
+  flowLines: true,
+  animateFlow: true,
   isochrones: true,
+  colorBy: "Age" as ColorBy,
+  tracks: true,
+  iceCores: false,
+  aircraft: true,
   lineWidth: 2.5,
   lightAzimuth: 315, // degrees clockwise from grid north (+y)
   lightElevation: 40,
   quality: "Fast",
   lowResWhileMoving: true,
+  theme: savedTheme(),
   resetView,
+  topView,
 };
+
+// Private preview of a submission: its isochrones visible through the ice surface, and no
+// aircraft, whose animation redraws the close view of the dataset 30 times a second
+if (SUBMISSION) {
+  settings.aircraft = false;
+  settings.surfaceOpacity = 0.5;
+  surface.material.uniforms.opacity.value = settings.surfaceOpacity;
+}
+
+// Link preview screenshots (public/og-image.jpg, 1200×630) in development: ?screenshot
+// hides the panels; the current image is ?screenshot#view=150,-4257,3560,150,-600,150
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("screenshot")) {
+  document.body.classList.add("clean");
+  Object.assign(settings, { surfaceOpacity: 0.6, lineWidth: 3, exaggeration: 100 });
+  isochrones.lines.setLineWidth(settings.lineWidth);
+  surface.material.uniforms.opacity.value = settings.surfaceOpacity;
+  shared.exaggeration.value = settings.exaggeration;
+  for (const layer of lineLayers) layer.setExaggeration(settings.exaggeration);
+  iceCores.setExaggeration(settings.exaggeration);
+  aircraft.setExaggeration(settings.exaggeration);
+  eggs.setExaggeration(settings.exaggeration);
+}
+
+function updateBedRange(): void {
+  bed.material.uniforms.colormapRange.value.set(-settings.bedRange, settings.bedRange);
+  requestRender();
+}
 
 function updateLight(): void {
   const az = THREE.MathUtils.degToRad(settings.lightAzimuth);
@@ -328,60 +737,225 @@ function updateLight(): void {
   shared.lightDir.value.set(Math.sin(az) * Math.cos(el), Math.cos(az) * Math.cos(el), Math.sin(el));
   requestRender();
 }
+aircraft.group.visible = settings.aircraft;
+if (settings.aircraft) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
 updateLight();
+updateBedRange();
+applyTheme();
 
-const gui = new GUI({ title: "AntADatabase" });
+const gui = new GUI({ container: document.getElementById("gui")!, title: "Settings" });
+
+// The sidebar slides to the side with its arrow tab; closed at start on small screens
+const sidebar = document.getElementById("sidebar")!;
+const sidebarToggle = document.getElementById("sidebar-toggle")!;
+function setSidebar(open: boolean): void {
+  sidebar.classList.toggle("closed", !open);
+  const label = open ? "Hide the menu" : "Show the menu";
+  sidebarToggle.setAttribute("aria-label", label);
+  sidebarToggle.title = label;
+}
+sidebarToggle.addEventListener("click", () => setSidebar(sidebar.classList.contains("closed")));
+setSidebar(window.innerWidth > 700);
 gui
   .add(settings, "exaggeration", 1, 100, 1)
   .name("Vertical exaggeration")
   .onChange((v: number) => {
-    // Keep looking at the same place: heights scale with the exaggeration
+    // Same view of the same place: the rotation centre, on the terrain, moves
+    // with the heights, and the camera keeps its direction and distance to it
     const ratio = v / shared.exaggeration.value;
-    camera.position.z *= ratio;
+    const offset = camera.position.clone().sub(controls.target);
     controls.target.z *= ratio;
+    camera.position.copy(controls.target).add(offset);
     controls.update();
+    viewToUrl();
     shared.exaggeration.value = v;
-    isochrones.setExaggeration(v);
+    for (const layer of lineLayers) layer.setExaggeration(v);
+    iceCores.setExaggeration(v);
+    aircraft.setExaggeration(v);
+    eggs.setExaggeration(v);
     pointerMoved = true;
     requestRender();
   });
+const view = gui.addFolder("View");
+view.add(settings, "resetView").name("Reset view");
+view.add(settings, "topView").name("Top view (map)");
+themeSetting = view.add(settings, "theme", ["Dark", "Light", "Auto"]).name("Theme").onChange(setTheme);
 const layers = gui.addFolder("Layers");
 layers
   .add(settings, "bed")
   .name("Bed (Bedmap3)")
   .onChange((v: boolean) => {
     bed.visible = v;
+    bedRange.show(v);
     requestRender();
   });
+// Options of a layer are only shown with it
+const bedRange = layers
+  .add(settings, "bedRange", 2000, 12000, 500)
+  .name("Bed colour range (± m)")
+  .onChange(updateBedRange)
+  .show(settings.bed);
 layers
   .add(settings, "surface")
   .name("Ice surface")
   .onChange((v: boolean) => {
     surface.visible = v;
+    surfaceOpacity.show(v);
     requestRender();
   });
-layers
+const surfaceOpacity = layers
   .add(settings, "surfaceOpacity", 0.05, 1, 0.05)
   .name("Surface opacity")
   .onChange((v: number) => {
     surface.material.uniforms.opacity.value = v;
     requestRender();
+  })
+  .show(settings.surface);
+layers.add(settings, "velocity").name("Ice velocity (MEaSUREs)").onChange(showVelocity);
+// Options of the velocity layer, right under it, only shown with it
+const velocityOptions = layers.addFolder("Ice velocity options");
+velocityOptions
+  .add(settings, "velocityOpacity", 0.05, 1, 0.05)
+  .name("Opacity")
+  .onChange((v: number) => {
+    if (velocity) velocity.material.uniforms.opacity.value = v;
+    requestRender();
   });
+velocityOptions.add(settings, "flowLines").name("Flow lines").onChange(showVelocity);
+velocityOptions
+  .add(settings, "animateFlow")
+  .name("Animate flow")
+  .onChange(() => {
+    lastFlowUpdate = performance.now();
+    requestRender();
+  });
+velocityOptions.hide();
 layers
   .add(settings, "isochrones")
   .name("Isochrones")
   .onChange((v: boolean) => {
     isochrones.group.visible = v;
+    showIsochroneLegend();
     pointerMoved = true;
     requestRender();
   });
 layers
+  .add(settings, "tracks")
+  .name("Surface tracks")
+  .onChange(showTracks);
+layers
+  .add(settings, "aircraft")
+  .name("Survey aircraft")
+  .onChange((v: boolean) => {
+    aircraft.group.visible = v;
+    // The tracks are their flight paths
+    if (v) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
+    lastAircraftUpdate = performance.now();
+    requestRender();
+  });
+layers
+  .add(settings, "iceCores")
+  .name("Ice cores")
+  .onChange((v: boolean) => {
+    iceCores.group.visible = v;
+    pointerMoved = true;
+    requestRender();
+  });
+
+function showTracks(): void {
+  tracks.group.visible = settings.tracks;
+  if (settings.tracks) {
+    irhIndex
+      .then((index) => tracks.load(IRH_URL, index))
+      .then(() => {
+        tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 0.5));
+        tracks.applyFilter(isochrones.hiddenDatasets);
+        pointerMoved = true;
+        requestRender();
+      })
+      .catch(showError);
+  }
+  pointerMoved = true;
+  requestRender();
+}
+const isochroneFolder = gui.addFolder("Isochrones");
+isochroneFolder
+  .add(settings, "colorBy", COLOR_BY)
+  .name("Colour by")
+  .onChange((v: ColorBy) => {
+    isochrones
+      .setColorBy(v)
+      .then(() => {
+        showIsochroneLegend();
+        requestRender();
+      })
+      .catch(showError);
+  });
+isochroneFolder
   .add(settings, "lineWidth", 1, 8, 0.5)
   .name("Line width")
   .onChange((v: number) => {
-    isochrones.setLineWidth(v);
+    isochrones.lines.setLineWidth(v);
+    tracks.lines.setLineWidth(Math.max(1, v - 0.5));
     requestRender();
   });
+
+// Filters: datasets and ages shown, filled once the index is loaded
+const filters = gui.addFolder("Filter");
+let filterQueued = false;
+/** Apply the filters once, after all the checkboxes changed in this frame. */
+function queueFilter(): void {
+  if (filterQueued) return;
+  filterQueued = true;
+  requestAnimationFrame(() => {
+    filterQueued = false;
+    isochrones.applyFilter();
+    tracks.applyFilter(isochrones.hiddenDatasets);
+    for (const layer of lineLayers) layer.invalidate();
+    showIsochroneLegend();
+    clearHover();
+    pointerMoved = true;
+    requestRender();
+  });
+}
+
+/** A sub-folder of checkboxes, all checked, with buttons to check or clear them all. */
+function checkboxFolder<T>(title: string, items: [label: string, value: T][], hidden: Set<T>): void {
+  const folder = filters.addFolder(title).close();
+  const state: Record<string, boolean> = {};
+  const all = (on: boolean) => () => {
+    for (const c of boxes) c.setValue(on);
+  };
+  folder.add({ all: all(true) }, "all").name("Select all");
+  folder.add({ none: all(false) }, "none").name("Clear all");
+  const boxes = items.map(([label, value]) => {
+    state[label] = !hidden.has(value);
+    return folder
+      .add(state, label)
+      .onChange((on: boolean) => {
+        if (on) hidden.delete(value);
+        else hidden.add(value);
+        queueFilter();
+      });
+  });
+}
+
+function buildFilters(index: IrhIndex): void {
+  // Datasets by their citation, e.g. "Cavitte et al. (2020)"
+  const labels = new Map<string, string>();
+  for (const f of index.features) if (!labels.has(f.dataset)) labels.set(f.dataset, f.citation ?? f.dataset);
+  const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
+  checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
+  // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
+  const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
+  const ages = [...new Set(index.features.map(ageKey))].sort((a, b) => rank(a) - rank(b) || (a as number) - (b as number));
+  checkboxFolder(
+    "Ages",
+    ages.map((a): [string, AgeKey] => [a === "basal unit" ? "Basal unit" : a === null ? "No age" : `${a} ka`, a]),
+    isochrones.hiddenAges,
+  );
+}
+
 const light = gui.addFolder("Light");
 light.add(settings, "lightAzimuth", 0, 360, 1).name("Azimuth").onChange(updateLight);
 light.add(settings, "lightElevation", 5, 90, 1).name("Elevation").onChange(updateLight);
@@ -395,7 +969,6 @@ performanceFolder
   });
 performanceFolder.add(settings, "lowResWhileMoving").name("Lower resolution while moving");
 performanceFolder.close();
-gui.add(settings, "resetView").name("Reset view");
 
 // Start: quick preview, then the detailed terrain
 const loading = document.getElementById("loading")!;
@@ -413,16 +986,16 @@ loadMeta(DATA_URL)
     console.error(error);
   });
 
-isochrones
-  .load(IRH_URL)
+showTracks();
+irhIndex.then(buildFilters).catch(showError);
+irhIndex
+  .then((index) => isochrones.load(IRH_URL, index))
   .then(() => {
-    const legend = document.getElementById("legend")!;
-    legend.querySelector<HTMLElement>(".bar")!.style.background = ageGradientCss();
-    legend.querySelector(".max")!.textContent = `${isochrones.maxAgeKa} ka`;
-    legend.style.visibility = "visible";
+    isochrones.applyFilter();
+    showIsochroneLegend();
     requestRender();
   })
-  .catch((error) => console.error(error));
+  .catch(showError);
 
 // Debugging from the browser console in development: window.viewer
-if (import.meta.env.DEV) Object.assign(window, { viewer: { camera, controls, isochrones, renderer, bed, surface, settings, buildMeshes } });
+if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes } });

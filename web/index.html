@@ -3,36 +3,124 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AntADatabase 3D viewer</title>
-    <meta name="description" content="Explore Antarctic radar isochrones (internal reflecting horizons) from the AntADatabase in 3D, over Bedmap3 bed and ice surface topography." />
+    <meta name="color-scheme" content="light dark" />
+    <title>AntADatabase: radar isochrones of Antarctica</title>
+    <meta name="description" content="The AntADatabase gathers the published radar isochrones (internal reflecting horizons) of Antarctica, with their ages, in one format: explore them in 3D, query them in Python, download them, or submit your own." />
+    <link rel="canonical" href="https://antadatabase.com/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="theme-color" content="#2a6aa8" />
-    <!-- Link previews (Discord, Slack, LinkedIn, ...): image URLs must be absolute -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="AntADatabase" />
-    <meta property="og:title" content="AntADatabase 3D viewer" />
-    <meta property="og:description" content="Explore Antarctic radar isochrones from the AntADatabase in 3D, over Bedmap3 topography." />
-    <meta property="og:url" content="https://3d-antadatabase.com/" />
-    <meta property="og:image" content="https://3d-antadatabase.com/og-image.jpg" />
+    <meta property="og:title" content="AntADatabase: radar isochrones of Antarctica" />
+    <meta property="og:description" content="Published radar isochrones of Antarctica in one database: explore them in 3D, query them in Python, download them, or submit your own." />
+    <meta property="og:url" content="https://antadatabase.com/" />
+    <meta property="og:image" content="https://antadatabase.com/og-image.jpg?v=5" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones over the Bedmap3 topography" />
+    <meta property="og:image:alt" content="3D view of Antarctica with radar isochrones coloured by age under the ice surface, over the Bedmap3 bed topography, with radar tracks and survey aircraft" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/home.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
   </head>
   <body>
-    <div id="app"></div>
-    <div id="loading">Loading Bedmap3…</div>
-    <div id="tooltip"></div>
-    <div id="legend">
-      <div>Isochrone age</div>
-      <div class="bar"></div>
-      <div class="labels"><span>0 ka</span><span class="max"></span></div>
-    </div>
-    <div id="attribution">
-      Topography: <a id="bedmap-doi" href="https://doi.org/10.5285/2d0e4791-8e20-46a3-80e4-f5f6716025d2" target="_blank" rel="noopener">Bedmap3</a>
-      (Pritchard et al., CC-BY 4.0)
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/">AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+    <main class="wrap">
+      <section id="hero">
+        <h2>Radar isochrones of Antarctica, in one database</h2>
+        <p>
+          The AntADatabase gathers the published internal reflecting horizons (IRHs, or isochrones) traced in
+          ice-penetrating radar data across Antarctica, with their ages, in one uniform format. It is built for ice sheet
+          modellers and glaciologists who need consistent, dated layers to constrain their models, and grows as new
+          datasets of the AntArchitecture community are published.
+        </p>
+      </section>
+
+      <section id="panels">
+        <a class="panel" href="/viewer/">
+          <img class="thumb" src="/og-image.jpg" alt="3D view of Antarctica with radar isochrones coloured by age" width="1200" height="630" />
+          <div class="body">
+            <h3>3D viewer</h3>
+            <p>
+              Explore the isochrones in 3D under the ice surface, over the Bedmap3 bed. Hover a line for its dataset, age
+              and citation, and filter by age or dataset. Nothing to install.
+            </p>
+            <span class="action">Open the viewer →</span>
+          </div>
+        </a>
+
+        <a class="panel" href="https://docs.antadatabase.com/intro.html">
+          <div class="thumb icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3">
+              <ellipse cx="32" cy="14" rx="20" ry="7" />
+              <path d="M12 14v36c0 3.9 9 7 20 7s20-3.1 20-7V14M12 26c0 3.9 9 7 20 7s20-3.1 20-7M12 38c0 3.9 9 7 20 7s20-3.1 20-7" />
+            </svg>
+          </div>
+          <div class="body">
+            <h3>Python-powered SQL database</h3>
+            <p>
+              The <code>anta_database</code> package: query the isochrones by dataset, institute, age, region or basin,
+              plot them on maps and along radar lines, and load them into your own analysis.
+            </p>
+            <span class="action">Read the documentation →</span>
+          </div>
+        </a>
+
+        <a class="panel" href="/download/">
+          <div class="thumb icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M32 8v32M19 28l13 13 13-13M10 44v8a4 4 0 0 0 4 4h36a4 4 0 0 0 4-4v-8" />
+            </svg>
+          </div>
+          <div class="body">
+            <h3>Download the data</h3>
+            <p>
+              Free to download. We recommend the Python package, which downloads the whole database and keeps it up to
+              date. You can also choose datasets in the catalogue and get them in one zip file.
+            </p>
+            <span class="action">Get the data →</span>
+          </div>
+        </a>
+
+        <a class="panel" href="/submit/">
+          <div class="thumb icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M32 44V12M19 24l13-13 13 13M10 44v8a4 4 0 0 0 4 4h36a4 4 0 0 0 4-4v-8" />
+            </svg>
+          </div>
+          <div class="body">
+            <h3>Submit your data <span class="badge">Coming soon</span></h3>
+            <p>
+              Published isochrones that are not in the database yet? Soon you will be able to submit them here, with their
+              metadata, to be added to the next release.
+            </p>
+            <span class="action">Learn more →</span>
+          </div>
+        </a>
+      </section>
+    </main>
+    <footer class="wrap muted">
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>.
+    </footer>
+    <script type="module" src="/src/page.ts"></script>
   </body>
 </html>

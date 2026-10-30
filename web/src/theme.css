@@ -1,0 +1,46 @@
+/* Light or dark theme: data-theme on <html>, set from the settings or the browser */
+:root {
+  color-scheme: light;
+  --background: #a9bdd4; /* also the background of the 3D scene */
+  --panel: rgba(247, 250, 252, 0.96);
+  --text: #1c2733;
+  --muted: #5a6a7c;
+  --link: #1d5fa8;
+  --shadow: rgba(30, 45, 60, 0.22);
+  --widget: rgba(28, 39, 51, 0.07);
+  --widget-hover: rgba(28, 39, 51, 0.12);
+  --accent: #2f74c0;
+  --sidebar-width: 300px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #1c2633;
+  --panel: rgba(22, 30, 42, 0.95);
+  --text: #e6edf5;
+  --muted: #9fb0c4;
+  --link: #9cc3ef;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --widget: rgba(230, 237, 245, 0.08);
+  --widget-hover: rgba(230, 237, 245, 0.14);
+  --accent: #6aa9ec;
+}
+
+/* Light or dark theme button */
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 4px var(--shadow);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  color: var(--accent);
+}

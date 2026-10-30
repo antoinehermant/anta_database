@@ -1,24 +1,27 @@
 /**
- * Isochrones (IRHs) exported by anta_database.web.irh, drawn as 3D lines.
+ * Isochrones (IRHs) and their radar tracks at the ice surface, exported by
+ * anta_database.web.irh.
  *
- * Each feature is one (flight line, IRH). Vertices are (x km, y km, elevation m);
- * the group is scaled in z by exaggeration / 1000, like the terrain.
+ * Isochrones are coloured by age, depth, fractional depth or elevation. Only
+ * the age colours are ready at start: elevations are the vertices themselves,
+ * and depths and fractional depths are fetched (one small file per dataset)
+ * the first time they are needed.
  *
- * Hover works in screen space: once the view is still, all segments are
- * projected to the screen and binned in a grid of small cells. The hovered
- * line is the closest one within a few pixels of the cursor, the nearest to
- * the camera when several are about as close.
+ * The basal unit (the top of the echo-free zone, a layer without age) is drawn
+ * with the isochrones, in one colour whatever the colouring.
+ *
+ * Isochrones can be filtered by dataset and age (and the basal unit), and tracks by dataset.
  */
 import * as THREE from "three";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
-import { fetchBytes } from "./terrain";
+import { fetchBytes, fetchData } from "./terrain";
+import { LineLayer } from "./lines";
+import { AGE, AGE_LEGEND, AGE_LEGEND_SPLIT_T, AGE_SPLIT_KA, AGE_SPLIT_T, DEPTH, ELEVATION, scaleT, ticks, type Colormap, type Scale, type Tick } from "./colormaps";
 
 export interface Feature {
   dataset: string;
-  flight_id: string;
-  irh: number;
+  line_id: string;
+  irh: number | null; // null for the basal unit
+  layer?: "basal unit"; // missing for the isochrones
   age_ka: number | null;
   age_unc_ka: number | null;
   citation: string | null;
@@ -26,299 +29,291 @@ export interface Feature {
   doi_publication: string | null;
   institute: string | null;
   surface: string; // where the surface elevation comes from: "SURF_ELEV" or "Bedmap3"
+  thickness?: string; // where the ice thickness comes from: "ICE_THK" (completed with Bedmap3) or "Bedmap3"
 }
 
-interface IrhIndex {
-  datasets: Record<string, { vertices: string; runs: string }>;
+export interface Track {
+  dataset: string;
+  line_id: string;
+  citation: string | null;
+  surface: string;
+}
+
+interface DatasetFiles {
+  vertices: string;
+  depths: string;
+  fdepths?: string; // missing in exports before fractional depths
+  runs: string;
+  tracks: string;
+  track_runs: string;
+}
+
+export interface IrhIndex {
+  datasets: Record<string, DatasetFiles>;
   features: Feature[];
+  tracks: Track[];
 }
 
-// Young (yellow) to old (purple)
-const AGE_COLORS = ["#fde725", "#5ec962", "#21918c", "#3b528b", "#440154"];
-
-export function ageColor(ageKa: number | null, maxAgeKa: number, target = new THREE.Color()): THREE.Color {
-  if (ageKa === null) return target.set("#d0d0d0");
-  const t = THREE.MathUtils.clamp(ageKa / maxAgeKa, 0, 1) * (AGE_COLORS.length - 1);
-  const i = Math.min(Math.floor(t), AGE_COLORS.length - 2);
-  return target.set(AGE_COLORS[i]).lerp(new THREE.Color(AGE_COLORS[i + 1]), t - i);
-}
-
-export function ageGradientCss(): string {
-  return `linear-gradient(to right, ${AGE_COLORS.join(", ")})`;
-}
-
-/** Segment endpoints (start, end) of every run, with the feature of each segment. */
-function segments(vertices: Float32Array, runs: Uint32Array) {
-  let n = 0;
-  for (let r = 0; r < runs.length; r += 3) n += runs[r + 2] - 1;
-  const positions = new Float32Array(n * 6);
-  const features = new Uint32Array(n);
-  let s = 0;
-  for (let r = 0; r < runs.length; r += 3) {
-    const [feature, first, count] = [runs[r], runs[r + 1], runs[r + 2]];
-    for (let v = first; v < first + count - 1; v++, s++) {
-      positions.set(vertices.subarray(v * 3, v * 3 + 6), s * 6);
-      features[s] = feature;
-    }
+export async function loadIndex(baseUrl: string): Promise<IrhIndex> {
+  const response = await fetchData(`${baseUrl}/irh.json`);
+  if (!response.ok) {
+    throw new Error(
+      `${baseUrl}/irh.json not found. Export it with: python -m anta_database.web.irh /path/to/AntADatabase --bedmap bedmap3.nc`,
+    );
   }
-  return { positions, features };
+  return response.json();
 }
 
-const CELL = 16; // px, screen grid cell size
+export type ColorBy = "Age" | "Depth" | "Fractional depth" | "Elevation";
+export const COLOR_BY: ColorBy[] = ["Age", "Depth", "Fractional depth", "Elevation"];
 
-/** Segments projected to the screen, binned by grid cell. */
-interface ScreenIndex {
-  width: number;
-  height: number;
-  columns: number;
-  // Start and end of each segment: x, y (px) and depth (NDC)
-  sx: Float32Array;
-  sy: Float32Array;
-  depth: Float32Array;
-  // Segments of cell c: items[cellStart[c]] ... items[cellStart[c + 1] - 1]
-  cellStart: Uint32Array;
-  items: Uint32Array;
+// Fractional depths are stored as uint16 fraction × FDEPTH_SCALE (see anta_database.web.irh)
+const FDEPTH_SCALE = 10000;
+const FDEPTH_NODATA = 65535;
+const FDEPTH_SCALE_01: Scale = { min: 0, max: 1, log: false };
+
+export interface ColorScale {
+  title: string;
+  colormap: Colormap;
+  ticks: Tick[];
+}
+
+const NO_AGE = new THREE.Color("#b8b8b8");
+// Grey-brown, darker than the bed colours and away from the age colours
+export const BASAL_UNIT_COLOR = "#6e5a48";
+const BASAL_UNIT = new THREE.Color(BASAL_UNIT_COLOR);
+
+export const isBasalUnit = (f: Feature): boolean => f.layer === "basal unit";
+
+/** Key of a feature in the age filter: its age, or "basal unit". */
+export type AgeKey = number | null | "basal unit";
+export const ageKey = (f: Feature): AgeKey => (isBasalUnit(f) ? "basal unit" : f.age_ka);
+
+/** Value at a quantile of a sample of every step-th value. */
+function quantile(values: ArrayLike<number>, q: number, step = 7): number {
+  const sample: number[] = [];
+  for (let i = 0; i < values.length; i += step) if (Number.isFinite(values[i])) sample.push(values[i]);
+  sample.sort((a, b) => a - b);
+  return sample[Math.min(sample.length - 1, Math.floor(q * sample.length))] ?? 0;
 }
 
 export class Isochrones {
-  readonly group = new THREE.Group();
+  readonly lines = new LineLayer({ linewidth: 2.5 });
   features: Feature[] = [];
-  maxAgeKa = 1;
+  colorBy: ColorBy = "Age";
+  private index: IrhIndex | null = null;
+  private baseUrl = "";
+  private ageScale: Scale = { min: 1, max: 1, log: true };
+  private elevationScale: Scale = { min: 0, max: 1, log: false };
+  private depthScale: Scale | null = null;
+  private depths = new Map<string, Uint16Array>();
+  private depthsLoading: Promise<void> | null = null;
+  private fdepths = new Map<string, Uint16Array>();
+  private fdepthsLoading: Promise<void> | null = null;
+  // Filters
+  readonly hiddenDatasets = new Set<string>();
+  readonly hiddenAges = new Set<AgeKey>();
 
-  private material = new LineMaterial({ linewidth: 2.5, vertexColors: true });
-  // All segments: positions (start xyz, end xyz) and feature of each
-  private parts: { positions: Float32Array; features: Uint32Array }[] = [];
-  private positions = new Float32Array(0);
-  private segmentFeatures = new Uint32Array(0);
-  private screenIndex: ScreenIndex | null = null;
-  // Positions of the segments of each feature, for highlighting
-  private featureSegments = new Map<number, Float32Array[]>();
-  private highlight: LineSegments2 | null = null;
-  private highlightMaterial = new LineMaterial({
-    linewidth: 5,
-    color: 0xff4d4d,
-    depthTest: false,
-    transparent: true,
-  });
+  get group(): THREE.Group {
+    return this.lines.group;
+  }
 
-  async load(baseUrl: string): Promise<void> {
-    const response = await fetch(`${baseUrl}/irh.json`);
-    if (!response.ok) {
-      throw new Error(
-        `${baseUrl}/irh.json not found. Export it with: python -m anta_database.web.irh /path/to/AntADatabase --bedmap bedmap3.nc`,
-      );
-    }
-    const index: IrhIndex = await response.json();
+  async load(baseUrl: string, index: IrhIndex): Promise<void> {
+    this.baseUrl = baseUrl;
+    this.index = index;
     this.features = index.features;
-    this.maxAgeKa = Math.max(1, ...this.features.map((f) => f.age_ka ?? 0));
+    // Log scale from the youngest to the oldest age, so close young ages differ,
+    // with young IRHs over most of the colours
+    const ages = this.features.filter((f) => !isBasalUnit(f)).map((f) => f.age_ka).filter((a): a is number => a !== null && a > 0);
+    this.ageScale = { min: Math.min(...ages), max: Math.max(...ages), log: true, split: AGE_SPLIT_KA, splitT: AGE_SPLIT_T };
 
     await Promise.all(
-      Object.values(index.datasets).map(async (files) => {
+      Object.entries(index.datasets).map(async ([name, files]) => {
         const [vertices, runs] = await Promise.all([
           fetchBytes(`${baseUrl}/${files.vertices}`).then((b) => new Float32Array(b)),
           fetchBytes(`${baseUrl}/${files.runs}`).then((b) => new Uint32Array(b)),
         ]);
-        this.addDataset(vertices, runs);
+        this.lines.add(name, vertices, 3, runs);
       }),
     );
-    this.positions = new Float32Array(this.parts.reduce((n, p) => n + p.positions.length, 0));
-    this.segmentFeatures = new Uint32Array(this.positions.length / 6);
-    let offset = 0;
-    for (const part of this.parts) {
-      this.positions.set(part.positions, offset * 6);
-      this.segmentFeatures.set(part.features, offset);
-      offset += part.features.length;
-    }
-    this.parts = [];
-    this.invalidate();
+    this.lines.finish();
+    const elevations = new Float32Array(this.lines.parts.reduce((n, p) => n + p.vertices.length / 3, 0));
+    let k = 0;
+    for (const p of this.lines.parts) for (let i = 2; i < p.vertices.length; i += 3) elevations[k++] = p.vertices[i];
+    const round = (v: number, up: boolean) => (up ? Math.ceil(v / 100) : Math.floor(v / 100)) * 100;
+    this.elevationScale = {
+      min: round(quantile(elevations, 0.01), false),
+      max: round(quantile(elevations, 0.99), true),
+      log: false,
+    };
+    this.recolor();
   }
 
-  private addDataset(vertices: Float32Array, runs: Uint32Array): void {
-    const { positions, features } = segments(vertices, runs);
-    const colors = new Float32Array(positions.length);
-    const color = new THREE.Color();
-    for (let s = 0; s < features.length; s++) {
-      const f = features[s];
-      ageColor(this.features[f].age_ka, this.maxAgeKa, color);
-      colors.set([color.r, color.g, color.b, color.r, color.g, color.b], s * 6);
-      const list = this.featureSegments.get(f) ?? [];
-      list.push(positions.subarray(s * 6, s * 6 + 6));
-      this.featureSegments.set(f, list);
-    }
-
-    const geometry = new LineSegmentsGeometry();
-    geometry.setPositions(positions);
-    geometry.setColors(colors);
-    const lines = new LineSegments2(geometry, this.material);
-    lines.frustumCulled = false;
-    this.group.add(lines);
-    this.parts.push({ positions, features });
+  /** Depths of every dataset, fetched once. */
+  private loadDepths(): Promise<void> {
+    this.depthsLoading ??= Promise.all(
+      Object.entries(this.index!.datasets).map(async ([name, files]) => {
+        const depths = new Uint16Array(await fetchBytes(`${this.baseUrl}/${files.depths}`));
+        this.depths.set(name, depths);
+      }),
+    ).then(() => {
+      const all = new Float32Array(Array.from(this.depths.values()).reduce((n, d) => n + d.length, 0));
+      let offset = 0;
+      for (const d of this.depths.values()) {
+        all.set(d, offset);
+        offset += d.length;
+      }
+      this.depthScale = { min: 0, max: Math.ceil(quantile(all, 0.99) / 100) * 100, log: false };
+    });
+    return this.depthsLoading;
   }
 
-  setExaggeration(exaggeration: number): void {
-    this.group.scale.z = exaggeration / 1000;
-    this.invalidate();
-  }
-
-  /** Call when the view changed: the screen index is rebuilt on the next pick. */
-  invalidate(): void {
-    this.screenIndex = null;
-  }
-
-  /** Canvas size in CSS pixels, so line widths are in CSS pixels. */
-  setResolution(width: number, height: number): void {
-    for (const material of [this.material, this.highlightMaterial]) {
-      material.resolution.set(width, height);
-    }
-  }
-
-  setLineWidth(width: number): void {
-    this.material.linewidth = width;
-    this.highlightMaterial.linewidth = width + 2.5;
-  }
-
-  private buildScreenIndex(camera: THREE.Camera, width: number, height: number): ScreenIndex {
-    this.group.updateMatrixWorld();
-    camera.updateMatrixWorld();
-    const m = new THREE.Matrix4()
-      .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-      .multiply(this.group.matrixWorld).elements;
-    const p = this.positions;
-    const n = p.length / 3; // segment ends
-    // Clip coordinates of every segment end
-    const clip = new Float32Array(n * 4);
-    for (let i = 0; i < n; i++) {
-      const x = p[3 * i];
-      const y = p[3 * i + 1];
-      const z = p[3 * i + 2];
-      clip[4 * i] = m[0] * x + m[4] * y + m[8] * z + m[12];
-      clip[4 * i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
-      clip[4 * i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
-      clip[4 * i + 3] = m[3] * x + m[7] * y + m[11] * z + m[15];
-    }
-    // Segments crossing the near plane are cut there rather than dropped
-    const near = 1e-3;
-    const sx = new Float32Array(n);
-    const sy = new Float32Array(n);
-    const depth = new Float32Array(n);
-    const front = new Uint8Array(n);
-    for (let a = 0; a < n; a += 2) {
-      const b = a + 1;
-      const wa = clip[4 * a + 3];
-      const wb = clip[4 * b + 3];
-      if (wa < near && wb < near) continue; // behind the camera
-      for (const [i, j, wi, wj] of [
-        [a, b, wa, wb],
-        [b, a, wb, wa],
-      ]) {
-        if (wi < near) {
-          const t = (near - wi) / (wj - wi);
-          for (let k = 0; k < 4; k++) clip[4 * i + k] += t * (clip[4 * j + k] - clip[4 * i + k]);
+  /** Fractional depths of every dataset, fetched once. */
+  private loadFdepths(): Promise<void> {
+    this.fdepthsLoading ??= Promise.all(
+      Object.entries(this.index!.datasets).map(async ([name, files]) => {
+        if (!files.fdepths) {
+          throw new Error("No fractional depths in this export: run anta_database.web.irh again");
         }
-      }
-      for (const i of [a, b]) {
-        const w = clip[4 * i + 3];
-        sx[i] = (clip[4 * i] / w + 1) * 0.5 * width;
-        sy[i] = (1 - clip[4 * i + 1] / w) * 0.5 * height;
-        depth[i] = clip[4 * i + 2] / w;
-        front[i] = 1;
-      }
-    }
-
-    // Cells covered by the bounding box of each segment on screen, counted then filled
-    const columns = Math.ceil(width / CELL);
-    const rows = Math.ceil(height / CELL);
-    const cellStart = new Uint32Array(columns * rows + 1);
-    const segments = n / 2;
-    const box = new Int32Array(segments * 4).fill(-1);
-    for (let s = 0; s < segments; s++) {
-      const a = 2 * s;
-      const b = a + 1;
-      if (!front[a] || !front[b]) continue;
-      const c0 = Math.max(0, Math.floor(Math.min(sx[a], sx[b]) / CELL));
-      const c1 = Math.min(columns - 1, Math.floor(Math.max(sx[a], sx[b]) / CELL));
-      const r0 = Math.max(0, Math.floor(Math.min(sy[a], sy[b]) / CELL));
-      const r1 = Math.min(rows - 1, Math.floor(Math.max(sy[a], sy[b]) / CELL));
-      if (c0 > c1 || r0 > r1) continue; // off screen
-      box.set([c0, c1, r0, r1], s * 4);
-      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) cellStart[r * columns + c + 1]++;
-    }
-    for (let c = 0; c < columns * rows; c++) cellStart[c + 1] += cellStart[c];
-    const items = new Uint32Array(cellStart[columns * rows]);
-    const fill = cellStart.slice(0, columns * rows);
-    for (let s = 0; s < segments; s++) {
-      if (box[s * 4] < 0) continue;
-      const [c0, c1, r0, r1] = box.subarray(s * 4, s * 4 + 4);
-      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) items[fill[r * columns + c]++] = s;
-    }
-    return { width, height, columns, sx, sy, depth, cellStart, items };
+        this.fdepths.set(name, new Uint16Array(await fetchBytes(`${this.baseUrl}/${files.fdepths}`)));
+      }),
+    ).then(() => undefined);
+    return this.fdepthsLoading;
   }
 
-  /**
-   * Feature of the line closest to a pixel (CSS pixels from the top-left of the
-   * canvas), within radius pixels, or null.
-   */
-  pick(camera: THREE.Camera, x: number, y: number, width: number, height: number, radius = 8): number | null {
-    if (!this.group.visible || this.segmentFeatures.length === 0) return null;
-    let index = this.screenIndex;
-    if (!index || index.width !== width || index.height !== height) {
-      index = this.screenIndex = this.buildScreenIndex(camera, width, height);
-    }
-    const { columns, sx, sy, depth, cellStart, items } = index;
-    const rows = (cellStart.length - 1) / columns;
-    const c0 = Math.max(0, Math.floor((x - radius) / CELL));
-    const c1 = Math.min(columns - 1, Math.floor((x + radius) / CELL));
-    const r0 = Math.max(0, Math.floor((y - radius) / CELL));
-    const r1 = Math.min(rows - 1, Math.floor((y + radius) / CELL));
+  async setColorBy(mode: ColorBy): Promise<void> {
+    this.colorBy = mode;
+    if (mode === "Depth") await this.loadDepths();
+    if (mode === "Fractional depth") await this.loadFdepths();
+    if (this.colorBy === mode) this.recolor();
+  }
 
-    let best = -1;
-    let bestDistance = radius;
-    let bestDepth = Infinity;
-    for (let r = r0; r <= r1; r++) {
-      for (let c = c0; c <= c1; c++) {
-        const cell = r * columns + c;
-        for (let k = cellStart[cell]; k < cellStart[cell + 1]; k++) {
-          const s = items[k];
-          const a = 2 * s;
-          const b = a + 1;
-          // Closest point of the segment to the cursor
-          const dx = sx[b] - sx[a];
-          const dy = sy[b] - sy[a];
-          const length2 = dx * dx + dy * dy;
-          const t = length2 > 0 ? THREE.MathUtils.clamp(((x - sx[a]) * dx + (y - sy[a]) * dy) / length2, 0, 1) : 0;
-          const distance = Math.hypot(sx[a] + t * dx - x, sy[a] + t * dy - y);
-          if (distance > radius) continue;
-          const d = depth[a] + t * (depth[b] - depth[a]);
-          // Clearly closer on screen, or about as close and in front
-          const closer = distance < bestDistance - 1.5;
-          const similar = Math.abs(distance - bestDistance) <= 1.5;
-          if (best < 0 || closer || (similar && d < bestDepth)) {
-            best = s;
-            bestDistance = distance;
-            bestDepth = d;
-          }
+  private recolor(): void {
+    const mode = this.colorBy;
+    for (const part of this.lines.parts) {
+      const v = part.vertices;
+      const depths = this.depths.get(part.name);
+      const fdepths = this.fdepths.get(part.name);
+      this.lines.recolor(part, (vertex, feature, color) => {
+        if (isBasalUnit(this.features[feature])) return color.copy(BASAL_UNIT);
+        if (mode === "Fractional depth" && fdepths) {
+          const f = fdepths[vertex];
+          return f === FDEPTH_NODATA ? color.copy(NO_AGE) : DEPTH.at(f / FDEPTH_SCALE, color);
         }
-      }
+        if (mode === "Elevation") return ELEVATION.at(scaleT(this.elevationScale, v[vertex * 3 + 2]), color);
+        if (mode === "Depth" && depths && this.depthScale) return DEPTH.at(scaleT(this.depthScale, depths[vertex]), color);
+        const age = this.features[feature].age_ka;
+        return age === null ? color.copy(NO_AGE) : AGE.at(scaleT(this.ageScale, age), color);
+      });
     }
-    return best < 0 ? null : this.segmentFeatures[best];
   }
 
-  /** Draw a feature on top of everything, or nothing with null. */
-  setHighlight(feature: number | null): void {
-    if (this.highlight) {
-      this.group.remove(this.highlight);
-      this.highlight.geometry.dispose();
-      this.highlight = null;
+  /** Title, colormap and ticks of the current colours. */
+  colorScale(): ColorScale {
+    if (this.colorBy === "Elevation") {
+      return { title: "Isochrone elevation (m)", colormap: ELEVATION, ticks: ticks(this.elevationScale) };
     }
-    const parts = feature === null ? undefined : this.featureSegments.get(feature);
-    if (!parts) return;
-    const positions = new Float32Array(parts.length * 6);
-    parts.forEach((p, i) => positions.set(p, i * 6));
-    const geometry = new LineSegmentsGeometry();
-    geometry.setPositions(positions);
-    this.highlight = new LineSegments2(geometry, this.highlightMaterial);
-    this.highlight.frustumCulled = false;
-    this.highlight.renderOrder = 10;
-    this.group.add(this.highlight);
+    if (this.colorBy === "Fractional depth") {
+      return { title: "Isochrone fractional depth (of ice thickness)", colormap: DEPTH, ticks: ticks(FDEPTH_SCALE_01) };
+    }
+    if (this.colorBy === "Depth" && this.depthScale) {
+      return { title: "Isochrone depth (m)", colormap: DEPTH, ticks: ticks(this.depthScale) };
+    }
+    // Same colours, with the old part wider than on the lines
+    const legendScale = { ...this.ageScale, splitT: AGE_LEGEND_SPLIT_T };
+    return { title: "Isochrone age (ka)", colormap: AGE_LEGEND, ticks: ticks(legendScale) };
+  }
+
+  /** Depth (m) of a segment end, null until depths are loaded. */
+  depth(segment: number, end: 0 | 1): number | null {
+    const { part, vertex } = this.lines.vertexOf(segment, end);
+    return this.depths.get(part.name)?.[vertex] ?? null;
+  }
+
+  /** Fractional depth of a segment end, null until loaded or where unknown. */
+  fractionalDepth(segment: number, end: 0 | 1): number | null {
+    const { part, vertex } = this.lines.vertexOf(segment, end);
+    const f = this.fdepths.get(part.name)?.[vertex];
+    return f === undefined || f === FDEPTH_NODATA ? null : f / FDEPTH_SCALE;
+  }
+
+  /** Whether a basal unit is shown (not filtered out). */
+  showsBasalUnit(): boolean {
+    return this.features.some((f) => isBasalUnit(f) && !this.hiddenDatasets.has(f.dataset) && !this.hiddenAges.has("basal unit"));
+  }
+
+  /** Show only the isochrones of the datasets and ages not hidden. */
+  applyFilter(): void {
+    this.lines.setHidden((f) => {
+      const feature = this.features[f];
+      return !feature || this.hiddenDatasets.has(feature.dataset) || this.hiddenAges.has(ageKey(feature));
+    });
+  }
+}
+
+/** Values of a track at a point. */
+export interface TrackPoint {
+  surface: number; // m
+  irhNum: number;
+}
+
+/** Radar tracks at the ice surface, where IRHs are traced. */
+export class Tracks {
+  readonly lines = new LineLayer({ linewidth: 2, color: "#8b929b", transparent: true, dashed: true });
+  tracks: Track[] = [];
+  // Ages (ka) of the IRHs of each dataset, youngest first, number of IRHs without age, and
+  // whether it has a basal unit (not an IRH)
+  readonly datasetAges = new Map<string, { ages: number[]; noAge: number; basalUnit: boolean }>();
+  private loading: Promise<void> | null = null;
+
+  get group(): THREE.Group {
+    return this.lines.group;
+  }
+
+  /** Fetch the tracks of every dataset, once. */
+  load(baseUrl: string, index: IrhIndex): Promise<void> {
+    this.loading ??= (async () => {
+      this.tracks = index.tracks;
+      const irhs = new Map<string, Map<number, number | null>>();
+      const basalUnit = new Set<string>();
+      for (const f of index.features) {
+        if (isBasalUnit(f)) {
+          basalUnit.add(f.dataset);
+          continue;
+        }
+        if (!irhs.has(f.dataset)) irhs.set(f.dataset, new Map());
+        irhs.get(f.dataset)!.set(f.irh!, f.age_ka);
+      }
+      for (const [dataset, ages] of irhs) {
+        const known = [...new Set([...ages.values()].filter((a): a is number => a !== null))].sort((a, b) => a - b);
+        this.datasetAges.set(dataset, {
+          ages: known,
+          noAge: [...ages.values()].filter((a) => a === null).length,
+          basalUnit: basalUnit.has(dataset),
+        });
+      }
+      await Promise.all(
+        Object.entries(index.datasets).map(async ([name, files]) => {
+          const [vertices, runs] = await Promise.all([
+            fetchBytes(`${baseUrl}/${files.tracks}`).then((b) => new Float32Array(b)),
+            fetchBytes(`${baseUrl}/${files.track_runs}`).then((b) => new Uint32Array(b)),
+          ]);
+          this.lines.add(name, vertices, 5, runs);
+        }),
+      );
+      this.lines.finish();
+    })();
+    return this.loading;
+  }
+
+  /** Show only the tracks of the datasets not hidden. */
+  applyFilter(hiddenDatasets: Set<string>): void {
+    this.lines.setHidden((t) => !this.tracks[t] || hiddenDatasets.has(this.tracks[t].dataset));
+  }
+
+  point(segment: number, end: 0 | 1): TrackPoint {
+    const { part, vertex } = this.lines.vertexOf(segment, end);
+    const v = part.vertices.subarray(vertex * 5, vertex * 5 + 5);
+    return { surface: v[2], irhNum: v[3] };
   }
 }
