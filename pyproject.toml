@@ -41,6 +41,7 @@ classifiers = [
 [project.optional-dependencies]
 # Compiling the database from the raw data
 compile = [
+  "dask",
   "geopandas",
   "pyproj",
   "scipy",
@@ -65,8 +66,8 @@ anta-sync = "anta_database.cloud.sync:main"
 anta-publish = "anta_database.cloud.publish:main"
 
 [project.urls]
-Homepage = "https://antoinehermant.github.io/anta_database/intro"
-Documentation = "https://antoinehermant.github.io/anta_database/quick_start"
+Homepage = "https://antadatabase.com"
+Documentation = "https://docs.antadatabase.com/quick_start.html"
 Repository = "https://github.com/antoinehermant/anta_database.git"
 Issues = "https://github.com/antoinehermant/anta_database/issues"
 

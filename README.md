@@ -1,5 +1,5 @@
 <h1 align="center">
-<a href="https://antoinehermant.github.io/anta_database/index">
+<a href="https://docs.antadatabase.com/intro.html">
 <img src="https://raw.githubusercontent.com/antoinehermant/anta_database/main/book/logo.png" width="200">
 </a>
 </h1>
@@ -10,7 +10,7 @@
 
 # AntADatabase
 
-**Visit the [Home Page](https://antoinehermant.github.io/anta_database/index) for full documentation and examples.**
+**Visit [antadatabase.com](https://antadatabase.com) to explore the database in 3D or download it, and the [documentation](https://docs.antadatabase.com/intro.html) for full examples.**
 
 **SQL database for the AntArchitecture Community Data**
 
@@ -83,7 +83,7 @@ db.plot.var(title="My IRH Data")
 
 ## Documentation
 
-Full documentation and examples are available on the [Home Page](https://antoinehermant.github.io/anta_database/index).
+Full documentation and examples are available in the [documentation](https://docs.antadatabase.com/intro.html).
 
 ## Data Access
 

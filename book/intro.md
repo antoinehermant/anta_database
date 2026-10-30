@@ -2,6 +2,8 @@
 
 AntADatabase is Python-powered SQL database providing efficient access to Internal Reflecting Horizons (isochrones) data across Antarctica. Designed for ice sheet modelers, it offers fast, memory-efficient data structures to constrain models with published IRH data.
 
+Explore the isochrones in the [3D viewer](https://antadatabase.com/viewer/), download the data or submit your own on [antadatabase.com](https://antadatabase.com).
+
 ![Overview Figure](figures/Overview_all.png)
 *Example visualizations created using the anta_database plotting functions*
 
