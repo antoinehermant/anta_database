@@ -8,7 +8,21 @@
 import { type Catalog, MAP_EXTENT_KM, loadCatalog, loadMask, DATA_ROOT, fetchData } from "../sitedata";
 import { onThemeChange, themeButton } from "../theme";
 import { setupVerification, token, verified } from "../verify";
-import { type FileInfo, type Issue, type Structure, MAX_FILES, MAX_TOTAL_GB, REDUCE, irhFromName, readFile, stem } from "./files";
+import {
+  type FileInfo,
+  type Issue,
+  type Structure,
+  LAYER_EXTRAS,
+  MAX_FILES,
+  MAX_TOTAL_GB,
+  POINT_EXTRAS,
+  REDUCE,
+  REFERENCE,
+  irhFromName,
+  lineExtra,
+  readFile,
+  stem,
+} from "./files";
 
 // Portal API: same origin in development (proxied by Vite to portal/app.py)
 const PORTAL_URL = (import.meta.env.VITE_PORTAL_URL ?? "").replace(/\/$/, "");
@@ -301,29 +315,45 @@ async function fillFromDoi() {
 // --- Files
 
 function columnsHelp(structure: Structure): HTMLElement {
-  const coords = "<code>PSX</code>, <code>PSY</code> (EPSG:3031, m) or <code>lon</code>, <code>lat</code> (WGS84, degrees)";
+  const coords = "<code>PSX</code>, <code>PSY</code> (EPSG:3031, m) or <code>LON</code>, <code>LAT</code> (WGS84, degrees)";
   const variables = "<code>ICE_THK</code>, <code>SURF_ELEV</code>, <code>BED_ELEV</code>, <code>BASAL_UNIT</code> (m)";
+  const reference =
+    "<p><strong>Please give at least two of <code>ICE_THK</code>, <code>SURF_ELEV</code> and <code>BED_ELEV</code></strong> " +
+    "(the third is computed from them): depths without the surface and the ice thickness are of little use for modelling. " +
+    "If they are not provided, the database will try to reconnect the ice thickness and the bed elevation from Bedmap, " +
+    "but this is not guaranteed.</p>";
+  const extras = (names: Record<string, string>, name: (n: string) => string) =>
+    Object.entries(names).map(([n, text]) => `<li><code>${name(n)}</code>: ${text}</li>`).join("");
+  const optional = `<details><summary>Optional columns, kept with your raw files</summary>
+     <p>These columns are not in the compiled database yet, but are stored with the files you send, for later
+     versions of the database. Use these names if you have them:</p>
+     <ul>${extras(LAYER_EXTRAS, (n) => (structure === "layer" ? n : lineExtra(n, "1") + "</code>, <code>" + lineExtra(n, "2") + "</code>, ..."))}
+       ${extras(POINT_EXTRAS, (n) => n)}</ul>
+     <p>Other columns are kept in the raw files too, but not used: please say what they hold in the notes (step 6).</p>
+     </details>`;
   const help = element("div", { className: "help" });
   help.innerHTML =
     structure === "layer"
-      ? `<p>Name the columns with the standard names of the database (other columns are ignored):</p>
+      ? `<p>Name the columns with the standard names of the database. Every file has a <code>LINE_ID</code> column
+         and the coordinates, ${coords}, on each row.</p>
          <ul>
-           <li><strong>Layer files</strong>, one per isochrone: <code>Line_ID</code>, ${coords}, and <code>IRH_DEPTH</code>.</li>
-           <li><strong>Variable files</strong> (optional), one per variable: <code>Line_ID</code>, ${coords}, and one of ${variables}.
-             Keep them out of the layer files, so they are not repeated for every layer.</li>
-         </ul>`
-      : `<p>Name the columns with the standard names of the database (other columns are ignored):</p>
+           <li><strong>Layer files</strong>, one per isochrone: <code>IRH_DEPTH</code>, and ${variables} at the same
+             points.</li>
+           <li><strong>Variable files</strong> (optional): ${variables} may instead come in files of their own, one file
+             per variable. Each variable is then either in the layer files or in its own file, not both.</li>
+         </ul>${reference}${optional}`
+      : `<p>Name the columns with the standard names of the database:</p>
          <ul>
            <li>${coords};</li>
            <li>one depth column per isochrone: <code>IRH1</code>, <code>IRH2</code>, ... (the same numbers in all files);</li>
-           <li>optionally ${variables}.</li>
+           <li>${variables}.</li>
          </ul>
-         <p>The name of each file is its line ID.</p>`;
+         <p>The name of each file is its line ID.</p>${reference}${optional}`;
   help.insertAdjacentHTML(
     "beforeend",
     `<p><strong>Depths are in metres below the ice surface, with the firn correction applied.</strong> Convert the
      two-way travel times first, with your wave speed in ice and your firn correction, and say which ones in the
-     notes (step 6). Missing values are empty, <code>NaN</code> or <code>-9999</code>.</p>
+     notes (step 6). The travel times themselves may come as optional columns (below). Missing values are empty, <code>NaN</code> or <code>-9999</code>.</p>
      <p>A description may come at the top of the file, above the header, with every line starting with
      <code>#</code>: these lines are ignored. Do not use <code>#</code> anywhere else.</p>`,
   );
@@ -334,10 +364,10 @@ function columnsHelp(structure: Structure): HTMLElement {
     templates.append(element("a", { href: url, download: name, textContent: name }));
   };
   if (structure === "layer") {
-    add("IRH1.csv", "Line_ID,PSX,PSY,IRH_DEPTH\nF01,1352757.4,-863079.4,1008.35\n");
-    add("ICE_THK.csv", "Line_ID,PSX,PSY,ICE_THK\nF01,1352757.4,-863079.4,2760.67\n");
+    add("IRH1.csv", "LINE_ID,PSX,PSY,IRH_DEPTH,ICE_THK,SURF_ELEV\nF01,1352757.4,-863079.4,1008.35,2760.67,3233.1\n");
+    add("ICE_THK.csv", "LINE_ID,PSX,PSY,ICE_THK\nF01,1352757.4,-863079.4,2760.67\n");
   } else {
-    add("F01.csv", "PSX,PSY,ICE_THK,IRH1,IRH2\n1352757.4,-863079.4,2760.67,1008.35,1169.2\n");
+    add("F01.csv", "PSX,PSY,ICE_THK,SURF_ELEV,IRH1,IRH2\n1352757.4,-863079.4,2760.67,3233.1,1008.35,1169.2\n");
   }
   help.append(templates);
   return help;
@@ -491,7 +521,7 @@ function showLayers() {
         const surveyInputs = (["acquisition_year", "project"] as const).map((key) => {
           const input = element("input", {
             value: own[key],
-            placeholder: key === "project" ? draft.survey.projects.join(", ") || "project" : draft.survey.acquisition_year || "year",
+            placeholder: key === "project" ? draft.survey.projects.join(", ") || "project" : draft.survey.acquisition_year || "year or years",
           });
           input.setAttribute("aria-label", `${key === "project" ? "Project" : "Acquisition year"} of ${f.name}, if different`);
           if (key === "project") input.setAttribute("list", "suggest-projects");
@@ -560,10 +590,20 @@ function layerIssues(): Issue[] {
     for (const f of files.filter((g) => g.kind === "irh")) {
       const n = Number(draft.fileIrh[f.name]);
       if (!Number.isInteger(n) || n < 1) issues.push({ level: "error", text: `${f.name}: give the IRH number of the layer (1, 2, ...).` });
-      const year = draft.fileSurvey[f.name]?.acquisition_year;
-      if (year && !/^\d{4}$/.test(year)) issues.push({ level: "error", text: `${f.name}: the acquisition year is not a year.` });
+      const year = yearIssue(draft.fileSurvey[f.name]?.acquisition_year ?? "");
+      if (year) issues.push({ level: "error", text: `${f.name}: ${year}` });
     }
     const variables = files.filter((f) => f.kind === "variable").map((f) => f.variable);
+    // A variable in a variable file and in layer files: which one would be compiled is not clear
+    for (const v of new Set(variables)) {
+      const also = files.filter((f) => f.kind === "irh" && f.variables.includes(v!));
+      if (also.length)
+        issues.push({
+          level: "error",
+          text: `${v} is both in a variable file and in ${also.length} layer file${also.length === 1 ? "" : "s"} ` +
+            `(${also.slice(0, 3).map((f) => f.name).join(", ")}${also.length > 3 ? ", ..." : ""}): keep only one of them.`,
+        });
+    }
     const twice = variables.filter((v, i) => variables.indexOf(v) !== i);
     if (twice.length) issues.push({ level: "warning", text: `Several files for ${[...new Set(twice)].join(", ")}: fine if they cover different lines.` });
     // Variables of lines without any layer
@@ -574,6 +614,8 @@ function layerIssues(): Issue[] {
         issues.push({ level: "warning", text: `${f.name}: ${alone.length} line(s) without any layer (${alone.slice(0, 3).join(", ")}...).` });
     }
   }
+  const missing = missingReference();
+  if (missing) issues.push({ level: "warning", text: missing });
   const undated: number[] = [];
   for (const irh of irhNumbers()) {
     const { age = "", age_unc = "" } = draft.ages[irh] ?? {};
@@ -585,6 +627,35 @@ function layerIssues(): Issue[] {
   }
   if (undated.length) issues.push({ level: "warning", text: `Undated layers: ${undated.map((n) => `IRH ${n}`).join(", ")}.` });
   return issues;
+}
+
+/**
+ * The warning when the layer files lack the reference of their depths: at least two of
+ * ICE_THK, SURF_ELEV and BED_ELEV, in their columns or in variable files; "" when fine.
+ */
+function missingReference(): string {
+  const layerFiles = files.filter((f) => (f.kind === "irh" || f.kind === "line") && !f.issues.some((i) => i.level === "error"));
+  if (!layerFiles.length) return "";
+  const inFiles = new Set(files.filter((f) => f.kind === "variable").map((f) => f.variable!));
+  const short = layerFiles.filter((f) => REFERENCE.filter((v) => inFiles.has(v) || f.variables.includes(v)).length < 2);
+  if (!short.length) return "";
+  const why = "We encourage you to provide them: depths without the surface and ice thickness reference are of " +
+    "little use for modelling (two of them are enough, the third is computed). Otherwise, the database will try to " +
+    "reconnect the ice thickness and the bed elevation from Bedmap, but this is not guaranteed.";
+  const missing = REFERENCE.filter((v) => short.some((f) => !inFiles.has(v) && !f.variables.includes(v)));
+  if (short.length === layerFiles.length)
+    return `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing. ${why}`;
+  const names = short.slice(0, 3).map((f) => f.name).join(", ") + (short.length > 3 ? ", ..." : "");
+  return `${short.length} of ${layerFiles.length} files (${names}) have fewer than two of ${REFERENCE.join(", ")}. ${why}`;
+}
+
+/** What is wrong with an acquisition year: a year (2019) or a range of years (2010-2011); "" when fine. */
+function yearIssue(text: string): string {
+  if (!text) return "";
+  const match = text.match(/^(\d{4})(?:-(\d{4}))?$/);
+  if (!match) return `the acquisition year "${text}" is neither a year (2019) nor a range of years (2010-2011).`;
+  if (match[2] && Number(match[2]) <= Number(match[1])) return `the acquisition years ${text} must go from the first to the last.`;
+  return "";
 }
 
 const LICENCE_NO =
@@ -619,7 +690,8 @@ function otherIssues(): Issue[] {
   if (!draft.licence) issues.push({ level: "error", text: "Please say whether the AntADatabase can redistribute your data." });
   if (draft.licence === "no") issues.push({ level: "error", text: LICENCE_NO });
   const { acquisition_year, institutes } = draft.survey;
-  if (acquisition_year && !/^\d{4}$/.test(acquisition_year)) issues.push({ level: "error", text: "The acquisition year is not a year." });
+  const year = yearIssue(acquisition_year);
+  if (year) issues.push({ level: "error", text: year[0].toUpperCase() + year.slice(1) });
   if (!acquisition_year) issues.push({ level: "warning", text: "No acquisition year." });
   if (!institutes.length) issues.push({ level: "warning", text: "No institute." });
   return issues;
@@ -748,6 +820,8 @@ function payload() {
       irh: f.kind === "irh" ? Number(draft.fileIrh[f.name]) : undefined,
       variable: f.variable,
       irh_columns: f.kind === "line" ? f.irhColumns : undefined,
+      variables: f.variables,
+      columns: f.header,
       rows: f.rows,
       line_ids: f.lineIds.size,
       acquisition_year: f.kind === "irh" ? draft.fileSurvey[f.name]?.acquisition_year || undefined : undefined,
@@ -818,6 +892,8 @@ async function submit(event: Event) {
   const button = $<HTMLButtonElement>("submit");
   const status = $("submit-status");
   if (button.disabled) return;
+  const missing = missingReference();
+  if (missing && !confirm(`${missing}\n\nAre you sure you still want to submit?`)) return;
   button.disabled = true;
   status.textContent = "Sending…";
   const progress = $<HTMLProgressElement>("submit-progress");

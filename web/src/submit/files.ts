@@ -16,9 +16,40 @@ export interface Issue {
   text: string;
 }
 
-export const COORDINATES = ["PSX", "PSY", "lon", "lat"];
+export const COORDINATES = ["PSX", "PSY", "LON", "LAT"];
+/**
+ * Other names accepted for the standard ones (as ALIASES in portal/checks.py): the names of
+ * the compiled data, and Flight_ID, the name of the line ID before ground-based radar.
+ */
+export const ALIASES: Record<string, string> = { Line_ID: "LINE_ID", Flight_ID: "LINE_ID", lon: "LON", lat: "LAT" };
 /** Variables that may come with the layers, in metres. */
 export const VARIABLES = ["ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT"];
+/** Of these, the reference of the depths: two of them give the third (CompileDatabase). */
+export const REFERENCE = ["ICE_THK", "SURF_ELEV", "BED_ELEV"];
+/**
+ * Optional columns with a standard name, kept in the raw files (stored with the dataset) but
+ * not compiled yet. Of a layer: with the name in a layer file, IRH<n>_<name without IRH_> in a
+ * line file (IRH3_DEPTH_UNC). Text columns are not checked as numbers.
+ */
+export const LAYER_EXTRAS: Record<string, string> = {
+  IRH_DEPTH_UNC: "depth uncertainty (m)",
+  IRH_AGE: "age at each point (years)",
+  IRH_AGE_UNC: "age uncertainty at each point (years)",
+  IRH_TWT: "two-way travel time to the layer (µs)",
+  IRH_QUALITY: "picking quality or confidence",
+  IRH_POWER: "reflection power (dB)",
+};
+export const POINT_EXTRAS: Record<string, string> = {
+  SURF_TWT: "two-way travel time to the surface (µs)",
+  BED_TWT: "two-way travel time to the bed (µs)",
+  TRACE_NUM: "trace number in the radargram",
+  DIST: "distance along the line (m)",
+  TIME: "UTC date and time of the trace (ISO 8601, e.g. 2023-12-24T10:31:05Z)",
+};
+const TEXT_EXTRAS = ["TIME", "IRH_QUALITY"];
+/** Name of an optional column of a layer in a line file: IRH_DEPTH_UNC, 3 -> IRH3_DEPTH_UNC. */
+export const lineExtra = (name: string, irh: number | string) => name.replace(/^IRH_/, `IRH${irh}_`);
+const LINE_EXTRA = new RegExp(`^IRH(\\d+)_(${Object.keys(LAYER_EXTRAS).map((n) => n.slice(4)).join("|")})$`);
 /** Missing values recognised by CompileDatabase. */
 export const MISSING = ["", "-9999", "-9999.0", "NaN", "nan"];
 export const EXTENSIONS: Record<string, string> = { csv: ",", tab: "\t" };
@@ -46,6 +77,10 @@ export interface FileInfo {
   rows: number;
   /** Variable of a variable file */
   variable?: string;
+  /** Variables in the columns of a layer or line file */
+  variables: string[];
+  /** Optional columns kept in the raw files (LAYER_EXTRAS, POINT_EXTRAS) */
+  extras: string[];
   /** IRH numbers of the columns of a line file */
   irhColumns: number[];
   /** Points with a value, per IRH (line file) */
@@ -83,17 +118,31 @@ export function toPolarStereo(lon: number, lat: number): [number, number] {
 
 /** A standard name differing only in case or punctuation, for "did you mean". */
 function standardName(column: string, structure: Structure): string | undefined {
-  const names = [...COORDINATES, ...VARIABLES, "Line_ID", "IRH_DEPTH"];
+  const extras = [...Object.keys(POINT_EXTRAS), ...(structure === "layer" ? Object.keys(LAYER_EXTRAS) : [])];
+  const names = [...COORDINATES, ...VARIABLES, ...(structure === "layer" ? ["LINE_ID", "IRH_DEPTH"] : []), ...extras];
   const simple = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   const found = names.find((n) => simple(n) === simple(column));
   if (found) return found;
   if (structure === "line" && /^irh[_ -]?\d+$/i.test(column)) return `IRH${column.match(/\d+/)![0]}`;
   const s = simple(column);
-  if (/^(longitude|long)$/.test(s)) return "lon";
-  if (/^latitude$/.test(s)) return "lat";
+  if (/^(longitude|long)$/.test(s)) return "LON";
+  if (/^latitude$/.test(s)) return "LAT";
+  // Optional columns (LAYER_EXTRAS, POINT_EXTRAS), before the depth and the line
+  const layer = (name: string) => (structure === "layer" ? name : lineExtra(name, "1") + ", ...");
+  if (/surf/.test(s) && /twt|traveltime/.test(s)) return "SURF_TWT";
+  if (/bed/.test(s) && /twt|traveltime/.test(s)) return "BED_TWT";
+  if (/twt|traveltime/.test(s)) return layer("IRH_TWT");
+  if (/age/.test(s) && /unc|err|sigma|std/.test(s)) return layer("IRH_AGE_UNC");
+  if (/^(irh)?age$/.test(s)) return layer("IRH_AGE");
+  if (/unc|err|sigma|std/.test(s) && !/thick|elev|surf|bed/.test(s)) return layer("IRH_DEPTH_UNC");
+  if (/qual|conf/.test(s)) return layer("IRH_QUALITY");
+  if (/power|amp|reflect/.test(s)) return layer("IRH_POWER");
+  if (/trace/.test(s)) return "TRACE_NUM";
+  if (/^(dist|distance)/.test(s)) return "DIST";
+  if (/time|date/.test(s)) return "TIME";
   if (/depth/.test(s)) return structure === "layer" ? "IRH_DEPTH" : "IRH1, IRH2, ...";
   if (/thick/.test(s)) return "ICE_THK";
-  if (/flight|line|transect|segment|profile/.test(s)) return structure === "layer" ? "Line_ID" : undefined;
+  if (/flight|line|transect|segment|profile/.test(s)) return structure === "layer" ? "LINE_ID" : undefined;
   return undefined;
 }
 
@@ -137,6 +186,8 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     preview: [],
     rows: 0,
     irhColumns: [],
+    variables: [],
+    extras: [],
     irhPoints: new Map(),
     lineIds: new Set(),
     points: new Float32Array(),
@@ -189,8 +240,9 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
   }
   const separator = found;
 
-  const header = splitLine(lines[0], separator);
-  info.header = header;
+  info.header = splitLine(lines[0], separator);
+  // The standard names, for the accepted other ones (lon -> LON); the file keeps its own
+  const header = info.header.map((c) => ALIASES[c] ?? c);
   // Text above the header that is not commented out is read as the header
   const first = splitLine(lines[1], separator);
   if (first.length !== header.length) {
@@ -201,35 +253,52 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     return info;
   }
   const column = (name: string) => header.indexOf(name);
-  // Flight_ID: the name of Line_ID before ground-based radar
-  const lineColumn = column("Line_ID") >= 0 ? "Line_ID" : "Flight_ID";
+  const lineColumn = "LINE_ID";
 
   const duplicates = header.filter((c, i) => header.indexOf(c) !== i);
-  if (duplicates.length) error(`Duplicate columns: ${[...new Set(duplicates)].join(", ")}.`);
+  if (duplicates.length)
+    error(`Duplicate columns: ${[...new Set(duplicates)].join(", ")} (${info.header.filter((c, i) => duplicates.includes(header[i])).join(", ")}).`);
 
-  // Columns: recognised, or ignored with a hint
+  // Columns: recognised, optional (kept in the raw files), or unknown (kept too, with a hint)
   const irhColumns = header.filter((c) => IRH_COLUMN.test(c));
-  const known = new Set([...COORDINATES, ...VARIABLES, ...(structure === "layer" ? [lineColumn, "IRH_DEPTH"] : [])]);
+  const known = new Set([...COORDINATES, ...VARIABLES, "acq_year", ...(structure === "layer" ? [lineColumn, "IRH_DEPTH"] : [])]);
+  const isExtra = (c: string) =>
+    c in POINT_EXTRAS || (structure === "layer" ? c in LAYER_EXTRAS : LINE_EXTRA.test(c));
+  info.extras = header.filter(isExtra);
+  const unknown: string[] = [];
   for (const c of header) {
-    if (known.has(c) || (structure === "line" && IRH_COLUMN.test(c))) continue;
+    if (known.has(c) || isExtra(c) || (structure === "line" && IRH_COLUMN.test(c))) continue;
     const hint = standardName(c, structure);
-    warning(`Column "${c}" is not a standard name and will be ignored${hint ? ` (should it be ${hint}?)` : ""}.`);
+    if (hint) warning(`Column "${c}" is not a standard name: should it be ${hint}? Otherwise it is kept in the raw files but not used.`);
+    else unknown.push(c);
   }
+  if (unknown.length)
+    warning(
+      `${unknown.length === 1 ? "Column" : "Columns"} ${unknown.map((c) => `"${c}"`).join(", ")}: not a standard name, ` +
+        `kept in the raw files but not used. Please describe what ${unknown.length === 1 ? "it holds" : "they hold"} in the notes (step 6).`,
+    );
+  // Optional columns of a layer, without the layer
+  if (structure === "line")
+    for (const c of info.extras.filter((e) => LINE_EXTRA.test(e))) {
+      const n = c.match(LINE_EXTRA)![1];
+      if (!header.includes(`IRH${n}`)) warning(`Column ${c} without a column IRH${n}.`);
+    }
 
-  // Coordinates: PSX/PSY (EPSG:3031) or lon/lat
+  // Coordinates: PSX/PSY (EPSG:3031) or LON/LAT
   const usePS = column("PSX") >= 0 && column("PSY") >= 0;
-  const useLonLat = column("lon") >= 0 && column("lat") >= 0;
-  if (!usePS && !useLonLat) error("Coordinates are missing: PSX and PSY (EPSG:3031, m), or lon and lat (WGS84, degrees).");
+  const useLonLat = column("LON") >= 0 && column("LAT") >= 0;
+  if (!usePS && !useLonLat) error("Coordinates are missing: PSX and PSY (EPSG:3031, m), or LON and LAT (WGS84, degrees).");
 
   // The content expected from the structure
   const variables = VARIABLES.filter((v) => column(v) >= 0);
   if (structure === "layer") {
+    if (header.some((c) => LINE_EXTRA.test(c)))
+      warning("Columns like IRH3_DEPTH_UNC are for files per line: in a layer file, name them IRH_DEPTH_UNC, ....");
     if (irhColumns.length) error(`Columns ${irhColumns.join(", ")} are for files per line: one file per layer has one IRH_DEPTH column.`);
-    if (column(lineColumn) < 0) error("The Line_ID column is missing: it says which radar line each point belongs to.");
+    if (column(lineColumn) < 0) error("The LINE_ID column is missing: it says which radar line each point belongs to.");
     if (column("IRH_DEPTH") >= 0) {
       info.kind = "irh";
-      if (variables.length)
-        error(`Put ${variables.join(", ")} in separate files (one file per variable, with Line_ID and coordinates), not in the layer files.`);
+      info.variables = variables;
     } else if (variables.length === 1) {
       info.kind = "variable";
       info.variable = variables[0];
@@ -240,6 +309,7 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     }
   } else {
     info.kind = "line";
+    info.variables = variables;
     if (!irhColumns.length) error("No layer columns: name the depth column of each layer IRH1, IRH2, ... (m below the ice surface).");
     info.irhColumns = irhColumns.map((c) => Number(c.match(IRH_COLUMN)![1]));
     if (!/^[A-Za-z0-9._-]+$/.test(stem(file.name)))
@@ -249,11 +319,12 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
 
   // Values
   const missing = new Set(MISSING);
-  const [ix, iy] = usePS ? [column("PSX"), column("PSY")] : [column("lon"), column("lat")];
+  const [ix, iy] = usePS ? [column("PSX"), column("PSY")] : [column("LON"), column("LAT")];
   const iLine = column(lineColumn);
   const depthColumns = structure === "layer" ? (info.kind === "irh" ? [column("IRH_DEPTH")] : []) : irhColumns.map(column);
   const thicknessColumns = variables.filter((v) => v !== "SURF_ELEV" && v !== "BED_ELEV").map(column);
-  const numeric = [ix, iy, ...depthColumns, ...variables.map(column)];
+  const numeric = [ix, iy, ...depthColumns, ...variables.map(column),
+    ...info.extras.filter((c) => !TEXT_EXTRAS.includes(c) && !/^IRH\d+_QUALITY$/.test(c)).map(column)];
   const depthOrThickness = [...depthColumns, ...thicknessColumns];
   // IRH number of the depth columns of a line file
   const irhOfColumn = new Map(structure === "line" ? depthColumns.map((c) => [c, Number(header[c].match(IRH_COLUMN)![1])]) : []);
@@ -327,6 +398,6 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
   if (negative) error(`${plural(negative, "value")} are negative: depths and thicknesses are in metres below the ice surface (not elevations).`);
   if (tooDeep) warning(`${plural(tooDeep, "value")} are deeper than ${MAX_DEPTH} m: are they missing values? Missing values must be empty, NaN or -9999.`);
   if (noCoordinates) warning(`${plural(noCoordinates, "row")} without coordinates will be ignored.`);
-  if (iLine >= 0 && info.lineIds.has("")) warning("Some rows have no Line_ID.");
+  if (iLine >= 0 && info.lineIds.has("")) warning("Some rows have no LINE_ID.");
   return info;
 }

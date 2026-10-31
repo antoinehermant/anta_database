@@ -3,9 +3,14 @@
 The h5 files of the dataset are turned back into raw files with the standard column names, as a
 contributor would upload them, under the dataset name Fake_2026:
 
-    per_layer/  one .tab file per IRH (Line_ID, PSX, PSY, IRH_DEPTH) and one per variable
+    per_layer/  one .tab file per IRH (LINE_ID, PSX, PSY, IRH_DEPTH) and one per variable
                 (ICE_THK, BASAL_UNIT)
-    per_line/   one .csv file per line (lon, lat, ICE_THK, BASAL_UNIT, IRH1, IRH2, ...)
+    per_line/   one .csv file per line (lon, lat, ICE_THK, BASAL_UNIT, IRH1, IRH2, ...), with
+                the older names of LON and LAT
+    per_layer_columns/
+                one .tab file per IRH with the variables in it (ICE_THK, SURF_ELEV), optional
+                columns kept in the raw files (IRH_DEPTH_UNC, TRACE_NUM, TIME) and an unknown one,
+                with Flight_ID, the older name of LINE_ID
     broken/     files with the mistakes the form should catch
 
 The form of the submission page can be filled from fake_submission.json in dev mode, written to
@@ -71,7 +76,7 @@ def per_layer(lines: list[xr.Dataset], out: str) -> None:
             depth = ds.IRH_DEPTH.sel(IRH=irh).values
             ok = np.isfinite(depth)
             rows.append(pd.DataFrame({
-                "Line_ID": ds.attrs["line ID"],
+                "LINE_ID": ds.attrs["line ID"],
                 "PSX": ds.PSX.values[ok].round(1),
                 "PSY": ds.PSY.values[ok].round(1),
                 "IRH_DEPTH": depth[ok].round(2),
@@ -90,12 +95,43 @@ def per_layer(lines: list[xr.Dataset], out: str) -> None:
             values = ds[var].values
             ok = np.isfinite(values)
             rows.append(pd.DataFrame({
-                "Line_ID": ds.attrs["line ID"],
+                "LINE_ID": ds.attrs["line ID"],
                 "PSX": ds.PSX.values[ok].round(1),
                 "PSY": ds.PSY.values[ok].round(1),
                 var: values[ok].round(2),
             }))
         pd.concat(rows).to_csv(os.path.join(out, f"{var}.tab"), sep="\t", index=False)
+
+
+def per_layer_columns(lines: list[xr.Dataset], out: str) -> None:
+    """Layer files with the reference of the depths in them, and more columns than compiled."""
+    os.makedirs(out)
+    rng = np.random.default_rng(0)
+    for irh in all_irhs(lines):
+        rows = []
+        for ds in lines:
+            if irh not in ds.IRH:
+                continue
+            depth = ds.IRH_DEPTH.sel(IRH=irh).values
+            ok = np.isfinite(depth)
+            thk = ds.ICE_THK.values[ok] if "ICE_THK" in ds else np.full(ok.sum(), np.nan)
+            n = int(ok.sum())
+            rows.append(pd.DataFrame({
+                "Flight_ID": ds.attrs["line ID"],
+                "TRACE_NUM": np.flatnonzero(ok),
+                "TIME": pd.Timestamp("2016-12-20T10:00:00Z") + pd.to_timedelta(np.flatnonzero(ok) * 0.1, unit="s"),
+                "PSX": ds.PSX.values[ok].round(1),
+                "PSY": ds.PSY.values[ok].round(1),
+                "IRH_DEPTH": depth[ok].round(2),
+                "IRH_DEPTH_UNC": rng.uniform(2, 10, n).round(1),
+                "ICE_THK": thk.round(2),
+                # A fake surface, a few hundred metres above sea level
+                "SURF_ELEV": (3200 - 0.0001 * np.hypot(ds.PSX.values[ok], ds.PSY.values[ok])).round(1),
+                "picker": "AB",
+            }))
+        df = pd.concat(rows)
+        df["TIME"] = df["TIME"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        df.fillna(NODATA).to_csv(os.path.join(out, f"IRH{irh}.tab"), sep="\t", index=False)
 
 
 def per_line(lines: list[xr.Dataset], out: str) -> None:
@@ -120,17 +156,18 @@ def broken(good: str, out: str) -> None:
     shutil.copy(os.path.join(good, "IRH2.tab"), os.path.join(out, "IRH2.csv"))
     # Non-standard column names
     df = pd.read_csv(os.path.join(good, "IRH3.tab"), sep="\t")
-    df.rename(columns={"IRH_DEPTH": "Depth (m)", "Line_ID": "line_id"}).to_csv(
+    df.rename(columns={"IRH_DEPTH": "Depth (m)", "LINE_ID": "line_id"}).to_csv(
         os.path.join(out, "IRH3.tab"), sep="\t", index=False)
     # Elevations instead of depths, and points north of Antarctica
     df = pd.read_csv(os.path.join(good, "IRH4.tab"), sep="\t")
     df["IRH_DEPTH"] = 3200 - df["IRH_DEPTH"] - 4000
     df.loc[:9, "PSY"] = 9e6
     df.to_csv(os.path.join(out, "IRH4.tab"), sep="\t", index=False)
-    # Variables in a layer file, which should be separate files
+    # A variable both in a layer file and in a variable file
     df = pd.read_csv(os.path.join(good, "IRH5.tab"), sep="\t")
     df["ICE_THK"] = 3000.0
     df.to_csv(os.path.join(out, "IRH5.tab"), sep="\t", index=False)
+    shutil.copy(os.path.join(good, "ICE_THK.tab"), os.path.join(out, "ICE_THK.tab"))
     # A description at the top that is not commented out
     df = pd.read_csv(os.path.join(good, "IRH6.tab"), sep="\t")
     with open(os.path.join(out, "IRH6.tab"), "w") as f:
@@ -173,6 +210,7 @@ def main() -> None:
     shutil.rmtree(args.output, ignore_errors=True)
     per_layer(lines, os.path.join(args.output, "per_layer"))
     per_line(lines, os.path.join(args.output, "per_line"))
+    per_layer_columns(lines, os.path.join(args.output, "per_layer_columns"))
     broken(os.path.join(args.output, "per_layer"), os.path.join(args.output, "broken"))
 
     dev = os.path.join(REPO, "web", "public", "dev")

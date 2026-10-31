@@ -23,13 +23,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-COORDINATES = ("PSX", "PSY", "lon", "lat")
+COORDINATES = ("PSX", "PSY", "LON", "LAT")
 VARIABLES = ("ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT")
 MISSING = ["", "-9999", "-9999.0", "NaN", "nan"]
 SEPARATORS = {".csv": ",", ".tab": "\t"}
 IRH_COLUMN = re.compile(r"^IRH(\d+)$")
-# Column of the line of each point; Flight_ID is its name before ground-based radar
-LINE_ID_COLUMNS = ("Line_ID", "Flight_ID")
+# Optional columns, kept in the raw files but not compiled (as LAYER_EXTRAS and POINT_EXTRAS
+# in web/src/submit/files.ts): of a layer (IRH3_DEPTH_UNC in a line file), and of a point
+LAYER_EXTRAS = ("IRH_DEPTH_UNC", "IRH_AGE", "IRH_AGE_UNC", "IRH_TWT", "IRH_QUALITY", "IRH_POWER")
+POINT_EXTRAS = ("SURF_TWT", "BED_TWT", "TRACE_NUM", "DIST", "TIME")
+LINE_EXTRA = re.compile(rf"^IRH\d+_({'|'.join(n[4:] for n in LAYER_EXTRAS)})$")
+# Reference of the depths: two of them give the third
+REFERENCE = ("ICE_THK", "SURF_ELEV", "BED_ELEV")
+# Other names accepted for the standard ones (as ALIASES in web/src/submit/files.ts): the names
+# of the compiled data, and Flight_ID, the name of the line ID before ground-based radar
+ALIASES = {"Line_ID": "LINE_ID", "Flight_ID": "LINE_ID", "lon": "LON", "lat": "LAT"}
 MAX_DEPTH = 5000  # m, deeper than any ice in Antarctica
 PS_EXTENT = 3.4e6  # m, Antarctica in EPSG:3031
 CHUNK = 1_000_000  # rows read at once
@@ -83,6 +91,8 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     report = Report()
     points: dict[int, int] = {}
     structure = record["structure"]
+    reference: dict[str, set[str]] = {}  # variables of REFERENCE in each layer or line file
+    variable_files: set[str] = set()
     for f in record["files"]:
         name = f["name"]
         path = dataset_dir / "raw" / name
@@ -95,37 +105,49 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
             continue
         skip = _header_line(path)
         try:
-            header = list(pd.read_csv(path, sep=sep, skiprows=skip, nrows=0).columns)
+            original = list(pd.read_csv(path, sep=sep, skiprows=skip, nrows=0).columns)
         except Exception as e:
             report.errors.append(f"{name}: unreadable ({e})")
+            continue
+        # The standard names, for the accepted other ones (lon -> LON)
+        header = [ALIASES.get(c, c) for c in original]
+        duplicates = sorted({c for c in header if header.count(c) > 1})
+        if duplicates:
+            report.errors.append(f"{name}: duplicate columns {', '.join(duplicates)}")
             continue
         if len(header) < 2:
             report.errors.append(f"{name}: one column only: the values must be separated by {'tabs' if sep == chr(9) else 'commas'}")
             continue
-        coords = ("PSX", "PSY") if {"PSX", "PSY"} <= set(header) else ("lon", "lat") if {"lon", "lat"} <= set(header) else None
+        coords = ("PSX", "PSY") if {"PSX", "PSY"} <= set(header) else ("LON", "LAT") if {"LON", "LAT"} <= set(header) else None
         if coords is None:
-            report.errors.append(f"{name}: no coordinates (PSX and PSY, or lon and lat)")
+            report.errors.append(f"{name}: no coordinates (PSX and PSY, or LON and LAT)")
             continue
 
         kind = f["kind"]
         if kind == "irh":
-            values = ["IRH_DEPTH"]
+            values = ["IRH_DEPTH"] + [v for v in VARIABLES if v in header]
         elif kind == "variable":
             values = [f["variable"]]
         else:
             values = [f"IRH{n}" for n in f.get("irh_columns") or []] + [v for v in VARIABLES if v in header]
-        line_column = next((c for c in LINE_ID_COLUMNS if c in header), None)
+        line_column = "LINE_ID" if "LINE_ID" in header else None
         required = values
         missing = [c for c in required if c not in header]
         if structure == "layer" and line_column is None:
-            missing.insert(0, "Line_ID")
+            missing.insert(0, "LINE_ID")
         if missing:
             report.errors.append(f"{name}: no {', '.join(missing)} column")
             continue
-        known = set(COORDINATES) | set(VARIABLES) | {*LINE_ID_COLUMNS, "IRH_DEPTH", "acq_year"}
-        unknown = [c for c in header if c not in known and not IRH_COLUMN.match(c)]
+        known = set(COORDINATES) | set(VARIABLES) | set(POINT_EXTRAS) | {"LINE_ID", "IRH_DEPTH", "acq_year"}
+        if structure == "layer":
+            known |= set(LAYER_EXTRAS)
+        unknown = [c for c in header if c not in known and not IRH_COLUMN.match(c) and not LINE_EXTRA.match(c)]
         if unknown:
-            report.warnings.append(f"{name}: columns ignored: {', '.join(unknown[:10])}")
+            report.warnings.append(f"{name}: columns not standard, kept in the raw files only: {', '.join(unknown[:10])}")
+        if kind in ("irh", "line"):
+            reference[name] = {v for v in REFERENCE if v in header}
+        elif kind == "variable":
+            variable_files.add(f["variable"])
 
         rows = invalid = outside = negative = deep = 0
         line_ids: set[str] = set()
@@ -133,7 +155,7 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
         numeric = [*coords, *values]
         try:
             for chunk in pd.read_csv(
-                path, sep=sep, skiprows=skip, dtype=str, keep_default_na=False, chunksize=CHUNK,
+                path, sep=sep, skiprows=skip, header=0, names=header, dtype=str, keep_default_na=False, chunksize=CHUNK,
                 usecols=list(dict.fromkeys(numeric + ([line_column] if line_column else []))),
             ):
                 rows += len(chunk)
@@ -146,7 +168,7 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
                     invalid += int((number.isna() & ~text.isin(MISSING)).sum())
                     table[c] = number.to_numpy(dtype=float)
                 x, y = table[coords[0]], table[coords[1]]
-                if coords == ("lon", "lat"):
+                if coords == ("LON", "LAT"):
                     out = (y >= -60) | (y < -90) | (np.abs(x) > 360)
                 else:
                     out = (np.abs(x) > PS_EXTENT) | (np.abs(y) > PS_EXTENT)
@@ -177,6 +199,16 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
         elif kind == "line":
             for n in f.get("irh_columns") or []:
                 points[n] = points.get(n, 0) + counts[f"IRH{n}"]
+    # The form asks for two of REFERENCE but lets the contributor submit without: a warning
+    short = sorted(n for n, have in reference.items() if len((have | variable_files) & set(REFERENCE)) < 2)
+    if short:
+        report.warnings.append(
+            f"{plural(len(short), 'file')} of {len(reference)} with fewer than two of {', '.join(REFERENCE)}"
+            f" (no reference of the depths): {', '.join(short[:5])}{', ...' if len(short) > 5 else ''}"
+        )
+    both = sorted(v for v in variable_files if any(v in have for have in reference.values()))
+    if both:
+        report.errors.append(f"{', '.join(both)} both in variable files and in layer files: keep only one of them")
     report.summary["raw points"] = points
     return report
 

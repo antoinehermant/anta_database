@@ -55,6 +55,8 @@ GB = 1024**3
 REDUCE = "Try to reduce the size of your files, or contact us."
 EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 VARIABLES = ("ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT")
+# An acquisition year (2019), or a range of years (2010-2011)
+YEARS = re.compile(r"^\d{4}(-\d{4})?$")
 
 log = logging.getLogger("portal")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -75,7 +77,7 @@ class Survey(BaseModel):
     institutes: list[str] = Field(default=[], max_length=20)
     projects: list[str] = Field(default=[], max_length=20)
     radar_instruments: list[str] = Field(default=[], max_length=20)
-    acquisition_year: str = Field(default="", pattern=r"^(\d{4})?$")
+    acquisition_year: str = Field(default="", pattern=r"^(\d{4}(-\d{4})?)?$")  # YEARS, or none
 
 
 class Contributor(BaseModel):
@@ -91,9 +93,12 @@ class SubmittedFile(BaseModel):
     irh: Optional[int] = Field(default=None, ge=1)
     variable: Optional[Literal[VARIABLES]] = None
     irh_columns: Optional[list[int]] = None
+    # Variables in the columns of a layer or line file, and the header of the file
+    variables: list[Literal[VARIABLES]] = Field(default=[], max_length=len(VARIABLES))
+    columns: list[str] = Field(default=[], max_length=1000)
     rows: int = 0
     line_ids: int = 0
-    acquisition_year: Optional[str] = Field(default=None, pattern=r"^\d{4}$")
+    acquisition_year: Optional[str] = Field(default=None, pattern=YEARS.pattern)
     project: Optional[str] = Field(default=None, max_length=200)
 
     @field_validator("name")
@@ -130,6 +135,14 @@ class Submission(BaseModel):
 # --- Inputs of CompileDatabase
 
 
+def years(text: str):
+    """The acquisition year of raw_md.json, as in the existing datasets: a year as a number
+    (2019), a range of years as text ("2010-2011"); None for none."""
+    if not text:
+        return None
+    return int(text) if text.isdigit() else text
+
+
 def one_or_list(values: list[str]):
     """A name, a list of names, or None, as in the raw_md.json of the existing datasets."""
     values = [v.strip() for v in values if v.strip()]
@@ -146,7 +159,7 @@ def raw_metadata(s: Submission) -> list[dict]:
         "institute": one_or_list(s.survey.institutes),
         "project": one_or_list(s.survey.projects),
         "radar instrument": one_or_list(s.survey.radar_instruments),
-        "acquisition year": int(s.survey.acquisition_year) if s.survey.acquisition_year else None,
+        "acquisition year": years(s.survey.acquisition_year),
         "citation": s.citation,
         "DOI dataset": s.publication.doi_dataset,
         "DOI publication": s.publication.doi_publication,
@@ -167,7 +180,7 @@ def raw_metadata(s: Submission) -> list[dict]:
             if f.project:
                 entry["project"] = f.project
             if f.acquisition_year:
-                entry["acquisition year"] = int(f.acquisition_year)
+                entry["acquisition year"] = years(f.acquisition_year)
             entries.append(entry)
     else:
         for irh in sorted({n for f in s.files for n in f.irh_columns or []}):
@@ -184,19 +197,19 @@ def raw_metadata(s: Submission) -> list[dict]:
 
 
 def column_names(s: Submission) -> list[tuple[str, str]]:
-    """original_new_column_names.csv: the columns already have the standard names, apart from
-    the layer columns of the line files (IRH1 -> 1), and Flight_ID, the old name of Line_ID."""
-    columns = {c: c for c in ("PSX", "PSY", "lon", "lat")}
+    """original_new_column_names.csv: the columns have the standard names of the submissions,
+    mapped to those of CompileDatabase: LINE_ID (or Line_ID, Flight_ID) -> Line_ID, LON (or
+    lon) -> lon, LAT (or lat) -> lat, and the layer columns of the line files (IRH1 -> 1).
+    The variables are compiled from the layer or line files, or from the variable files. The
+    optional columns (IRH_DEPTH_UNC, TRACE_NUM...) and the unknown ones stay out: they are
+    only kept in the raw files."""
+    columns = {"PSX": "PSX", "PSY": "PSY", "LON": "lon", "lon": "lon", "LAT": "lat", "lat": "lat"}
+    columns.update({v: v for v in VARIABLES})
     if s.structure == "layer":
-        columns["Line_ID"] = "Line_ID"
-        columns["Flight_ID"] = "Line_ID"
+        columns.update({c: "Line_ID" for c in ("LINE_ID", "Line_ID", "Flight_ID")})
         if any(f.kind == "irh" for f in s.files):
             columns["IRH_DEPTH"] = "IRH_DEPTH"
-        for f in s.files:
-            if f.kind == "variable":
-                columns[f.variable] = f.variable
     else:
-        columns.update({v: v for v in VARIABLES})
         for irh in sorted({n for f in s.files for n in f.irh_columns or []}):
             columns[f"IRH{irh}"] = str(irh)
     return list(columns.items())

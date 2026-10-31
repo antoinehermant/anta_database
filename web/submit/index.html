@@ -94,13 +94,13 @@
           <div class="choices">
             <button type="button" class="choice" data-structure="layer">
               <strong>One file per layer</strong>
-              <span>Each file holds one isochrone (IRH) over all radar lines, with a <code>Line_ID</code> column. This is
+              <span>Each file holds one isochrone (IRH) over all radar lines, with a <code>LINE_ID</code> column. This is
                 how most data repositories (PANGAEA, USAP-DC...) distribute isochrones.</span>
               <span class="example">
                 IRH1.csv, IRH2.csv, ...<br />
-                <code>Line_ID, PSX, PSY, IRH_DEPTH</code><br />
+                <code>LINE_ID, PSX, PSY, IRH_DEPTH</code><br />
                 and optionally ICE_THK.csv...<br />
-                <code>Line_ID, PSX, PSY, ICE_THK</code>
+                <code>LINE_ID, PSX, PSY, ICE_THK</code>
               </span>
             </button>
             <button type="button" class="choice" data-structure="line">
@@ -160,8 +160,8 @@
               <label>Radar instrument(s)
                 <span class="tags" data-tags="survey.radar_instruments" data-suggest="radar_instruments"><input placeholder="HiCARS" /></span>
               </label>
-              <label>Acquisition year
-                <input data-bind="survey.acquisition_year" inputmode="numeric" maxlength="4" placeholder="2019" />
+              <label>Acquisition year (period)
+                <input data-bind="survey.acquisition_year" maxlength="9" placeholder="2019, or 2010-2011" />
               </label>
             </div>
             <datalist id="suggest-institutes"></datalist>
@@ -213,7 +213,8 @@
               </label>
             </div>
             <p id="verify-status" class="muted">We send you a code to verify your email address before you can submit.</p>
-            <label class="wide">Notes <span class="muted">(optional: wave speed and firn correction used, processing, anything we should know)</span>
+            <label class="wide">Notes <span class="muted">(optional: wave speed and firn correction used, processing, what the non-standard columns
+              hold, anything we should know; kept with your raw files, and published with them)</span>
               <textarea data-bind="notes" rows="3"></textarea>
             </label>
             <fieldset class="consent">
@@ -221,7 +222,8 @@
               <label class="check">
                 <input type="radio" name="licence" value="yes" data-bind="licence" />
                 <span><strong>Yes:</strong> the data is published (or about to be), and I am entitled to share it so that
-                the AntADatabase redistributes it openly, with the citation and DOIs above.</span>
+                the AntADatabase redistributes it openly, with the citation and DOIs above: the compiled data, and the files
+                I send as they are.</span>
               </label>
               <label class="check">
                 <input type="radio" name="licence" value="review" data-bind="licence" />
