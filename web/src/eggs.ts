@@ -3,7 +3,8 @@
  * Mountains, near Mount Kirkpatrick; the fossil of Charybdis, the sea monster
  * of Greek myth, in a deep trough under the ice, towards the coast from the
  * lines of Bodart and Sutter (2025b); and the whirlpool she left in the
- * Southern Ocean, off the Wilkes Subglacial Basin.
+ * Southern Ocean, off the Wilkes Subglacial Basin; and the cromlech of ice
+ * cores standing on the surface next to Little Dome C.
  *
  * Unlike the aircraft, they have a fixed size in the scene (km), so they are
  * tiny from afar and grow as you zoom in on them. Their shapes aren't
@@ -153,6 +154,59 @@ function fossil(): THREE.Group {
   return group;
 }
 
+/**
+ * A ring of ice cores standing on end, 1 unit across, on z = 0: like the
+ * circle of about 50 one-metre cores that a team of women scientists set up
+ * at Little Dome C during the 2023–2024 drilling season. Each core is a bit
+ * different in height and leans a little, as cut and stood by hand; some are
+ * broken, their pieces lying on the snow around them.
+ */
+function cromlech(): THREE.Group {
+  const group = new THREE.Group();
+  const ice = new THREE.MeshMatcapMaterial({ matcap: matcap("#e4f1ff", "#6f8fb0") });
+  let seed = 11;
+  const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const CORES = 50;
+  const radius = 0.012;
+  const core = new THREE.CylinderGeometry(radius, radius, 1, 12).rotateX(Math.PI / 2).translate(0, 0, 0.5);
+  // A piece lying down: along y, centred
+  const piece = new THREE.CylinderGeometry(radius, radius, 1, 12);
+  const HEIGHT = 0.12; // a whole core
+  for (let k = 0; k < CORES; k++) {
+    const a = (k / CORES) * Math.PI * 2 + 0.02 * (random() - 0.5);
+    const [x, y] = [0.5 * Math.cos(a), 0.5 * Math.sin(a)];
+    const height = HEIGHT * (0.92 + 0.16 * random());
+    // About two in five are broken: a stump left standing, the rest in one to three pieces
+    const broken = random() < 0.4;
+    const standing = broken ? height * (0.25 + 0.45 * random()) : height;
+    const m = mesh(core, ice);
+    m.position.set(x, y, 0);
+    m.scale.z = standing;
+    m.rotation.set(0.06 * (random() - 0.5), 0.06 * (random() - 0.5), 0);
+    group.add(m);
+    if (!broken) continue;
+    const pieces = 1 + Math.floor(3 * random());
+    let left = height - standing;
+    for (let p = 0; p < pieces; p++) {
+      const length = p === pieces - 1 ? left : left * (0.4 + 0.3 * random());
+      left -= length;
+      // Most kicked into the middle of the circle, some fallen just outside
+      const out = random() < 0.3 ? 0.02 + 0.05 * random() : -(0.03 + 0.35 * random());
+      const side = 0.08 * (random() - 0.5);
+      const fallen = mesh(piece, ice);
+      fallen.position.set(x + out * Math.cos(a) - side * Math.sin(a), y + out * Math.sin(a) + side * Math.cos(a), radius);
+      fallen.scale.y = length;
+      fallen.rotation.z = Math.PI * random();
+      group.add(fallen);
+    }
+  }
+  // Not drawn: the disc inside the ring, so the whole cromlech can be hovered
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.52, 32), new THREE.MeshBasicMaterial({ visible: false }));
+  disc.position.z = 0.03;
+  group.add(disc);
+  return group;
+}
+
 interface Egg {
   title: string;
   rows: [string, string][];
@@ -246,12 +300,15 @@ const FOSSIL_AT = polarStereographic(-69.72, 152.79); // a deep trough, coastwar
 const FOSSIL_BURIED = 0.01;
 const WHIRLPOOL_RADIUS = 35; // at the sea surface, down to a point at the seafloor
 const WHIRLPOOL_AT = polarStereographic(-64, 150); // off the Wilkes Subglacial Basin
+const CROMLECH_SIZE = 3; // a few metres across in reality: made bigger, to be seen at all
+const CROMLECH_AT = polarStereographic(-75.34, 122.45); // about 4.5 km south of the Little Dome C drill site
 
 export class EasterEggs {
   readonly group = new THREE.Group();
   private exaggeration = 1;
   private vessel = vessel();
   private fossil = fossil();
+  private cromlech = cromlech();
   private whirlpool: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>;
   private eggs: Egg[];
   private fossilRows: [string, string][];
@@ -283,7 +340,8 @@ export class EasterEggs {
     this.vessel.rotation.set(0.75, -0.35, 0.4);
     this.fossil.scale.set(FOSSIL_SIZE, FOSSIL_SIZE, FOSSIL_SIZE * FOSSIL_RELIEF);
     this.fossil.rotation.z = 2.2;
-    this.group.add(this.vessel, this.fossil, this.whirlpool);
+    this.cromlech.scale.setScalar(CROMLECH_SIZE);
+    this.group.add(this.vessel, this.fossil, this.whirlpool, this.cromlech);
     this.fossilRows = [
       ["Position", "69.7° S, 152.8° E, at the bottom of a deep trough"],
       ["Near", "the lines of Bodart and Sutter (2025b)"],
@@ -318,6 +376,19 @@ export class EasterEggs {
         note: "Left over from the activity of Charybdis, before she settled inland under the ice. Still spinning.",
         objects: [this.whirlpool],
       },
+      {
+        title: "Ice core cromlech",
+        rows: [
+          ["Position", "75.3° S, 122.4° E, next to Little Dome C"],
+          ["Stones", "about 50 ice cores, 1 m long, stood on end in a circle"],
+          ["Raised", "during the 2023–2024 drilling season"],
+          ["Builders", "a team of women scientists of the Beyond EPICA camp"],
+          ["Rites", "dancing and screaming out loud in the middle, to decompress from the long working hours at the camp"],
+          ["State", "some cores broken, the pieces lying around"],
+        ],
+        note: "The first stone circle of Antarctica, made of ice, where its builders danced and screamed in the middle. Not in Bedmap3.",
+        objects: [this.cromlech],
+      },
     ];
     this.place();
   }
@@ -343,6 +414,12 @@ export class EasterEggs {
     const surface = this.surfaceAt(fx, fy);
     const ice = surface === null || floor === null ? null : Math.round((surface - floor) / 10) * 10;
     this.fossilRows.splice(4, 1, ...(ice === null ? [] : [["Ice above", `about ${ice} m`] as [string, string]]));
+
+    // Standing on the ice surface, the bottom of the cores a little sunk into it
+    const [cx, cy] = CROMLECH_AT;
+    const snow = this.surfaceAt(cx, cy);
+    this.cromlech.visible = snow !== null;
+    if (snow !== null) this.cromlech.position.set(cx, cy, z(snow) - 0.01 * CROMLECH_SIZE);
 
     // From the sea surface down to the seafloor
     const [wx, wy] = WHIRLPOOL_AT;

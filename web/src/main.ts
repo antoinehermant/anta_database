@@ -575,7 +575,7 @@ const aircraft = new Aircraft(
 aircraft.setExaggeration(shared.exaggeration.value);
 scene.add(aircraft.group);
 
-// Two hidden things to find
+// Hidden things to find
 const ground = (x: number, y: number): number | null => {
   const [top, bed] = [pivotField?.surfaceAt(x, y) ?? null, pivotField?.bedAt(x, y) ?? null];
   return top === null ? bed : bed === null ? top : Math.max(top, bed);
@@ -1480,7 +1480,7 @@ const tutorial = new Tutorial([
   },
   {
     title: "Find the eggs!",
-    text: "A few strange things are hidden somewhere in Antarctica, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
+    text: "A few strange things are hidden somewhere in Antarctica: on the ice, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
     prepare: () => resetView(),
   },
 ]);
