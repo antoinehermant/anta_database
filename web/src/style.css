@@ -223,6 +223,9 @@ body:has(#sidebar:not(.closed)) #legends {
 }
 
 #sidebar h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 1.05rem;
   font-weight: 650;
@@ -248,12 +251,13 @@ body:has(#sidebar:not(.closed)) #legends {
 
 #sidebar-toggle {
   position: absolute;
-  top: 18px;
-  right: -38px;
+  top: 14px;
+  /* Large, so it is easy to reach without lingering in the edge of the view that moves it */
+  right: -52px;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 46px;
+  width: 44px;
+  height: 72px;
   padding: 0;
   border: none;
   border-radius: 0 10px 10px 0;
@@ -269,6 +273,8 @@ body:has(#sidebar:not(.closed)) #legends {
 }
 
 #sidebar-toggle svg {
+  width: 22px;
+  height: 22px;
   transition: transform 0.25s ease;
 }
 
@@ -444,8 +450,8 @@ body:has(#sidebar:not(.closed)) #legends {
   color: var(--muted);
 }
 
-#preview .close,
-#preview-download .close {
+#preview .reduce,
+#preview-download .reduce {
   position: absolute;
   top: 6px;
   right: 8px;
@@ -522,6 +528,22 @@ body:has(#sidebar:not(.closed)) #legends {
   font-size: 0.95rem;
 }
 
+/* Reduced to the title, never closed */
+#preview h2,
+#preview-download h2 {
+  cursor: pointer;
+}
+
+#preview.reduced > :not(h2, .reduce),
+#preview-download.reduced > :not(h2, .reduce) {
+  display: none;
+}
+
+#preview.reduced h2,
+#preview-download.reduced h2 {
+  margin-bottom: 0;
+}
+
 .clean #preview-stack {
   display: none;
 }
@@ -563,6 +585,17 @@ body:has(#sidebar:not(.closed)) #legends {
   bottom: 12px;
   width: auto;
   height: auto;
+}
+
+/* Reduced to its title: no plot, nor the buttons that change it */
+#profile.reduced {
+  height: auto;
+}
+
+#profile.reduced .plot,
+#profile.reduced .modes,
+#profile.reduced details {
+  display: none;
 }
 
 #profile header {
@@ -778,5 +811,33 @@ body:has(#sidebar:not(.closed)) #legends {
 
 .clean .tutorial,
 .clean .tutorial-ring {
+  display: none;
+}
+
+/* Reset view, after flying to a line (src/main.ts): bottom centre, between the legends and
+   the move pad */
+#back-view {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  z-index: 15;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 12px var(--shadow);
+  cursor: pointer;
+}
+
+#back-view:hover {
+  filter: brightness(1.1);
+}
+
+.clean #back-view {
   display: none;
 }

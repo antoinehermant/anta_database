@@ -6,7 +6,7 @@
  */
 import { type Catalog, type CatalogDataset } from "./sitedata";
 import { type Dataset, datasetCard, element, formatSize, saveZip } from "./datasets";
-import type { PreviewStatus } from "./preview";
+import { type PreviewStatus, reduceButton } from "./preview";
 
 const ROOT_DIR = "AntADatabase";
 
@@ -109,11 +109,11 @@ export async function showDownload(panel: HTMLElement, baseUrl: string, status: 
   });
   cancelButton.addEventListener("click", () => abort?.abort());
 
-  const close = element("button", { type: "button", className: "close", title: "Hide", textContent: "×" });
-  close.addEventListener("click", () => (panel.hidden = true));
+  const title = element("h2", { textContent: "Download your compiled dataset" });
+  const reduce = reduceButton(panel, title);
   panel.replaceChildren(
-    close,
-    element("h2", { textContent: "Download your compiled dataset" }),
+    reduce,
+    title,
     element("p", {
       textContent:
         `The HDF5 files of your dataset as ${status.licence === "redistribute" ? "they will be in the database" : "compiled for the review"}, ` +

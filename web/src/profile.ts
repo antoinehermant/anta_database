@@ -7,8 +7,9 @@
  * and the ice thickness as the bed. The profile is exported per line by
  * anta_database.web.irh (tracks[].profile), and fetched when opened.
  *
- * Hovering a line gives its values, like hovering in 3D, and marks the point in 3D. The
- * wheel zooms along the distance, dragging pans, and a double click shows all of it again.
+ * Hovering a line gives its values, like hovering in 3D; anywhere in the plot, the position along
+ * the line is marked in 3D. The wheel zooms along the distance, dragging pans, and a double
+ * click shows all of it again.
  *
  * Profiles are at full resolution when small enough, else averaged along the distance
  * (profile.resolution, shown under Details). The plot draws about two points per pixel of
@@ -63,6 +64,8 @@ export interface ProfileOptions {
   hideTooltip(): void;
   /** The hovered point, to mark it in 3D; null when nothing is hovered. */
   onPoint(point: ProfilePoint | null): void;
+  /** The window was closed (button or Escape). */
+  onClose(): void;
 }
 
 type Mode = "Elevation" | "Depth";
@@ -106,15 +109,19 @@ export class ProfilePanel {
   private canvas = document.createElement("canvas");
   private modeButtons: Record<Mode, HTMLButtonElement>;
   private expandButton = button("⤢", "Enlarge");
+  // Reduced to its title, the plot hidden
+  private reduceButton = button("−", "Reduce");
   private mode: Mode = "Elevation";
-  private line: ProfileLine | null = null;
+  // The line shown, null when closed
+  line: ProfileLine | null = null;
   private rows = new Float32Array(0);
   private width = COLUMNS; // values per row
   private layers: number[] = [];
   // Visible distances (km), and all of them
   private view: [number, number] = [0, 1];
   private full: [number, number] = [0, 1];
-  private hover: { series: Series; row: number } | null = null;
+  // The row under the pointer, and the line hovered there (null between the lines)
+  private hover: { series: Series | null; row: number } | null = null;
   private pointer: { x: number; y: number; clientX: number; clientY: number } | null = null;
   private drag: { x: number; view: [number, number] } | null = null;
   private frame = 0;
@@ -156,7 +163,8 @@ export class ProfilePanel {
     this.expandButton.addEventListener("click", () => this.setExpanded(!this.el.classList.contains("expanded")));
     const buttons = document.createElement("div");
     buttons.className = "buttons";
-    buttons.append(modes, this.expandButton, closeButton);
+    this.reduceButton.addEventListener("click", () => this.setReduced(!this.el.classList.contains("reduced")));
+    buttons.append(modes, this.expandButton, this.reduceButton, closeButton);
     header.append(heading, buttons);
     const plot = document.createElement("div");
     plot.className = "plot";
@@ -269,11 +277,25 @@ export class ProfilePanel {
   }
 
   close(): void {
+    if (this.el.hidden) return;
     this.el.hidden = true;
     this.setExpanded(false);
+    this.setReduced(false);
     this.line = null;
     this.request++;
     this.setHover(null);
+    this.options.onClose();
+  }
+
+  private setReduced(reduced: boolean): void {
+    if (reduced) this.setExpanded(false);
+    this.el.classList.toggle("reduced", reduced);
+    this.reduceButton.textContent = reduced ? "+" : "−";
+    const label = reduced ? "Show the plot" : "Reduce";
+    this.reduceButton.title = label;
+    this.reduceButton.setAttribute("aria-label", label);
+    if (reduced) this.setHover(null);
+    else this.redraw();
   }
 
   private setMode(mode: Mode): void {
@@ -283,7 +305,19 @@ export class ProfilePanel {
     this.redraw();
   }
 
+  /** Points of the line shown (x, y in km, NaN between its parts), empty while loading. */
+  points(): { x: Float32Array; y: Float32Array } {
+    const x = new Float32Array(this.count);
+    const y = new Float32Array(this.count);
+    for (let row = 0; row < this.count; row++) {
+      x[row] = this.value(row, 0);
+      y[row] = this.value(row, 1);
+    }
+    return { x, y };
+  }
+
   private setExpanded(expanded: boolean): void {
+    if (expanded) this.setReduced(false);
     this.el.classList.toggle("expanded", expanded);
     this.expandButton.textContent = expanded ? "⤡" : "⤢";
     const label = expanded ? "Make smaller" : "Enlarge";
@@ -509,11 +543,13 @@ export class ProfilePanel {
       ctx.lineTo(x, bottom);
       ctx.stroke();
       ctx.setLineDash([]);
-      const y = py(this.seriesValue(this.hover.series, this.hover.row));
-      ctx.fillStyle = "#ff4d4d";
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, 2 * Math.PI);
-      ctx.fill();
+      if (this.hover.series) {
+        const y = py(this.seriesValue(this.hover.series, this.hover.row));
+        ctx.fillStyle = "#ff4d4d";
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     }
     ctx.restore();
 
@@ -579,10 +615,12 @@ export class ProfilePanel {
         if (distance <= HOVER_PX && (!best || distance < best.distance - 0.5)) best = { series, distance };
       }
     }
-    this.setHover(best ? { series: best.series, row } : null);
+    // Between the lines, still the position along the line (marked in 3D), without a tooltip
+    const inside = event.offsetX >= area.left && event.offsetX <= area.left + area.width;
+    this.setHover(best ? { series: best.series, row } : inside ? { series: null, row } : null);
   }
 
-  private setHover(hover: { series: Series; row: number } | null): void {
+  private setHover(hover: { series: Series | null; row: number } | null): void {
     const same = hover && this.hover && hover.row === this.hover.row && JSON.stringify(hover.series) === JSON.stringify(this.hover.series);
     if (!same) {
       this.hover = hover;
@@ -604,6 +642,11 @@ export class ProfilePanel {
     };
     const at = ["Distance", `${point.distance.toFixed(2)} km`] as [string, string];
     const round = (v: number) => (Number.isFinite(v) ? `${Math.round(v)} m` : "unknown");
+    this.options.onPoint(point);
+    if (!hover.series) {
+      this.options.hideTooltip();
+      return;
+    }
     let tooltip: Tooltip;
     if (hover.series.kind === "layer") {
       const depth = this.value(r, COLUMNS + hover.series.index);
@@ -619,6 +662,5 @@ export class ProfilePanel {
       tooltip = { title: "Ice surface", rows: [["Surface elevation", round(point.surface)], at], note: null };
     }
     this.options.showTooltip(tooltip, this.pointer.clientX, this.pointer.clientY);
-    this.options.onPoint(point);
   }
 }

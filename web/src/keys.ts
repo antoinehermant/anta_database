@@ -2,7 +2,8 @@
  * Moving the view without dragging: W A S D or the arrow keys move over the ground (forward,
  * left, back, right, as seen on screen), Q and E turn around the centre of the view, Z, I or +
  * zoom in, X, O or - zoom out, and 0 goes back to the default view. The same moves are buttons
- * of a pad in the bottom right corner, held down like the keys.
+ * of a pad in the bottom right corner, held down like the keys. Pointing at an edge of the view
+ * also moves over the ground towards it (setEdge(), from the position of the mouse).
  *
  * The camera and the rotation centre (the target of the OrbitControls) move together, at a
  * speed that follows the distance between them, so it feels the same at any zoom.
@@ -71,6 +72,8 @@ export class KeyNavigation {
   private right = new THREE.Vector3();
   private offset = new THREE.Vector3();
   private readonly up = new THREE.Vector3(0, 0, 1);
+  // Move towards an edge of the view: forward (top) and right, each from -1 to 1
+  private edge = { along: 0, across: 0 };
 
   /**
    * camera, controls: the view to move. onEnd: called when a move ends (the view in the URL).
@@ -142,18 +145,30 @@ export class KeyNavigation {
 
   private releaseAll(): void {
     this.keys.clear();
+    this.setEdge(0, 0);
     if (!this.held.size) return;
     this.held.clear();
     this.onEnd();
   }
 
   get active(): boolean {
-    return this.held.size > 0;
+    return this.held.size > 0 || this.edgeActive;
+  }
+
+  private get edgeActive(): boolean {
+    return this.edge.along !== 0 || this.edge.across !== 0;
+  }
+
+  /** Move towards an edge of the view, as fast as along and across (-1 to 1); 0, 0 stops. */
+  setEdge(along: number, across: number): void {
+    const was = this.edgeActive;
+    this.edge = { along, across };
+    if (was && !this.edgeActive && !this.held.size) this.onEnd();
   }
 
   /** Move the view for dt seconds of the held moves, before controls.update(). True if it moved. */
   update(dt: number): boolean {
-    if (!this.held.size) return false;
+    if (!this.held.size && !this.edgeActive) return false;
     const { camera, controls, held } = this;
     // Forward: where the camera looks, on the ground; looking straight down, the top of the screen
     camera.getWorldDirection(this.forward).setZ(0);
@@ -162,8 +177,8 @@ export class KeyNavigation {
     this.right.crossVectors(this.forward, this.up);
 
     const step = SPEED * camera.position.distanceTo(controls.target) * dt;
-    const along = (held.has("forward") ? 1 : 0) - (held.has("back") ? 1 : 0);
-    const across = (held.has("right") ? 1 : 0) - (held.has("left") ? 1 : 0);
+    const along = THREE.MathUtils.clamp((held.has("forward") ? 1 : 0) - (held.has("back") ? 1 : 0) + this.edge.along, -1, 1);
+    const across = THREE.MathUtils.clamp((held.has("right") ? 1 : 0) - (held.has("left") ? 1 : 0) + this.edge.across, -1, 1);
     const turn = (held.has("turnLeft") ? 1 : 0) - (held.has("turnRight") ? 1 : 0);
     const zoom = (held.has("zoomIn") ? 1 : 0) - (held.has("zoomOut") ? 1 : 0);
     if (!along && !across && !turn && !zoom) return false;

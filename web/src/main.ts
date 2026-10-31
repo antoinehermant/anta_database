@@ -27,7 +27,7 @@ import { BED_STOPS, SPEED, ticks } from "./colormaps";
 import { Legend } from "./legend";
 import { KeyNavigation } from "./keys";
 import { EasterEggs } from "./eggs";
-import { onThemeChange, savedTheme, setTheme, themeButton } from "./theme";
+import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
@@ -62,14 +62,11 @@ container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color();
-// Light or dark theme (dark by default): from the settings or the button in the corner
-let themeSetting: ReturnType<GUI["add"]> | null = null;
+// Light or dark theme (dark by default): from the button in the corner, saved in the browser
 function applyTheme(): void {
   // Same background as the page, from the stylesheet
   const background = getComputedStyle(document.documentElement).getPropertyValue("--background").trim();
   (scene.background as THREE.Color).set(background || "#1c2633");
-  settings.theme = savedTheme();
-  themeSetting?.updateDisplay();
   requestRender();
 }
 onThemeChange(applyTheme);
@@ -92,6 +89,9 @@ controls.minDistance = 20;
 controls.maxDistance = 15000;
 controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon of the rotation centre
 
+// Dragging rotates; with Ctrl (or Shift, Cmd) held, or the right button, it moves over the
+// ground (OrbitControls). Pointing at an edge of the view also moves towards it (below)
+
 // Rotate, zoom and pan around the middle of the ice under the centre of the
 // screen, updated when an interaction starts. The centre moves along the line
 // of sight, so the view doesn't jump.
@@ -106,13 +106,24 @@ controls.addEventListener("start", () => {
   if (hit && hit.distanceTo(camera.position) >= controls.minDistance) controls.target.copy(hit);
 });
 
-function resetView(): void {
+/** Back to the whole continent: flying there, or at once (when the viewer starts). */
+function resetView(instant = false): void {
+  forgetZoom();
+  flight = null;
   const { x, y } = HOME_CENTRE;
   const centreZ = pivotField ? (pivotField.heightAt(x, y) * shared.exaggeration.value) / 1000 : 0;
-  controls.target.set(x, y, centreZ);
-  camera.position.copy(controls.target).add(HOME_OFFSET);
+  const target = new THREE.Vector3(x, y, centreZ);
+  const position = target.clone().add(HOME_OFFSET);
+  // The home view has no #view= in the address
+  const clearUrl = () => history.replaceState(null, "", window.location.pathname + window.location.search);
+  if (!instant) {
+    flyTo(target, position, 1200, clearUrl, false, true);
+    return;
+  }
+  controls.target.copy(target);
+  camera.position.copy(position);
   controls.update();
-  history.replaceState(null, "", window.location.pathname + window.location.search);
+  clearUrl();
   requestRender();
 }
 
@@ -130,6 +141,119 @@ function frameBox([xmin, xmax, ymin, ymax]: number[]): void {
   camera.position.copy(controls.target).add(HOME_OFFSET.clone().setLength(distance));
   controls.update();
   requestRender();
+}
+
+// Clicking a line flies to it, and a "Reset view" button pops up (gone once the view is reset,
+// from it or the menu). Closing the stratigraphy returns to the view before the first of these
+// flights (not to the line before)
+let viewBeforeZoom: { target: THREE.Vector3; position: THREE.Vector3 } | null = null;
+const backButton = document.createElement("button");
+backButton.id = "back-view";
+backButton.type = "button";
+backButton.textContent = "↺ Reset view";
+backButton.hidden = true;
+backButton.addEventListener("click", () => resetView());
+/** Fly back to the view before the first flight to a line, if any. */
+function goBack(): void {
+  if (viewBeforeZoom) flyTo(viewBeforeZoom.target, viewBeforeZoom.position);
+  forgetZoom();
+}
+document.body.append(backButton);
+function forgetZoom(): void {
+  viewBeforeZoom = null;
+  backButton.hidden = true;
+}
+
+// A flight of the view: moved a bit each frame by the animation loop (stepFlight()), at the
+// lower resolution used while moving, and stopped by any drag
+let flight: {
+  target0: THREE.Vector3;
+  position0: THREE.Vector3;
+  target: THREE.Vector3;
+  position: THREE.Vector3;
+  start: number;
+  ms: number;
+  onEnd: () => void;
+  orbit: boolean;
+  animate: boolean;
+} | null = null;
+
+/**
+ * Move the view smoothly to a rotation centre and camera position, so you see where you go;
+ * onEnd once there (by default, the view goes in the address). With orbit, the camera turns
+ * around the centre (its distance, tilt and direction change evenly) instead of going straight.
+ * With animate, the animations go on meanwhile (far views, where they are cheap).
+ */
+function flyTo(target: THREE.Vector3, position: THREE.Vector3, ms = 800, onEnd = viewToUrl, orbit = false, animate = false): void {
+  flight = { target0: controls.target.clone(), position0: camera.position.clone(), target, position, start: performance.now(), ms, onEnd, orbit, animate };
+  requestRender();
+}
+
+function stepFlight(now: number): void {
+  if (!flight) return;
+  const t = Math.min(1, (now - flight.start) / flight.ms);
+  const k = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2; // ease in and out
+  controls.target.lerpVectors(flight.target0, flight.target, k);
+  if (flight.orbit) {
+    // Camera around the centre, z up: distance, angle from the vertical, direction
+    const toSpherical = (v: THREE.Vector3) => [v.length(), Math.acos(THREE.MathUtils.clamp(v.z / v.length(), -1, 1)), Math.atan2(v.y, v.x)];
+    const [r0, phi0, theta0] = toSpherical(flight.position0.clone().sub(flight.target0));
+    const [r1, phi1, theta1] = toSpherical(flight.position.clone().sub(flight.target));
+    const turn = Math.atan2(Math.sin(theta1 - theta0), Math.cos(theta1 - theta0)); // the shorter way
+    const [r, phi, theta] = [r0 + (r1 - r0) * k, phi0 + (phi1 - phi0) * k, theta0 + turn * k];
+    camera.position.set(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi)).multiplyScalar(r).add(controls.target);
+  } else {
+    camera.position.lerpVectors(flight.position0, flight.position, k);
+  }
+  if (t === 1) {
+    const { onEnd } = flight;
+    flight = null;
+    onEnd();
+  }
+}
+controls.addEventListener("start", () => (flight = null));
+
+// Closest the view of a clicked line comes (km from the camera to the middle of the line), so a
+// short line isn't seen too close: higher zooms in less
+const LINE_VIEW_MIN_DISTANCE = 1000;
+const AUTO_ZOOM_KEY = "auto-zoom";
+
+/**
+ * Show a whole line (points in km, NaN between its parts): seen from the side, across its main
+ * direction and as tilted as the view already is, so the line spans the screen.
+ */
+function zoomToLine(x: Float32Array, y: Float32Array): void {
+  let [xmin, xmax, ymin, ymax] = [Infinity, -Infinity, Infinity, -Infinity];
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < x.length; i++) {
+    if (!Number.isFinite(x[i]) || !Number.isFinite(y[i])) continue;
+    if (first < 0) first = i;
+    last = i;
+    [xmin, xmax, ymin, ymax] = [Math.min(xmin, x[i]), Math.max(xmax, x[i]), Math.min(ymin, y[i]), Math.max(ymax, y[i])];
+  }
+  if (first < 0) return;
+  viewBeforeZoom ??= { target: controls.target.clone(), position: camera.position.clone() };
+  backButton.hidden = false;
+  const [cx, cy] = [(xmin + xmax) / 2, (ymin + ymax) / 2];
+  const length = Math.max(Math.hypot(xmax - xmin, ymax - ymin), 20);
+  // Across the line from its first to its last point (or the box, for a line coming back)
+  let [dx, dy] = [x[last] - x[first], y[last] - y[first]];
+  if (Math.hypot(dx, dy) < 0.3 * length) [dx, dy] = xmax - xmin >= ymax - ymin ? [1, 0] : [0, 1];
+  const norm = Math.hypot(dx, dy);
+  let [nx, ny] = [-dy / norm, dx / norm];
+  // From the side nearer the current camera, so the view turns as little as possible
+  if (nx * (camera.position.x - cx) + ny * (camera.position.y - cy) < 0) [nx, ny] = [-nx, -ny];
+  const z = pivotField ? (pivotField.heightAt(cx, cy) * shared.exaggeration.value) / 1000 : 0;
+  const target = new THREE.Vector3(cx, cy, z);
+  // Far enough for the length of the line to fit the width of the screen
+  const halfWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  const distance = THREE.MathUtils.clamp((0.65 * length) / halfWidth, LINE_VIEW_MIN_DISTANCE, controls.maxDistance);
+  // The tilt the view already has (its angle above the horizontal)
+  const current = camera.position.clone().sub(controls.target);
+  const tilt = Math.asin(THREE.MathUtils.clamp(current.z / current.length(), -1, 1));
+  const offset = new THREE.Vector3(nx * Math.cos(tilt), ny * Math.cos(tilt), Math.sin(tilt)).multiplyScalar(distance);
+  flyTo(target, target.clone().add(offset));
 }
 
 // Momentum after a drag: the view glides on, but stops once it barely moves
@@ -173,15 +297,17 @@ function stopMomentum(): void {
  * distance), else at the centre of the view.
  */
 function topView(): void {
-  const distance = camera.position.distanceTo(controls.target);
+  const offset = camera.position.clone().sub(controls.target);
+  const distance = offset.length();
+  const target = controls.target.clone();
   if (distance >= 0.8 * HOME_OFFSET.length()) {
     const centreZ = pivotField ? (pivotField.heightAt(0, 0) * shared.exaggeration.value) / 1000 : 0;
-    controls.target.set(0, 0, centreZ);
+    target.set(0, 0, centreZ);
   }
-  camera.position.set(controls.target.x, controls.target.y, controls.target.z + distance);
-  controls.update();
-  viewToUrl();
-  requestRender();
+  // A hair south of the vertical, so grid north is up; turning and rising around the centre
+  const lean = 1e-3;
+  const position = target.clone().add(new THREE.Vector3(0, -Math.sin(lean), Math.cos(lean)).multiplyScalar(distance));
+  flyTo(target, position, 1000, viewToUrl, true, true);
 }
 
 function viewFromUrl(): boolean {
@@ -202,6 +328,53 @@ controls.addEventListener("end", viewToUrl);
 // W A S D, the arrow keys and the pad in the bottom right corner move the view too
 const keyNavigation = new KeyNavigation(camera, controls, viewToUrl, resetView);
 keyNavigation.addPad(document.body);
+
+// Pointing at an edge of the view moves over the ground towards it: after a moment there, so
+// passing by on the way to the menu or a button doesn't move, then faster closer to the edge.
+// Not while dragging, nor over the panels (the pointer is then not on the canvas)
+const EDGE_KEY = "edge-move";
+const EDGE_PX = 180; // width of the edges that move the view, in pixels
+const EDGE_DELAY_MS = 200;
+const EDGE_RAMP_MS = 3000;
+// The left edge while the menu is open, next to it: the pointer crosses it on the way to the
+// menu, so it moves nothing (0) or only from a thinner band and after a longer moment
+const EDGE_MENU_PX = 50;
+const EDGE_MENU_DELAY_MS = 800;
+let edgePointer: { x: number; y: number } | null = null;
+let edgeSince = 0; // when the pointer came near an edge, 0 when it isn't
+
+function updateEdgeMove(now: number): void {
+  let [along, across] = [0, 0];
+  let delay = EDGE_DELAY_MS;
+  if (edgePointer && settings.edgeMove && !flight) {
+    const { x, y } = edgePointer;
+    // The view starts right of the menu when it is open
+    const menuOpen = !sidebar.classList.contains("closed");
+    const left = menuOpen ? sidebar.getBoundingClientRect().right : 0;
+    const near = (distance: number, width = EDGE_PX) => (width > 0 ? THREE.MathUtils.clamp(1 - distance / width, 0, 1) : 0);
+    const nearLeft = near(x - left, menuOpen ? EDGE_MENU_PX : EDGE_PX);
+    along = near(y) - near(window.innerHeight - y);
+    across = near(window.innerWidth - x) - nearLeft;
+    if (menuOpen && nearLeft) delay = Math.max(EDGE_DELAY_MS, EDGE_MENU_DELAY_MS);
+  }
+  if (!along && !across) {
+    edgeSince = 0;
+  } else if (!edgeSince) {
+    edgeSince = now;
+  }
+  const ramp = edgeSince ? THREE.MathUtils.clamp((now - edgeSince - delay) / EDGE_RAMP_MS, 0, 1) : 0;
+  keyNavigation.setEdge(along * ramp, across * ramp);
+}
+renderer.domElement.addEventListener("pointermove", (event) => {
+  edgePointer = event.buttons ? null : { x: event.clientX, y: event.clientY };
+});
+for (const type of ["pointerleave", "pointerdown"]) renderer.domElement.addEventListener(type, () => (edgePointer = null));
+// The mouse left the browser window (to another window), or the window is no longer in front
+document.addEventListener("mouseout", (event) => {
+  if (!event.relatedTarget) edgePointer = null;
+});
+window.addEventListener("blur", () => (edgePointer = null));
+document.addEventListener("visibilitychange", () => (edgePointer = null));
 controls.addEventListener("end", () => {
   // Still flow lines are spread again over the new view
   if (flowLines && !settings.animateFlow) {
@@ -265,11 +438,19 @@ function animating(): boolean {
 }
 
 let lastFrame = 0;
+let lastRender = 0;
+const GLIDE_FRAME_MS = 1000 / 30;
 renderer.setAnimationLoop((time: number) => {
+  stepFlight(performance.now());
+  updateEdgeMove(performance.now());
   keyNavigation.update(Math.min(0.1, (time - lastFrame) / 1000));
   lastFrame = time;
   controls.update();
-  const animate = animating();
+  // Moving by itself (a flight, keys, the pad or an edge): drawn at most 30 times a second, and
+  // without the animations (but during the flights home and to the map), so a laptop keeps up
+  // however long it lasts
+  const gliding = flight !== null || keyNavigation.active;
+  const animate = animating() && (flight ? flight.animate : !keyNavigation.active);
   stopMomentum();
   previousCamera.copy(camera.position);
   updateHover();
@@ -297,6 +478,8 @@ renderer.setAnimationLoop((time: number) => {
     needsRender = true;
   }
   if (!needsRender) return;
+  if (gliding && time - lastRender < GLIDE_FRAME_MS) return;
+  lastRender = time;
   needsRender = false;
   if (iceCores.group.visible) iceCores.update(camera, renderer.domElement.clientHeight);
   // Dashes of the tracks: the same length on screen at any zoom
@@ -702,6 +885,8 @@ const profile = new ProfilePanel({
   },
   hideTooltip: () => (tooltip.style.visibility = "hidden"),
   onPoint: markProfilePoint,
+  // Closing the stratigraphy also goes back to where you were before flying to its line
+  onClose: goBack,
 });
 
 // Lines (tracks) by dataset and line ID, with their profiles
@@ -722,7 +907,17 @@ function openProfileAt(x: number, y: number): void {
   if (!best) return;
   const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
   const track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
-  if (track) profile.open(track, IRH_URL).catch(showError);
+  if (!track) return;
+  profile
+    .open(track, IRH_URL)
+    .then(() => {
+      // Unless another line was clicked meanwhile
+      if (settings.autoZoom && profile.line === track) {
+        const { x, y } = profile.points();
+        zoomToLine(x, y);
+      }
+    })
+    .catch(showError);
 }
 
 // A click (not a drag) on a line opens its profile
@@ -757,7 +952,7 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
     eggs.place();
     if (!window.location.hash) {
       if (submissionBox) frameBox(submissionBox);
-      else resetView();
+      else resetView(true);
     }
   }
   textureGrid = grid;
@@ -816,9 +1011,10 @@ const settings = {
   lightElevation: 40,
   quality: "Fast",
   lowResWhileMoving: true,
-  theme: savedTheme(),
   resetView,
   topView,
+  edgeMove: localStorage.getItem(EDGE_KEY) !== "off",
+  autoZoom: localStorage.getItem(AUTO_ZOOM_KEY) !== "off",
 };
 
 // Private preview of a submission: its isochrones visible through the ice surface, and no
@@ -873,7 +1069,8 @@ function setSidebar(open: boolean): void {
 }
 sidebarToggle.addEventListener("click", () => setSidebar(sidebar.classList.contains("closed")));
 setSidebar(window.innerWidth > 700);
-gui
+const view = gui.addFolder("View");
+view
   .add(settings, "exaggeration", 1, 100, 1)
   .name("Vertical exaggeration")
   .onChange((v: number) => {
@@ -895,10 +1092,13 @@ gui
     pointerMoved = true;
     requestRender();
   });
-const view = gui.addFolder("View");
 view.add(settings, "resetView").name("Reset view");
 view.add(settings, "topView").name("Top view (map)");
-themeSetting = view.add(settings, "theme", ["Dark", "Light", "Auto"]).name("Theme").onChange(setTheme);
+view.add(settings, "edgeMove").name("Move at the edges of the view").onChange((on: boolean) => {
+  localStorage.setItem(EDGE_KEY, on ? "on" : "off");
+  if (!on) keyNavigation.setEdge(0, 0);
+});
+view.add(settings, "autoZoom").name("Fly to a clicked line").onChange((on: boolean) => localStorage.setItem(AUTO_ZOOM_KEY, on ? "on" : "off"));
 view.add({ tutorial: () => tutorial.start() }, "tutorial").name("Tutorial (tour of the viewer)");
 const layers = gui.addFolder("Layers");
 layers
@@ -1164,13 +1364,15 @@ const tutorial = new Tutorial([
       "The lines under the ice surface are **radar isochrones**: layers inside the ice sheet that were " +
       "once the surface, all of the same age, traced by radar surveys. Below them, the bed of Antarctica " +
       "(Bedmap3). A short tour of the viewer?",
+    prepare: () => resetView(),
   },
   {
     title: "Move around",
     text:
-      "**Drag** to rotate, **right-drag** (or Ctrl + drag) to move, and **scroll** to zoom towards the " +
-      "mouse. On a touch screen: one finger rotates, two fingers zoom and move. The keys W A S D (or the " +
-      "arrows), Q and E, and Z and X do the same, and 0 brings back the whole continent; this pad too.",
+      "**Drag** to rotate and tilt, **Ctrl + drag** (or right-drag) to move over the ground, and " +
+      "**scroll** to zoom towards the mouse. Or point at an **edge** of the view to move towards it. On a " +
+      "touch screen: one finger rotates, two fingers zoom and move. The keys W A S D (or the arrows), Q and E, " +
+      "and Z and X do the same, and 0 brings back the whole continent; this pad too.",
     target: () => document.getElementById("move-pad"),
   },
   {
@@ -1178,13 +1380,17 @@ const tutorial = new Tutorial([
     text: "Show or hide the ice surface, the bed, the ice velocity, the grounding lines since the last ice age, the ice divides, the deep ice cores and the survey aircraft.",
     tip: "Decrease the surface opacity to discover the isochrones under the ice!",
     target: () => layers.domElement,
-    prepare: openInMenu(layers),
+    prepare: () => {
+      resetView();
+      openInMenu(layers)();
+    },
   },
   {
     title: "Point and click",
     text:
-      "**Hover** a line for its details: its dataset, age and depth. **Click** an isochrone to open the " +
-      "stratigraphy of its radar line: all its isochrones, along the line, over the bed.",
+      "**Hover** a line for its details: its dataset, age and depth. **Click** an isochrone to fly to its " +
+      "radar line and open its stratigraphy: all its isochrones, along the line, over the bed. Closing it " +
+      "brings you back to where you were.",
   },
   {
     title: "Colours",
@@ -1195,17 +1401,21 @@ const tutorial = new Tutorial([
     title: "Filter",
     text: "Choose the datasets and the ages shown. Every dataset can be downloaded from the Download page, with how to cite it.",
     target: () => filters.domElement,
-    prepare: openInMenu(filters),
+    prepare: () => {
+      resetView();
+      openInMenu(filters)();
+    },
   },
   {
     title: "Find the eggs!",
     text: "A few strange things are hidden somewhere in Antarctica, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
+    prepare: () => resetView(),
   },
 ]);
 
 // Start: quick preview, then the detailed terrain
 const loading = document.getElementById("loading")!;
-if (!viewFromUrl()) resetView();
+if (!viewFromUrl()) resetView(true);
 loadMeta(DATA_URL)
   .then(async (meta) => {
     document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);

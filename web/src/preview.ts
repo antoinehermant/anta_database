@@ -61,19 +61,41 @@ function issues(title: string, list: string[], open = false): HTMLElement {
   return details;
 }
 
+/**
+ * Reduce or expand a panel of the preview to its title, with a button in its corner and by
+ * clicking the title: the panels are never closed, so they can always be found again. The state
+ * is a class of the panel, kept when its content is replaced.
+ */
+export function reduceButton(panel: HTMLElement, title: HTMLElement): HTMLButtonElement {
+  const button = element("button", "reduce");
+  button.type = "button";
+  const update = () => {
+    const reduced = panel.classList.contains("reduced");
+    button.textContent = reduced ? "+" : "−";
+    button.title = reduced ? "Expand" : "Reduce";
+    button.setAttribute("aria-expanded", String(!reduced));
+  };
+  const toggle = () => {
+    panel.classList.toggle("reduced");
+    update();
+  };
+  button.addEventListener("click", toggle);
+  title.addEventListener("click", toggle);
+  update();
+  return button;
+}
+
 function show(panel: HTMLElement, s: PreviewStatus | null, problem = ""): void {
   panel.hidden = false;
-  const close = element("button", "close", "×");
-  close.type = "button";
-  close.title = "Hide";
-  close.addEventListener("click", () => (panel.hidden = true));
   const content: (Node | string)[] = [];
   if (!s) {
     content.push(element("h2", "", "Private preview"), element("p", "", problem));
     panel.replaceChildren(...content);
     return;
   }
-  content.push(element("h2", "", `Private preview: ${s.citation}`));
+  const title = element("h2", "", `Private preview: ${s.citation}`);
+  const reduce = reduceButton(panel, title);
+  content.push(title);
   if (s.status === "received" || s.status === "processing") {
     const steps = s.steps.length ? s.steps : Object.keys(STEP_TEXT);
     const current = s.status === "received" ? -1 : steps.indexOf(s.step ?? "");
@@ -116,7 +138,7 @@ function show(panel: HTMLElement, s: PreviewStatus | null, problem = ""): void {
   } else {
     content.push(element("p", "", "This preview has ended: the review of the submission is done."));
   }
-  panel.replaceChildren(close, ...content);
+  panel.replaceChildren(reduce, ...content);
 }
 
 /** The preview is closed (reviewed, failed, or a wrong link): a page that says so instead. */
