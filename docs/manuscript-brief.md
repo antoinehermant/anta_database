@@ -565,10 +565,11 @@ The site has structured data for search engines, a sitemap and link previews.
 
 ## 11. Submission portal (`/submit/`, `portal/`)
 
-**Status at the snapshot:** complete, deployed at api.antadatabase.com and tested end to end
-with fake submissions (including `anta-review accept --test`). The public page still shows the
-"under construction" placeholder, and the form is at `/submit/?dev` until the site is built with
-`PORTAL_PUBLIC=true ./publish_site.sh`. **Check before writing that the portal is open.**
+**Status:** complete, deployed at api.antadatabase.com and tested end to end with fake
+submissions (including `anta-review accept --test`). It was opened to the public at
+antadatabase.com/submit/ on 2026-10-31. It can be closed again with
+`PORTAL_PUBLIC=false ./publish_site.sh` or paused with `portal/data/CLOSED`, so check that it is
+still open when writing.
 
 ### 11.1 The form (all in the browser; a draft is kept in localStorage)
 
@@ -877,7 +878,7 @@ pre-portal datasets there, after cleaning, is planned.
 - `BASAL_UNIT` may later become an undated IRH in `IRH_DEPTH` (idea, not done).
 
 **Infrastructure facts to state carefully:**
-- the portal's public opening date (section 11);
+- the portal's public opening (2026-10-31, section 11);
 - the long-term hosting and funding plan, and who maintains it after the PhD;
 - a DOI for the software/data (Zenodo releases of the package and of each `db_version`?). None
   exists yet. ESSD, for example, requires the data in a repository with a DOI.

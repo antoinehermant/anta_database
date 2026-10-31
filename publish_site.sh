@@ -11,8 +11,9 @@
 #                                   gh-pages branch of the repository of the git remote "viewer-site"
 #   https://api.antadatabase.com    submission portal (portal/, on its own server: portal/deploy.sh),
 #                                   used by /contact/ and the development version of /submit/
-#                                   (/submit/?dev) once it resolves. /submit/ itself opens with
-#                                   PORTAL_PUBLIC=true
+#                                   (/submit/?dev) once it resolves. /submit/ itself is open by
+#                                   default; PORTAL_PUBLIC=false ./publish_site.sh closes it again
+#                                   (placeholder page, the form stays at /submit/?dev)
 #
 # The viewer and the download page read their data from the bucket.
 #
@@ -97,7 +98,7 @@ fi
 (
 	cd web
 	npm ci
-	VITE_DATA_URL="$VIEWER_DATA_URL" VITE_PORTAL_URL="$portal_url" VITE_PORTAL_PUBLIC="${PORTAL_PUBLIC:-false}" npm run build
+	VITE_DATA_URL="$VIEWER_DATA_URL" VITE_PORTAL_URL="$portal_url" VITE_PORTAL_PUBLIC="${PORTAL_PUBLIC:-true}" npm run build
 	# The local data (web/public/data) is copied by the build but read from the bucket online
 	rm -rf dist/data
 	# Custom domain, and no Jekyll processing on GitHub Pages

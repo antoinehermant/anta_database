@@ -304,9 +304,10 @@ ssh ubuntu@api.antadatabase.com 'echo "Paused for maintenance." > /opt/portal/da
 ```
 
 The settings sent by `deploy.sh` come from `portal/.env` (email) and `portal/.env.server` (keys of
-the buckets), both kept out of git. The submit page uses the portal only in its development
-version (`/submit/?dev`) until the site is built with `PORTAL_PUBLIC=true ./publish_site.sh`;
-the contact page uses it as soon as `api.antadatabase.com` resolves.
+the buckets), both kept out of git. The submit page is open by default. Built with
+`PORTAL_PUBLIC=false ./publish_site.sh`, it shows a placeholder instead, and the form only stays
+in its development version (`/submit/?dev`). The contact page uses the portal as soon as
+`api.antadatabase.com` resolves.
 
 To read the buckets from your computer, with the keys of the portal project:
 
