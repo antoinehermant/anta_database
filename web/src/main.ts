@@ -884,8 +884,23 @@ const profile = new ProfilePanel({
   hideTooltip: () => (tooltip.style.visibility = "hidden"),
   onPoint: markProfilePoint,
   // Closing the stratigraphy also goes back to where you were before flying to its line
-  onClose: goBack,
+  onClose: () => {
+    selectLine(null);
+    goBack();
+  },
 });
+
+/**
+ * Draw out the track and the isochrones of the line of the open profile (wider, with a glow,
+ * through the ice), the other isochrones and tracks thinner and fainter; all as before with null.
+ */
+function selectLine(line: Track | null): void {
+  const same = (f: { dataset: string; line_id: string }) => line !== null && f.dataset === line.dataset && f.line_id === line.line_id;
+  const indices = <T extends { dataset: string; line_id: string }>(items: T[]) => items.flatMap((f, i) => (same(f) ? [i] : []));
+  isochrones.lines.setSelection(indices(isochrones.features), true);
+  tracks.lines.setSelection(indices(tracks.tracks), true);
+  requestRender();
+}
 
 // Lines (tracks) by dataset and line ID, with their profiles
 const linesById = new Map<string, Track>();
@@ -906,6 +921,7 @@ function openProfileAt(x: number, y: number): void {
   const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
   const track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
   if (!track) return;
+  selectLine(track);
   profile
     .open(track, IRH_URL)
     .then(() => {

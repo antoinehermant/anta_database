@@ -13,6 +13,11 @@
  *
  * Features can be hidden (filters): each segment has a hidden flag, checked in
  * the vertex shader, so filtering never rebuilds the geometry.
+ *
+ * The hovered feature is drawn on top of everything, with a bright white glow around it.
+ * Selected features (the line of the open profile) are drawn again, wider and with a fainter
+ * golden glow, after the ice surface so they show through it; the others can be dimmed:
+ * thinner and partly transparent.
  */
 import * as THREE from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -40,6 +45,12 @@ export interface Hit {
 }
 
 const CELL = 16; // px, screen grid cell size
+// How much wider the glow of a selected line is than the line (px)
+const SELECTION_GLOW = 5;
+// Width of the other lines while some are selected: DIMMED_WIDTH of the default width, and
+// DIMMED_RATE px wider for each px wider in the menu (1: as the selected lines, 0: never wider)
+const DIMMED_WIDTH = 0.6;
+const DIMMED_RATE = 0.3;
 
 /** Segments projected to the screen, binned by grid cell. */
 interface ScreenIndex {
@@ -70,8 +81,23 @@ export class LineLayer {
   // 1 for hidden features
   private hiddenFeatures = new Uint8Array(0);
   private screenIndex: ScreenIndex | null = null;
-  private highlight: LineSegments2 | null = null;
+  // The hovered feature: its glow, then the line over it
+  private highlight: LineSegments2[] = [];
+  private highlightGlow: LineMaterial;
   private highlightMaterial: LineMaterial;
+  // Selected features, drawn in this group (in the layer group, after the ice surface)
+  private selected: number[] = [];
+  private selectedSet = new Set<number>();
+  private readonly selection = new THREE.Group();
+  private selectionGlow: LineMaterial;
+  private selectionMaterial: LineMaterial;
+  // Width and opacity of the lines, and whether they are dimmed for a selection
+  private width: number;
+  // The width it was made with: dimmed lines grow slower from it (DIMMED_RATE)
+  private readonly baseWidth: number;
+  private readonly opacity: number;
+  private readonly transparent: boolean;
+  private dimmed = false;
 
   constructor(options: { linewidth: number; color?: THREE.ColorRepresentation; transparent?: boolean; dashed?: boolean }) {
     const transparent = options.transparent ?? false;
@@ -89,12 +115,28 @@ export class LineLayer {
         "#include <fog_vertex>\n\tif (instanceHidden > 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);",
       );
     };
+    this.highlightGlow = new LineMaterial({ linewidth: options.linewidth + 6, color: 0xffffff, depthTest: false, transparent: true, opacity: 0.7, depthWrite: false });
     this.highlightMaterial = new LineMaterial({
-      linewidth: options.linewidth + 2.5,
-      color: 0xff4d4d,
+      linewidth: options.linewidth + 1,
+      vertexColors: options.color === undefined,
+      color: options.color ?? 0xffffff,
       depthTest: false,
       transparent: true,
     });
+    this.width = this.baseWidth = options.linewidth;
+    this.opacity = this.material.opacity;
+    this.transparent = transparent;
+    // Transparent (even when opaque) so it is drawn with the transparent things, after the
+    // surface, which is drawn first by the order of its group
+    this.selectionGlow = new LineMaterial({ linewidth: options.linewidth + SELECTION_GLOW, color: 0xffd36b, transparent: true, opacity: 0.45, depthWrite: false });
+    this.selectionMaterial = new LineMaterial({
+      linewidth: options.linewidth + 1.5,
+      vertexColors: options.color === undefined,
+      color: options.color ?? 0xffffff,
+      transparent: true,
+    });
+    this.selection.renderOrder = 5;
+    this.group.add(this.selection);
   }
 
   get loaded(): boolean {
@@ -232,6 +274,7 @@ export class LineLayer {
       }
     }
     buffer.needsUpdate = true;
+    if (this.selected.length) this.drawSelection();
   }
 
   /** Hide the features for which hidden(feature) is true, and show the others. */
@@ -249,6 +292,84 @@ export class LineLayer {
       // Nothing to draw at all for a part (dataset) fully hidden
       part.lines.visible = shown > 0;
     }
+    if (this.selected.length) this.drawSelection();
+  }
+
+  /**
+   * Draw these features out (the line of the open profile), and dim the others with dim;
+   * nothing selected and nothing dimmed with an empty list.
+   */
+  setSelection(features: number[], dim = false): void {
+    this.selected = features;
+    this.selectedSet = new Set(features);
+    this.dimmed = dim && features.length > 0;
+    this.applyStyle();
+    this.drawSelection();
+  }
+
+  private drawSelection(): void {
+    // The glow and the line share their geometry
+    (this.selection.children[0] as LineSegments2 | undefined)?.geometry.dispose();
+    this.selection.clear();
+    const geometry = this.geometryOf(this.selected);
+    if (!geometry) return;
+    // The glow, then the line over it
+    [this.selectionGlow, this.selectionMaterial].forEach((material, i) => {
+      const lines = new LineSegments2(geometry, material);
+      lines.frustumCulled = false;
+      lines.renderOrder = i;
+      this.selection.add(lines);
+    });
+  }
+
+  /** Segments of the features shown, with their colours, or null if none has any. */
+  private geometryOf(features: number[]): LineSegmentsGeometry | null {
+    const positions: Float32Array[] = [];
+    const colors: Float32Array[] = [];
+    for (const f of features) {
+      if (this.isHidden(f)) continue;
+      const segments = this.featureSegments(f);
+      if (!segments) continue;
+      positions.push(segments);
+      if (this.material.vertexColors) {
+        // The colours of the feature, from its part: its segments are contiguous in one part
+        const { part } = this.vertexOf(this.featureFirst[f], 0);
+        const attribute = part.lines.geometry.getAttribute("instanceColorStart") as THREE.InterleavedBufferAttribute;
+        const start = (this.featureFirst[f] - part.first) * 6;
+        colors.push((attribute.data.array as Float32Array).slice(start, start + segments.length));
+      }
+    }
+    if (!positions.length) return null;
+    const join = (arrays: Float32Array[]) => {
+      const all = new Float32Array(arrays.reduce((n, a) => n + a.length, 0));
+      let offset = 0;
+      for (const a of arrays) {
+        all.set(a, offset);
+        offset += a.length;
+      }
+      return all;
+    };
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(join(positions));
+    if (colors.length) geometry.setColors(join(colors));
+    return geometry;
+  }
+
+  /** Width and opacity of the lines: thinner and partly transparent when dimmed. */
+  private applyStyle(): void {
+    const material = this.material;
+    // Dimmed: thinner, and wider lines in the menu widen them less than the selected ones, so
+    // these still stand out
+    const dimmedWidth = DIMMED_WIDTH * this.baseWidth + DIMMED_RATE * (this.width - this.baseWidth);
+    material.linewidth = this.dimmed ? Math.max(1, dimmedWidth) : this.width;
+    material.opacity = this.dimmed ? this.opacity * 0.45 : this.opacity;
+    const transparent = this.transparent || this.dimmed;
+    if (material.transparent !== transparent) {
+      material.transparent = transparent;
+      material.needsUpdate = true;
+    }
+    this.selectionMaterial.linewidth = this.width + 1.5;
+    this.selectionGlow.linewidth = this.width + SELECTION_GLOW;
   }
 
   setExaggeration(exaggeration: number): void {
@@ -263,7 +384,7 @@ export class LineLayer {
 
   /** Canvas size in CSS pixels, so line widths are in CSS pixels. */
   setResolution(width: number, height: number): void {
-    for (const material of [this.material, this.highlightMaterial]) {
+    for (const material of [this.material, this.highlightGlow, this.highlightMaterial, this.selectionGlow, this.selectionMaterial]) {
       material.resolution.set(width, height);
     }
   }
@@ -275,8 +396,10 @@ export class LineLayer {
   }
 
   setLineWidth(width: number): void {
-    this.material.linewidth = width;
-    this.highlightMaterial.linewidth = width + 2.5;
+    this.width = width;
+    this.applyStyle();
+    this.highlightGlow.linewidth = width + 6;
+    this.highlightMaterial.linewidth = width + 1;
   }
 
   private buildScreenIndex(camera: THREE.Camera, width: number, height: number): ScreenIndex {
@@ -358,9 +481,11 @@ export class LineLayer {
 
   /**
    * Line closest to a pixel (CSS pixels from the top-left of the canvas),
-   * within radius pixels, or null.
+   * within radius pixels, or null. Lines behind a selected one there are left out: the
+   * selected lines are often packed in front of others, which can be pointed at once the
+   * view turned so that they are no longer behind.
    */
-  pick(camera: THREE.Camera, x: number, y: number, width: number, height: number, radius = 8): Hit | null {
+  pick(camera: THREE.Camera, x: number, y: number, width: number, height: number, radius = 40): Hit | null {
     if (!this.group.visible || this.segmentFeatures.length === 0) return null;
     let index = this.screenIndex;
     if (!index || index.width !== width || index.height !== height) {
@@ -374,6 +499,7 @@ export class LineLayer {
     const r1 = Math.min(rows - 1, Math.floor((y + radius) / CELL));
 
     let best: Hit | null = null;
+    let bestSelected: Hit | null = null;
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) {
         const cell = r * columns + c;
@@ -390,30 +516,37 @@ export class LineLayer {
           const distance = Math.hypot(sx[a] + t * dx - x, sy[a] + t * dy - y);
           if (distance > radius) continue;
           const d = depth[a] + t * (depth[b] - depth[a]);
-          if (!best || closer(distance, d, best)) {
-            best = { feature: this.segmentFeatures[s], segment: s, end: t < 0.5 ? 0 : 1, distance, depth: d };
+          const feature = this.segmentFeatures[s];
+          const selected = this.selectedSet.has(feature);
+          if (selected ? !bestSelected || closer(distance, d, bestSelected) : !best || closer(distance, d, best)) {
+            const hit: Hit = { feature, segment: s, end: t < 0.5 ? 0 : 1, distance, depth: d };
+            if (selected) bestSelected = hit;
+            else best = hit;
           }
         }
       }
     }
-    return best;
+    if (!bestSelected) return best;
+    // Another line only in front of the selected one
+    return best && best.depth < bestSelected.depth && closer(best.distance, best.depth, bestSelected) ? best : bestSelected;
   }
 
-  /** Draw a feature on top of everything, or nothing with null. */
+  /** Draw a feature on top of everything, glowing, or nothing with null. */
   setHighlight(feature: number | null): void {
-    if (this.highlight) {
-      this.group.remove(this.highlight);
-      this.highlight.geometry.dispose();
-      this.highlight = null;
+    if (this.highlight.length) {
+      this.group.remove(...this.highlight);
+      this.highlight[0].geometry.dispose();
+      this.highlight = [];
     }
-    const segments = feature === null ? null : this.featureSegments(feature);
-    if (!segments) return;
-    const geometry = new LineSegmentsGeometry();
-    geometry.setPositions(segments);
-    this.highlight = new LineSegments2(geometry, this.highlightMaterial);
-    this.highlight.frustumCulled = false;
-    this.highlight.renderOrder = 10;
-    this.group.add(this.highlight);
+    const geometry = feature === null ? null : this.geometryOf([feature]);
+    if (!geometry) return;
+    // The glow, then the line over it in its colours
+    this.highlight = [new LineSegments2(geometry, this.highlightGlow), new LineSegments2(geometry, this.highlightMaterial)];
+    this.highlight.forEach((lines, i) => {
+      lines.frustumCulled = false;
+      lines.renderOrder = 10 + i;
+      this.group.add(lines);
+    });
   }
 }
 
