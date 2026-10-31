@@ -32,7 +32,10 @@ const DEV_PAGE = new URLSearchParams(location.search).has("dev");
 const PUBLIC = import.meta.env.VITE_PORTAL_PUBLIC === "true";
 // Whether the portal takes submissions: set from its status (portal/app.py, /api/status)
 let open = false;
-const DRAFT_KEY = "submit-draft";
+// The draft of the development version is kept apart, so test data never fills the public form.
+// "submit-draft" held the drafts of both before the portal was public: only tests, dropped.
+const DRAFT_KEY = DEV_PAGE ? "submit-draft-dev" : "submit-draft-public";
+localStorage.removeItem("submit-draft");
 
 interface Draft {
   structure: Structure | null;
@@ -788,6 +791,7 @@ async function checkStatus() {
   }
   $("closed-message").textContent = message;
   $("closed").hidden = open;
+  $("open-notice").hidden = !open;
   for (const id of ["send-code", "check-code"]) {
     const button = $<HTMLButtonElement>(id);
     button.disabled = !open;

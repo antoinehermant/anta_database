@@ -20,6 +20,10 @@
   background: var(--panel);
 }
 
+.notice.open {
+  border-left-color: #3a9a5b;
+}
+
 /* Steps of the form */
 .step {
   margin: 20px 0;

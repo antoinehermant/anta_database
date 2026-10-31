@@ -111,8 +111,13 @@
             </svg>
           </div>
           <div class="body">
-            <h3>Submit your data <span class="badge">Coming soon</span></h3>
-            <p>
+            <!-- Two versions, until and once the portal is public (VITE_PORTAL_PUBLIC, src/page.ts) -->
+            <h3>Submit your data <span class="badge" data-portal="closed" hidden>Coming soon</span></h3>
+            <p data-portal="open">
+              Published isochrones that are not in the database yet? Submit them here, with their metadata: they are
+              checked, shown to you in a private 3D preview, and added to the next release after review.
+            </p>
+            <p data-portal="closed" hidden>
               Published isochrones that are not in the database yet? Soon you will be able to submit them here, with their
               metadata, to be added to the next release.
             </p>
