@@ -216,7 +216,6 @@ controls.addEventListener("start", () => (flight = null));
 // Closest the view of a clicked line comes (km from the camera to the middle of the line), so a
 // short line isn't seen too close: higher zooms in less
 const LINE_VIEW_MIN_DISTANCE = 1000;
-const AUTO_ZOOM_KEY = "auto-zoom";
 
 /**
  * Show a whole line (points in km, NaN between its parts): seen from the side, across its main
@@ -332,7 +331,6 @@ keyNavigation.addPad(document.body);
 // Pointing at an edge of the view moves over the ground towards it: after a moment there, so
 // passing by on the way to the menu or a button doesn't move, then faster closer to the edge.
 // Not while dragging, nor over the panels (the pointer is then not on the canvas)
-const EDGE_KEY = "edge-move";
 const EDGE_PX = 180; // width of the edges that move the view, in pixels
 const EDGE_DELAY_MS = 200;
 const EDGE_RAMP_MS = 3000;
@@ -1013,8 +1011,8 @@ const settings = {
   lowResWhileMoving: true,
   resetView,
   topView,
-  edgeMove: localStorage.getItem(EDGE_KEY) !== "off",
-  autoZoom: localStorage.getItem(AUTO_ZOOM_KEY) !== "off",
+  edgeMove: true,
+  autoZoom: true,
 };
 
 // Private preview of a submission: its isochrones visible through the ice surface, and no
@@ -1027,7 +1025,8 @@ if (SUBMISSION) {
 
 // Link preview screenshots (public/og-image.jpg, 1200×630) in development: ?screenshot
 // hides the panels; the current image is ?screenshot#view=150,-4257,3560,150,-600,150
-if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("screenshot")) {
+const SCREENSHOT = import.meta.env.DEV && new URLSearchParams(window.location.search).has("screenshot");
+if (SCREENSHOT) {
   document.body.classList.add("clean");
   Object.assign(settings, { surfaceOpacity: 0.6, lineWidth: 3, exaggeration: 100 });
   isochrones.lines.setLineWidth(settings.lineWidth);
@@ -1056,6 +1055,8 @@ updateLight();
 updateBedRange();
 applyTheme();
 
+// While the settings of the last visit are put back (at the end of the menu)
+let restoringSettings = false;
 const gui = new GUI({ container: document.getElementById("gui")!, title: "Settings" });
 
 // The sidebar slides to the side with its arrow tab; closed at start on small screens
@@ -1081,7 +1082,7 @@ view
     controls.target.z *= ratio;
     camera.position.copy(controls.target).add(offset);
     controls.update();
-    viewToUrl();
+    if (!restoringSettings) viewToUrl();
     shared.exaggeration.value = v;
     for (const layer of lineLayers) layer.setExaggeration(v);
     iceDivides.setExaggeration(v);
@@ -1095,10 +1096,9 @@ view
 view.add(settings, "resetView").name("Reset view");
 view.add(settings, "topView").name("Top view (map)");
 view.add(settings, "edgeMove").name("Move at the edges of the view").onChange((on: boolean) => {
-  localStorage.setItem(EDGE_KEY, on ? "on" : "off");
   if (!on) keyNavigation.setEdge(0, 0);
 });
-view.add(settings, "autoZoom").name("Fly to a clicked line").onChange((on: boolean) => localStorage.setItem(AUTO_ZOOM_KEY, on ? "on" : "off"));
+view.add(settings, "autoZoom").name("Fly to a clicked line");
 view.add({ tutorial: () => tutorial.start() }, "tutorial").name("Tutorial (tour of the viewer)");
 const layers = gui.addFolder("Layers");
 layers
@@ -1351,6 +1351,62 @@ performanceFolder
 performanceFolder.add(settings, "lowResWhileMoving").name("Lower resolution while moving");
 performanceFolder.close();
 
+// The settings of the last visit, kept in the browser (localStorage, by the names in the menu)
+// and restored by the menu, as if chosen again. The first visit has the defaults: an almost
+// opaque ice surface, the isochrones found by exploring. Not in a private preview, which has
+// its own, nor saved from it. The filters are restored once built, with the data
+const SETTINGS_KEY = "viewer-settings";
+const REMEMBER = !SUBMISSION && !SCREENSHOT;
+interface SavedGui {
+  controllers: Record<string, unknown>;
+  folders: Record<string, SavedGui>;
+}
+function storedSettings(): SavedGui | null {
+  try {
+    return REMEMBER ? (JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null") as SavedGui | null) : null;
+  } catch {
+    return null;
+  }
+}
+const lastSettings = storedSettings();
+let filtersBuilt = false;
+function saveSettings(): void {
+  if (!REMEMBER || restoringSettings) return;
+  try {
+    const saved = gui.save() as SavedGui;
+    // The filters of the last visit, until they are in the menu
+    if (!filtersBuilt && lastSettings?.folders.Filter) saved.folders.Filter = lastSettings.folders.Filter;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(saved));
+  } catch {
+    // storage blocked, or two entries of the same name: nothing kept
+  }
+}
+function restoreSettings(folder: GUI, saved: SavedGui | undefined): void {
+  if (!saved) return;
+  restoringSettings = true;
+  try {
+    folder.load(saved);
+  } finally {
+    restoringSettings = false;
+  }
+}
+gui.onChange(saveSettings);
+gui
+  .add(
+    {
+      reset: () => {
+        gui.reset();
+        try {
+          localStorage.removeItem(SETTINGS_KEY);
+        } catch {
+          // storage blocked
+        }
+      },
+    },
+    "reset",
+  )
+  .name("Reset all settings");
+
 // Tour of the viewer, started by itself on the first visit (not in a private preview)
 const openInMenu = (folder: GUI) => () => {
   setSidebar(true);
@@ -1415,6 +1471,7 @@ const tutorial = new Tutorial([
 
 // Start: quick preview, then the detailed terrain
 const loading = document.getElementById("loading")!;
+restoreSettings(gui, lastSettings ?? undefined);
 if (!viewFromUrl()) resetView(true);
 loadMeta(DATA_URL)
   .then(async (meta) => {
@@ -1431,7 +1488,13 @@ loadMeta(DATA_URL)
   });
 
 showTracks();
-irhIndex.then(buildFilters).catch(showError);
+irhIndex
+  .then((index) => {
+    buildFilters(index);
+    filtersBuilt = true;
+    restoreSettings(filters, lastSettings?.folders.Filter);
+  })
+  .catch(showError);
 irhIndex
   .then((index) => isochrones.load(IRH_URL, index))
   .then(() => {
