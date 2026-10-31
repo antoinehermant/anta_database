@@ -563,14 +563,18 @@ def count_event(path: str, title: str, ip: str, user_agent: str) -> None:
 
 @app.post("/api/stats/sync", status_code=204)
 def stats_sync(body: SyncCount, request: Request, background: BackgroundTasks):
-    """Count a download of the database by db.sync(): "Python download" (first download) or
-    "Python update", in the statistics of the site. Nothing is stored here."""
+    """Count a sync of the database by db.sync() in the statistics of the site: the first
+    download of the whole database as "Python download", any later sync (an update, a missing
+    dataset) as "Sync count". Nothing is stored here."""
     ip = client(request)
     # Limited per address, kept as a hash for the hour of the limit
     if store.allow("stats", hashlib.sha256(ip.encode()).hexdigest()[:16], 30):
         size = f"{body.bytes / 1e6:.0f} MB" if body.bytes < 1e9 else f"{body.bytes / 1e9:.2f} GB"
         title = f"{body.files} files, {size} (database {body.db_version}, package {body.package_version})"
-        background.add_task(count_event, f"Python {body.kind}", title, ip, request.headers.get("user-agent", ""))
+        path = "Python download" if body.kind == "download" else "Sync count"
+        # GoatCounter drops user agents without a space ("anta_database/0.6.1") as bots
+        package = request.headers.get("user-agent", "") or "anta_database"
+        background.add_task(count_event, path, title, ip, f"{package} (Python; anta_database sync)")
     return Response(status_code=204)
 
 

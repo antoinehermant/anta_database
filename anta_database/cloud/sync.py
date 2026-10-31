@@ -14,8 +14,9 @@ or from the command line:
     anta-sync --dir /path/to/AntADatabase
 
 Download statistics: after a sync that downloaded files from the published database, one
-anonymous count is sent to the AntADatabase portal: first download or update, the number of
-files and bytes, and the versions of the package and the database. The portal adds it to the
+anonymous count is sent to the AntADatabase portal: whether it is the first download of the
+whole database into the directory or a later sync (an update, a missing dataset), the number
+of files and bytes, and the versions of the package and the database. The portal adds it to the
 visitor statistics of antadatabase.com (country only, no IP address kept). Nothing else is
 sent, and nothing at all with ANTA_NO_STATS=1, sync(stats=False) or anta-sync --no-stats.
 See https://antadatabase.com/privacy/.
@@ -277,8 +278,8 @@ def sync(
         dry_run: Only report what would be downloaded and deleted.
         delete: Remove local files that were synced before but are no longer published.
             Files that were never synced are never touched.
-        stats: Send one anonymous count of the download (first download or update, with
-            the number of files and bytes) for the statistics of the AntADatabase. Also
+        stats: Send one anonymous count of the sync (first download or later sync, with the
+            number of files and bytes) for the statistics of the AntADatabase. Also
             turned off by the ANTA_NO_STATS=1 environment variable. See the module docstring.
 
     Returns:
@@ -352,6 +353,7 @@ def sync(
 
     write_manifest(remote, local_manifest_path)
 
+    # The first download of the whole database into a directory, and later syncs, apart
     if to_download and _stats_enabled(stats, url):
         first = not local["files"]
         _report_sync("download" if first else "update", len(to_download), total, remote.get("db_version"))
