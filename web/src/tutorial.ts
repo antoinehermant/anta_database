@@ -2,10 +2,11 @@
  * Tour of the viewer: a few bubbles pointing at what they explain, ending with the hidden
  * things to find. It starts by itself on the first visit; once finished or closed, the browser
  * remembers it (localStorage, nothing is sent anywhere) and it only starts again from its
- * button in the menu.
+ * button in the menu. A private preview of a submission asks first (askForTour).
  */
 
 const SEEN_KEY = "tutorial";
+const ASKED_KEY = "preview-tour-asked";
 
 export interface TutorialStep {
   title: string;
@@ -25,6 +26,58 @@ export function tutorialSeen(): boolean {
   } catch {
     return true; // storage blocked: never start by itself, it would come back on every visit
   }
+}
+
+/**
+ * Ask "Need a tour of the viewer?", the first time in this browser (a private preview, whose
+ * contributor may know the viewer already): onYes starts it. Answered (or closed), it is not
+ * asked again; the tour stays in the menu.
+ */
+export function askForTour(onYes: () => void): void {
+  try {
+    if (localStorage.getItem(ASKED_KEY) === "asked") return;
+  } catch {
+    return; // storage blocked: it would ask on every visit
+  }
+  const box = element("section", "tutorial centred");
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-label", "Tour of the viewer");
+  const answer = (yes: boolean) => {
+    box.remove();
+    window.removeEventListener("keydown", onKey, true);
+    try {
+      localStorage.setItem(ASKED_KEY, "asked");
+    } catch {
+      // storage blocked
+    }
+    if (yes) onYes();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    answer(false);
+  };
+  const button = (text: string, yes: boolean, className = "") => {
+    const b = element("button", className, text);
+    b.type = "button";
+    b.addEventListener("click", () => answer(yes));
+    return b;
+  };
+  const buttons = element("div", "buttons");
+  const yes = button("Yes, show me", true, "next");
+  buttons.append(element("span", "count"), button("No, thanks", false), yes);
+  box.append(
+    element("h2", "", "Need a tour of the viewer?"),
+    element("p", "", "A few steps on how to move around, look at your isochrones and their stratigraphy. It stays in the menu, under View."),
+    buttons,
+  );
+  document.body.append(box);
+  window.addEventListener("keydown", onKey, true);
+  // In the middle of the page, as the steps of the tour without a target
+  const b = box.getBoundingClientRect();
+  Object.assign(box.style, { left: `${(window.innerWidth - b.width) / 2}px`, top: `${(window.innerHeight - b.height) / 2}px` });
+  yes.focus({ preventScroll: true });
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {

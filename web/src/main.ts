@@ -33,7 +33,7 @@ import { InTheWay } from "./inway";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
 import { SUBMISSION, startPreview } from "./preview";
-import { Tutorial, tutorialSeen } from "./tutorial";
+import { Tutorial, askForTour, tutorialSeen } from "./tutorial";
 import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, type HeightAt, type Scenario } from "./outlines";
 import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
 
@@ -130,16 +130,28 @@ function resetView(instant = false): void {
 
 // Extent of the dataset of a private preview, looked at once known (and again with the terrain heights)
 let submissionBox: number[] | null = null;
+// Opened with a view in the link (#view=...): kept, rather than the dataset of a preview or the
+// home view. Read once at the start: the viewer writes its own view there after each move
+const viewInUrl = /view=/.test(window.location.hash);
 
-/** Look at an area (EPSG:3031, m: xmin, xmax, ymin, ymax) from the direction of the home view. */
-function frameBox([xmin, xmax, ymin, ymax]: number[]): void {
+/**
+ * Look at an area (EPSG:3031, m: xmin, xmax, ymin, ymax) from the direction of the home view: at
+ * once, or flying there for ms.
+ */
+function frameBox([xmin, xmax, ymin, ymax]: number[], ms = 0): void {
   const x = (xmin + xmax) / 2000;
   const y = (ymin + ymax) / 2000;
   const size = Math.max(xmax - xmin, ymax - ymin) / 1000;
   const z = pivotField ? (pivotField.heightAt(x, y) * shared.exaggeration.value) / 1000 : 0;
-  controls.target.set(x, y, z);
+  const target = new THREE.Vector3(x, y, z);
   const distance = THREE.MathUtils.clamp(4 * size, 200, controls.maxDistance);
-  camera.position.copy(controls.target).add(HOME_OFFSET.clone().setLength(distance));
+  const position = target.clone().add(HOME_OFFSET.clone().setLength(distance));
+  if (ms) {
+    flyTo(target, position, ms);
+    return;
+  }
+  controls.target.copy(target);
+  camera.position.copy(position);
   controls.update();
   requestRender();
 }
@@ -535,9 +547,10 @@ scene.add(groundingLines.group, iceDivides.group);
 
 const irhIndex = SUBMISSION
   ? startPreview(document.getElementById("preview")!).then((status) => {
-      if (status.bbox && !window.location.hash) {
+      // Often long after the start, the submission being compiled: flying there from the home view
+      if (status.bbox && !viewInUrl) {
         submissionBox = status.bbox;
-        frameBox(submissionBox);
+        frameBox(submissionBox, 1500);
       }
       import("./preview-download")
         .then(({ showDownload }) => showDownload(document.getElementById("preview-download")!, SUBMISSION!.url, status))
@@ -545,6 +558,28 @@ const irhIndex = SUBMISSION
       return loadIndex(IRH_URL);
     })
   : loadIndex(IRH_URL);
+
+// In a private preview, the profile window opens below its panels (progress, download) rather
+// than over them, but keeps some height for the plot (the panels can be reduced). Enlarged, it
+// covers them all as anywhere else
+const PROFILE_TOP = 56; // px, as #profile in style.css
+const PROFILE_MIN_HEIGHT = 180;
+function placeProfile(): void {
+  const panel = document.getElementById("profile");
+  const stack = document.getElementById("preview-stack")!;
+  if (!panel) return;
+  const shown = [...stack.children].some((c) => !(c as HTMLElement).hidden);
+  const below = shown ? stack.getBoundingClientRect().bottom + 10 : PROFILE_TOP;
+  const top = Math.max(PROFILE_TOP, Math.min(below, window.innerHeight - PROFILE_MIN_HEIGHT - 12));
+  panel.style.setProperty("--profile-top", `${Math.round(top)}px`);
+}
+if (SUBMISSION) {
+  const stack = document.getElementById("preview-stack")!;
+  new ResizeObserver(placeProfile).observe(stack);
+  // The panels shown or hidden, and their content changing
+  new MutationObserver(placeProfile).observe(stack, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "class"] });
+  window.addEventListener("resize", placeProfile);
+}
 
 // Deep ice core sites
 const iceCores = new IceCores();
@@ -589,7 +624,8 @@ const eggs = new EasterEggs(
   { heightTex: u.heightTex, texOrigin: u.texOrigin, texDx: u.texDx, texSize: u.texSize, exaggeration: shared.exaggeration, ...bedMesh },
 );
 eggs.setExaggeration(shared.exaggeration.value);
-scene.add(eggs.group);
+// Not in a private preview, for the submitted dataset only
+if (!SUBMISSION) scene.add(eggs.group);
 
 // Ice velocity (loaded when first shown): the ice surface coloured by speed, and flow lines
 let velocity: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
@@ -856,7 +892,7 @@ function updateHover(): void {
     hoveredCore = core;
     requestRender();
   }
-  const egg = pointer && !core ? eggs.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
+  const egg = pointer && !core && !SUBMISSION ? eggs.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
   // Closest line of all layers
   let best: { layer: LineLayer; hit: Hit } | null = null;
   if (pointer && !core && !egg) {
@@ -1033,8 +1069,9 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
     const field = pivotField;
     terrainReady((layer, x, y) => field.smoothAt(layer, x, y));
     eggs.place();
-    if (!window.location.hash) {
-      if (submissionBox) frameBox(submissionBox);
+    if (!viewInUrl) {
+      // Flying there already (without the heights): the flight goes to the right height instead
+      if (submissionBox) frameBox(submissionBox, flight ? 800 : 0);
       else resetView(true);
     }
   }
@@ -1249,16 +1286,18 @@ layers
   .add(settings, "tracks")
   .name("Surface tracks")
   .onChange(showTracks);
-layers
-  .add(settings, "aircraft")
-  .name("Survey aircraft")
-  .onChange((v: boolean) => {
-    aircraft.group.visible = v;
-    // The tracks are their flight paths
-    if (v) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
-    lastAircraftUpdate = performance.now();
-    requestRender();
-  });
+// Not in a private preview, which has no aircraft (above)
+if (!SUBMISSION)
+  layers
+    .add(settings, "aircraft")
+    .name("Survey aircraft")
+    .onChange((v: boolean) => {
+      aircraft.group.visible = v;
+      // The tracks are their flight paths
+      if (v) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
+      lastAircraftUpdate = performance.now();
+      requestRender();
+    });
 layers
   .add(settings, "iceCores")
   .name("Ice cores")
@@ -1408,11 +1447,14 @@ function checkboxFolder<T>(title: string, items: [label: string, value: T][], hi
 }
 
 function buildFilters(index: IrhIndex): void {
-  // Datasets by their citation, e.g. "Cavitte et al. (2020)"
-  const labels = new Map<string, string>();
-  for (const f of index.features) if (!labels.has(f.dataset)) labels.set(f.dataset, f.citation ?? f.dataset);
-  const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
-  checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
+  // Datasets by their citation, e.g. "Cavitte et al. (2020)"; not in a private preview, which has
+  // only the submitted dataset
+  if (!SUBMISSION) {
+    const labels = new Map<string, string>();
+    for (const f of index.features) if (!labels.has(f.dataset)) labels.set(f.dataset, f.citation ?? f.dataset);
+    const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
+    checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
+  }
   // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
   const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
   const ages = [...new Set(index.features.map(ageKey))].sort((a, b) => rank(a) - rank(b) || (a as number) - (b as number));
@@ -1499,14 +1541,19 @@ const openInMenu = (folder: GUI) => () => {
   folder.open();
   folder.domElement.scrollIntoView({ block: "nearest" });
 };
+// The view the tour comes back to: the whole continent, or the dataset of a private preview
+const tourView = () => (SUBMISSION && submissionBox ? frameBox(submissionBox, 1000) : resetView());
 const tutorial = new Tutorial([
   {
-    title: "Welcome to the AntADatabase 3D viewer",
+    title: SUBMISSION ? "Your dataset in the 3D viewer" : "Welcome to the AntADatabase 3D viewer",
     text:
-      "The lines under the ice surface are **radar isochrones**: layers inside the ice sheet that were " +
-      "once the surface, all of the same age, traced by radar surveys. Below them, the bed of Antarctica " +
-      "(Bedmap3). A short tour of the viewer?",
-    prepare: () => resetView(),
+      (SUBMISSION
+        ? "The lines under the ice surface are the **radar isochrones** of your submission, as the AntADatabase " +
+          "compiled them: layers inside the ice sheet that were once the surface, all of the same age. "
+        : "The lines under the ice surface are **radar isochrones**: layers inside the ice sheet that were " +
+          "once the surface, all of the same age, traced by radar surveys. ") +
+      "Below them, the bed of Antarctica (Bedmap3). A short tour of the viewer?",
+    prepare: tourView,
   },
   {
     title: "Move around",
@@ -1519,11 +1566,13 @@ const tutorial = new Tutorial([
   },
   {
     title: "Layers",
-    text: "Show or hide the ice surface, the bed, the ice velocity, the grounding lines since the last ice age, the ice divides, the deep ice cores and the survey aircraft.",
+    text:
+      "Show or hide the ice surface, the bed, the ice velocity, the grounding lines since the last ice age, the ice " +
+      `divides${SUBMISSION ? " and the deep ice cores." : ", the deep ice cores and the survey aircraft."}`,
     tip: "Decrease the surface opacity to discover the isochrones under the ice!",
     target: () => layers.domElement,
     prepare: () => {
-      resetView();
+      tourView();
       openInMenu(layers)();
     },
   },
@@ -1541,18 +1590,25 @@ const tutorial = new Tutorial([
   },
   {
     title: "Filter",
-    text: "Choose the datasets and the ages shown. Every dataset can be downloaded from the Download page, with how to cite it.",
+    text: SUBMISSION
+      ? "Choose the ages shown, to look at your isochrones one by one."
+      : "Choose the datasets and the ages shown. Every dataset can be downloaded from the Download page, with how to cite it.",
     target: () => filters.domElement,
     prepare: () => {
-      resetView();
+      tourView();
       openInMenu(filters)();
     },
   },
-  {
-    title: "Find the eggs!",
-    text: "A few strange things are hidden somewhere in Antarctica: on the ice, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
-    prepare: () => resetView(),
-  },
+  // Not in a private preview, which has no eggs
+  ...(SUBMISSION
+    ? []
+    : [
+        {
+          title: "Find the eggs!",
+          text: "A few strange things are hidden somewhere in Antarctica: on the ice, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
+          prepare: () => resetView(),
+        },
+      ]),
 ]);
 
 // Start: quick preview, then the detailed terrain
@@ -1564,6 +1620,8 @@ loadMeta(DATA_URL)
     document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
     await loadLevel(meta, PREVIEW);
     if (!SUBMISSION && !tutorialSeen() && !document.body.classList.contains("clean")) tutorial.start();
+    // A private preview asks instead, once its data is shown (often after its compilation)
+    if (SUBMISSION) irhIndex.then(() => askForTour(() => tutorial.start())).catch(() => {});
     loading.textContent = "Loading detailed terrain…";
     await loadLevel(meta, DETAIL);
     loading.remove();
