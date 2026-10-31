@@ -66,6 +66,8 @@ export interface ProfileOptions {
   onPoint(point: ProfilePoint | null): void;
   /** The window was closed (button or Escape). */
   onClose(): void;
+  /** Facts about the line, first in the Details: its isochrones and their ages (for touch screens, without hover). */
+  describeLine(line: ProfileLine, layers: number[]): [string, string][];
 }
 
 type Mode = "Elevation" | "Depth";
@@ -175,7 +177,9 @@ export class ProfilePanel {
 
     new ResizeObserver(() => this.redraw()).observe(plot);
     this.canvas.addEventListener("pointermove", (e) => this.onPointerMove(e));
-    this.canvas.addEventListener("pointerleave", () => {
+    this.canvas.addEventListener("pointerleave", (e) => {
+      // A finger lifted: the tooltip of its tap stays, until the next touch
+      if (e.pointerType === "touch") return;
       this.pointer = null;
       this.drag = null;
       this.setHover(null);
@@ -183,8 +187,14 @@ export class ProfilePanel {
     this.canvas.addEventListener("pointerdown", (e) => {
       this.canvas.setPointerCapture(e.pointerId);
       this.drag = { x: e.offsetX, view: [...this.view] };
+      if (e.pointerType === "touch") this.setHover(null);
     });
-    this.canvas.addEventListener("pointerup", () => (this.drag = null));
+    this.canvas.addEventListener("pointerup", (e) => {
+      const tap = e.pointerType === "touch" && this.drag !== null && Math.abs(e.offsetX - this.drag.x) < 8;
+      this.drag = null;
+      // No hover on a touch screen: a tap shows what is under the finger
+      if (tap) this.onPointerMove(e);
+    });
     this.canvas.addEventListener("wheel", (e) => this.onWheel(e), { passive: false });
     this.canvas.addEventListener("dblclick", () => {
       this.view = [...this.full];
@@ -256,12 +266,13 @@ export class ProfilePanel {
     const thickness = profile.thickness === "ICE_THK" ? "ICE_THK of the dataset, completed with Bedmap3 where missing" : `${profile.thickness} ice thickness (500 m grid)`;
     const bed = profile.bed === "BED_ELEV" ? "BED_ELEV of the dataset" : "surface elevation minus ice thickness";
     const items: [string, string][] = [
+      ...this.options.describeLine(line, profile.layers),
       ["Resolution", resolution],
       ["Surface", surface],
       ["Ice thickness", thickness],
       ["Bed", bed],
       ["Isochrones", "elevation = surface - IRH_DEPTH; depth = IRH_DEPTH"],
-      ["Plot", "scroll to zoom along the line, drag to pan, double-click to see it all. Long profiles are drawn with about two points per pixel: zoom in to see every point."],
+      ["Plot", "scroll to zoom along the line, drag to pan, double-click to see it all; on a touch screen, tap a line for its details. Long profiles are drawn with about two points per pixel: zoom in to see every point."],
     ];
     this.detailsText.replaceChildren(
       ...items.map(([key, text]) => {

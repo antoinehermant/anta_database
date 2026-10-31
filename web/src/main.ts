@@ -144,23 +144,15 @@ function frameBox([xmin, xmax, ymin, ymax]: number[]): void {
 }
 
 // Clicking a line flies to it, and a "Reset view" button pops up (gone once the view is reset,
-// from it or the menu). Closing the stratigraphy returns to the view before the first of these
-// flights (not to the line before)
-let viewBeforeZoom: { target: THREE.Vector3; position: THREE.Vector3 } | null = null;
+// from it or the menu)
 const backButton = document.createElement("button");
 backButton.id = "back-view";
 backButton.type = "button";
 backButton.textContent = "↺ Reset view";
 backButton.hidden = true;
 backButton.addEventListener("click", () => resetView());
-/** Fly back to the view before the first flight to a line, if any. */
-function goBack(): void {
-  if (viewBeforeZoom) flyTo(viewBeforeZoom.target, viewBeforeZoom.position);
-  forgetZoom();
-}
 document.body.append(backButton);
 function forgetZoom(): void {
-  viewBeforeZoom = null;
   backButton.hidden = true;
 }
 
@@ -232,7 +224,6 @@ function zoomToLine(x: Float32Array, y: Float32Array): void {
     [xmin, xmax, ymin, ymax] = [Math.min(xmin, x[i]), Math.max(xmax, x[i]), Math.min(ymin, y[i]), Math.max(ymax, y[i])];
   }
   if (first < 0) return;
-  viewBeforeZoom ??= { target: controls.target.clone(), position: camera.position.clone() };
   backButton.hidden = false;
   const [cx, cy] = [(xmin + xmax) / 2, (ymin + ymax) / 2];
   const length = Math.max(Math.hypot(xmax - xmin, ymax - ymin), 20);
@@ -677,13 +668,64 @@ let hovered: { layer: LineLayer; feature: number } | null = null;
 let hoveredCore: IceCore | null = null;
 
 renderer.domElement.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") {
+    // The tooltip of a long press stays while the finger rests; moving it away cancels the press
+    if (touchHold && Math.hypot(event.clientX - touchHold.x, event.clientY - touchHold.y) > LONG_PRESS_PX) cancelLongPress();
+    if (touchTip) return;
+  }
   pointer = event.buttons ? null : { x: event.offsetX, y: event.offsetY };
   pointerMoved = true;
 });
-renderer.domElement.addEventListener("pointerleave", () => {
+renderer.domElement.addEventListener("pointerleave", (event) => {
+  if (event.pointerType === "touch") return; // after each touch: the tooltip of a long press stays
   pointer = null;
   pointerMoved = true;
 });
+
+// No hover on a touch screen: a long press on a line (or anything with a tooltip) shows its
+// tooltip, as a hover would, until the next touch
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_PX = 8;
+let touchHold: { x: number; y: number; timer: number } | null = null;
+let touchTip = false;
+const touches = new Set<number>();
+function cancelLongPress(): void {
+  if (touchHold) clearTimeout(touchHold.timer);
+  touchHold = null;
+}
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (event.pointerType !== "touch") return;
+  touches.add(event.pointerId);
+  cancelLongPress();
+  if (touchTip) {
+    touchTip = false;
+    pointer = null;
+    pointerMoved = true;
+  }
+  if (touches.size > 1) return; // pinching
+  const [x, y] = [event.offsetX, event.offsetY];
+  touchHold = {
+    x: event.clientX,
+    y: event.clientY,
+    timer: window.setTimeout(() => {
+      touchHold = null;
+      touchTip = true;
+      pressed = null; // not a click
+      pointer = { x, y };
+      pointerMoved = true;
+      lastViewChange = 0; // shown at once, the view hardly moved
+      requestRender();
+    }, LONG_PRESS_MS),
+  };
+});
+for (const type of ["pointerup", "pointercancel"] as const) {
+  renderer.domElement.addEventListener(type, (event) => {
+    if (event.pointerType !== "touch") return;
+    touches.delete(event.pointerId);
+    cancelLongPress();
+  });
+}
+renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
 
 function formatAge(f: Feature): string {
   if (f.age_ka === null) return "not assigned";
@@ -883,10 +925,18 @@ const profile = new ProfilePanel({
   },
   hideTooltip: () => (tooltip.style.visibility = "hidden"),
   onPoint: markProfilePoint,
-  // Closing the stratigraphy also goes back to where you were before flying to its line
-  onClose: () => {
-    selectLine(null);
-    goBack();
+  // Closing the stratigraphy only ends the selection of its line: the view stays
+  onClose: () => selectLine(null),
+  describeLine: (line, layers) => {
+    const rows: [string, string][] = [["Line ID", line.line_id]];
+    const features = layers.map((f) => isochrones.features[f]);
+    const dated = features.filter((f) => !isBasalUnit(f) && f.age_ka !== null).sort((a, b) => a.age_ka! - b.age_ka!);
+    const ages = dated.map((f) => `${formatAge(f)} (IRH ${f.irh})`);
+    const undated = features.filter((f) => !isBasalUnit(f) && f.age_ka === null).length;
+    if (undated) ages.push(`${undated} without age`);
+    rows.push([`Isochrones on this line (${features.filter((f) => !isBasalUnit(f)).length})`, ages.join(", ") || "none"]);
+    if (features.some(isBasalUnit)) rows.push(["Also on this line", "a basal unit layer"]);
+    return rows;
   },
 });
 
@@ -1460,9 +1510,9 @@ const tutorial = new Tutorial([
   {
     title: "Point and click",
     text:
-      "**Hover** a line for its details: its dataset, age and depth. **Click** an isochrone to fly to its " +
-      "radar line and open its stratigraphy: all its isochrones, along the line, over the bed. Closing it " +
-      "brings you back to where you were.",
+      "**Hover** a line for its details: its dataset, age and depth (on a touch screen, **press and hold** it). " +
+      "**Click** an isochrone to fly to its radar line and open its stratigraphy: all its isochrones, along the " +
+      "line, over the bed.",
   },
   {
     title: "Colours",
