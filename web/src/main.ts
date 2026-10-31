@@ -29,6 +29,7 @@ import { KeyNavigation } from "./keys";
 import { EasterEggs } from "./eggs";
 import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
+import { InTheWay } from "./inway";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
 import { SUBMISSION, startPreview } from "./preview";
@@ -429,6 +430,10 @@ function animating(): boolean {
 let lastFrame = 0;
 let lastRender = 0;
 const GLIDE_FRAME_MS = 1000 / 30;
+// Whether the animations (aircraft, flow lines) go on while moving with the keys or the pad, and
+// while moving at an edge of the view (false: paused, lighter for a laptop)
+const ANIMATE_WITH_KEYS = false;
+const ANIMATE_AT_EDGES = true;
 renderer.setAnimationLoop((time: number) => {
   stepFlight(performance.now());
   updateEdgeMove(performance.now());
@@ -436,10 +441,11 @@ renderer.setAnimationLoop((time: number) => {
   lastFrame = time;
   controls.update();
   // Moving by itself (a flight, keys, the pad or an edge): drawn at most 30 times a second, and
-  // without the animations (but during the flights home and to the map), so a laptop keeps up
-  // however long it lasts
+  // without the animations (but during the flights home and to the map, and as set above for
+  // the keys and the edges), so a laptop keeps up however long it lasts
   const gliding = flight !== null || keyNavigation.active;
-  const animate = animating() && (flight ? flight.animate : !keyNavigation.active);
+  const paused = (keyNavigation.keysActive && !ANIMATE_WITH_KEYS) || (keyNavigation.edgeActive && !ANIMATE_AT_EDGES);
+  const animate = animating() && (flight ? flight.animate : !paused);
   stopMomentum();
   previousCamera.copy(camera.position);
   updateHover();
@@ -474,6 +480,8 @@ renderer.setAnimationLoop((time: number) => {
   // Dashes of the tracks: the same length on screen at any zoom
   tracks.lines.setDashPixel(pixelAtTarget());
   if (groundingLines.group.visible) groundingLines.setDashPixel(pixelAtTarget());
+  // The lines in the way of the open profile fade: the depth of its curtain first
+  inTheWay.render(renderer, camera);
   renderer.render(scene, camera);
   stats.update();
 });
@@ -908,6 +916,12 @@ function markProfilePoint(point: ProfilePoint | null): void {
   requestRender();
 }
 
+// What hides the open profile: its curtain, to fade the lines in front of it
+const inTheWay = new InTheWay();
+inTheWay.setExaggeration(shared.exaggeration.value);
+isochrones.lines.setInTheWay(inTheWay.uniforms);
+tracks.lines.setInTheWay(inTheWay.uniforms);
+
 const profile = new ProfilePanel({
   colorOf: (feature) => isochrones.ageColor(feature),
   describeLayer: (feature, depth, point) => {
@@ -926,7 +940,10 @@ const profile = new ProfilePanel({
   hideTooltip: () => (tooltip.style.visibility = "hidden"),
   onPoint: markProfilePoint,
   // Closing the stratigraphy only ends the selection of its line: the view stays
-  onClose: () => selectLine(null),
+  onClose: () => {
+    selectLine(null);
+    inTheWay.setCurtain(null);
+  },
   describeLine: (line, layers) => {
     const rows: [string, string][] = [["Line ID", line.line_id]];
     const features = layers.map((f) => isochrones.features[f]);
@@ -972,9 +989,11 @@ function openProfileAt(x: number, y: number): void {
   const track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
   if (!track) return;
   selectLine(track);
+  inTheWay.setCurtain(null);
   profile
     .open(track, IRH_URL)
     .then(() => {
+      if (profile.line === track) inTheWay.setCurtain(profile.curtain());
       // Unless another line was clicked meanwhile
       if (settings.autoZoom && profile.line === track) {
         const { x, y } = profile.points();
@@ -1153,6 +1172,7 @@ view
     for (const layer of lineLayers) layer.setExaggeration(v);
     iceDivides.setExaggeration(v);
     profileMarker.scale.z = v / 1000;
+    inTheWay.setExaggeration(v);
     iceCores.setExaggeration(v);
     aircraft.setExaggeration(v);
     eggs.setExaggeration(v);

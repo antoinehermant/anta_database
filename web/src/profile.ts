@@ -327,6 +327,33 @@ export class ProfilePanel {
     return { x, y };
   }
 
+  /**
+   * The curtain of the line shown: x, y (km), and the surface and bed elevations (m) at each
+   * point. Where the dataset has no bed, the surface minus the ice thickness (completed with
+   * Bedmap3), or else the deepest isochrone.
+   */
+  curtain(): { x: Float32Array; y: Float32Array; top: Float32Array; bottom: Float32Array } {
+    const { x, y } = this.points();
+    const top = new Float32Array(this.count);
+    const bottom = new Float32Array(this.count);
+    for (let row = 0; row < this.count; row++) {
+      const surface = this.value(row, 3);
+      top[row] = surface;
+      let bed = this.value(row, 4);
+      if (!Number.isFinite(bed)) bed = surface - this.value(row, 5);
+      if (!Number.isFinite(bed)) {
+        let deepest = NaN;
+        for (let k = 0; k < this.layers.length; k++) {
+          const depth = this.value(row, COLUMNS + k);
+          if (Number.isFinite(depth) && !(depth <= deepest)) deepest = depth;
+        }
+        bed = surface - deepest;
+      }
+      bottom[row] = bed;
+    }
+    return { x, y, top, bottom };
+  }
+
   private setExpanded(expanded: boolean): void {
     if (expanded) this.setReduced(false);
     this.el.classList.toggle("expanded", expanded);

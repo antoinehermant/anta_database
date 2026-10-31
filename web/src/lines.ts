@@ -49,8 +49,14 @@ const CELL = 16; // px, screen grid cell size
 const SELECTION_GLOW = 5;
 // Width of the other lines while some are selected: DIMMED_WIDTH of the default width, and
 // DIMMED_RATE px wider for each px wider in the menu (1: as the selected lines, 0: never wider)
-const DIMMED_WIDTH = 0.6;
+const DIMMED_WIDTH = 0.8;
 const DIMMED_RATE = 0.3;
+// Opacity of the other lines while some are selected, as a share of their own: where they are
+// in the way of the open profile (over its curtain, and closer to the camera), and elsewhere;
+// and the width of the lines in the way, as a share of the dimmed width
+const DIMMED_IN_WAY = 0.3;
+const DIMMED_OTHER = 0.8;
+const DIMMED_IN_WAY_WIDTH = 0.4;
 
 /** Segments projected to the screen, binned by grid cell. */
 interface ScreenIndex {
@@ -91,13 +97,23 @@ export class LineLayer {
   private readonly selection = new THREE.Group();
   private selectionGlow: LineMaterial;
   private selectionMaterial: LineMaterial;
-  // Width and opacity of the lines, and whether they are dimmed for a selection
+  // Width of the lines, and whether they are dimmed for a selection
   private width: number;
   // The width it was made with: dimmed lines grow slower from it (DIMMED_RATE)
   private readonly baseWidth: number;
-  private readonly opacity: number;
   private readonly transparent: boolean;
   private dimmed = false;
+  // Uniforms of the dimming: whether this layer is dimmed, the opacities and the width in the
+  // way; and, shared by the layers (setInTheWay()), the depth of the curtain of the profile
+  private readonly side: Record<string, THREE.IUniform> = {
+    sideDimmed: { value: 0 },
+    sideOther: { value: DIMMED_OTHER },
+    sideInWay: { value: DIMMED_IN_WAY },
+    sideInWayWidth: { value: DIMMED_IN_WAY_WIDTH },
+    inWayDepth: { value: null },
+    inWayViewport: { value: new THREE.Vector2(1, 1) },
+    inWayActive: { value: 0 },
+  };
 
   constructor(options: { linewidth: number; color?: THREE.ColorRepresentation; transparent?: boolean; dashed?: boolean }) {
     const transparent = options.transparent ?? false;
@@ -108,11 +124,41 @@ export class LineLayer {
       transparent,
       dashed: options.dashed ?? false,
     });
-    // Hidden segments are moved out of the view volume, so they draw nothing
+    Object.assign(this.material.uniforms, this.side);
+    // Hidden segments are moved out of the view volume, so they draw nothing. While some lines
+    // are selected, the others fade by their side of the selection, seen from the camera
     this.material.onBeforeCompile = (shader) => {
-      shader.vertexShader = `attribute float instanceHidden;\n${shader.vertexShader}`.replace(
-        "#include <fog_vertex>",
-        "#include <fog_vertex>\n\tif (instanceHidden > 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);",
+      // 1 where a point (window coordinates of the frame, 0 to 1, and depth) is in the way of
+      // the open profile: over its curtain, and closer to the camera
+      const side = `uniform float sideDimmed;
+uniform float sideOther;
+uniform float sideInWay;
+uniform float sideInWayWidth;
+uniform sampler2D inWayDepth;
+uniform vec2 inWayViewport;
+uniform float inWayActive;
+float inWayAt(vec2 uv, float z) {
+  float curtain = texture2D(inWayDepth, uv).r;
+  return inWayActive * step(curtain, 0.999999) * step(z, curtain - 1e-6);
+}
+`;
+      shader.vertexShader = `attribute float instanceHidden;\n${side}${shader.vertexShader}`
+        // Thinner in the way (judged at each end of the segment)
+        .replace(
+          "offset *= linewidth;",
+          `vec4 sideClip = (position.y < 0.5) ? clipStart : clipEnd;
+\t\t\t\tvec3 sideNdc = sideClip.xyz / sideClip.w;
+\t\t\t\tfloat sideWay = sideDimmed * inWayAt(sideNdc.xy * 0.5 + 0.5, sideNdc.z * 0.5 + 0.5);
+\t\t\t\toffset *= linewidth * mix(1.0, sideInWayWidth, sideWay);`,
+        )
+        .replace("#include <fog_vertex>", "#include <fog_vertex>\n\tif (instanceHidden > 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);");
+      shader.fragmentShader = `${side}${shader.fragmentShader}`.replace(
+        "float alpha = opacity;",
+        // Discarded when (nearly) invisible: not even in the depth buffer, where it would hide
+        // the ice surface and the lines behind
+        `float sideWay = inWayAt(gl_FragCoord.xy / inWayViewport, gl_FragCoord.z);
+\t\t\tfloat alpha = opacity * mix(1.0, mix(sideOther, sideInWay, sideWay), sideDimmed);
+\t\t\tif (alpha < 0.02) discard;`,
       );
     };
     this.highlightGlow = new LineMaterial({ linewidth: options.linewidth + 6, color: 0xffffff, depthTest: false, transparent: true, opacity: 0.7, depthWrite: false });
@@ -124,7 +170,6 @@ export class LineLayer {
       transparent: true,
     });
     this.width = this.baseWidth = options.linewidth;
-    this.opacity = this.material.opacity;
     this.transparent = transparent;
     // Transparent (even when opaque) so it is drawn with the transparent things, after the
     // surface, which is drawn first by the order of its group
@@ -307,6 +352,12 @@ export class LineLayer {
     this.drawSelection();
   }
 
+  /** Share the depth of the curtain of the open profile (InTheWay.uniforms), to fade the lines in its way. */
+  setInTheWay(uniforms: { inWayDepth: THREE.IUniform; inWayViewport: THREE.IUniform; inWayActive: THREE.IUniform }): void {
+    Object.assign(this.side, uniforms);
+    Object.assign(this.material.uniforms, uniforms);
+  }
+
   private drawSelection(): void {
     // The glow and the line share their geometry
     (this.selection.children[0] as LineSegments2 | undefined)?.geometry.dispose();
@@ -362,7 +413,8 @@ export class LineLayer {
     // these still stand out
     const dimmedWidth = DIMMED_WIDTH * this.baseWidth + DIMMED_RATE * (this.width - this.baseWidth);
     material.linewidth = this.dimmed ? Math.max(1, dimmedWidth) : this.width;
-    material.opacity = this.dimmed ? this.opacity * 0.45 : this.opacity;
+    // The opacity is set in the shader: lower in the way of the open profile
+    this.side.sideDimmed.value = this.dimmed ? 1 : 0;
     const transparent = this.transparent || this.dimmed;
     if (material.transparent !== transparent) {
       material.transparent = transparent;

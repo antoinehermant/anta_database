@@ -155,7 +155,13 @@ export class KeyNavigation {
     return this.held.size > 0 || this.edgeActive;
   }
 
-  private get edgeActive(): boolean {
+  /** Moving with the keys or the pad (held down). */
+  get keysActive(): boolean {
+    return this.held.size > 0;
+  }
+
+  /** Moving towards an edge of the view. */
+  get edgeActive(): boolean {
     return this.edge.along !== 0 || this.edge.across !== 0;
   }
 
