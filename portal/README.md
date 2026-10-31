@@ -113,9 +113,23 @@ anta-review accept <id>
 3. Exports the 3D viewer and download page data.
 4. Publishes the database and these data.
 5. Checks them online.
-6. Closes the submission on the server: removes the preview and the compiled copy, keeps the
+6. Publishes the raw files to `raw/<Dataset>/` in the public bucket (below).
+7. Closes the submission on the server: removes the preview and the compiled copy, keeps the
    raw files, and emails the contributor.
-7. Adds the dataset to `book/intro.md` and `book/changelog.md`.
+8. Adds the dataset to `book/intro.md` and `book/changelog.md`.
+
+`raw/<Dataset>/` holds, for the record and for later versions of the database:
+- `raw/`: the files as the contributor sent them, with all their columns. That includes the
+  optional ones the compilation doesn't use yet (`IRH_DEPTH_UNC`, `IRH_TWT`, `TRACE_NUM`,
+  `TIME`...) and any unknown ones;
+- `raw_md.json` and `original_new_column_names.csv`, to compile them again;
+- `provenance.json`: the submission (id, dates, files and their columns, ages, notes), without
+  the contributor's name and email.
+
+It sits at the root of the bucket, outside the database prefixes (`v1/`, `v2/`...). There is a
+single copy whatever the data schema, and it is in no manifest, so `sync()` and the download
+page never fetch it. `accept --replace` replaces it, and `remove` deletes it (the copy in
+`antadatabase-submissions` stays).
 
 It can be run again after a failure, and goes on from where it stopped. The viewer and the
 download page show the new dataset straight away; the docs need:
@@ -153,7 +167,8 @@ anta-review remove <Dataset> --reason "..."      # --message "..." to also email
 `remove` works like `accept`, the other way round, and asks before publishing:
 1. Makes the release copy identical to the published database.
 2. Takes the dataset out, and rebuilds the index and the viewer data.
-3. Publishes a new database version without it, then checks online that it is gone.
+3. Publishes a new database version without it, then checks online that it is gone, and
+   deletes its raw files from `raw/<Dataset>/`.
 4. If the dataset came through the portal, marks its submission `withdrawn` (the raw files stay
    in `antadatabase-submissions`).
 5. Removes it from `book/intro.md` and adds a line to `book/changelog.md`; commit, then
@@ -244,7 +259,9 @@ python portal/dev/make_fake_data.py
 
 turns the compiled Chung_2023 back into raw files, as dataset Fake_2026, in `portal/dev/fake_data/`:
 `per_layer/` (one .tab file per IRH, plus ICE_THK and BASAL_UNIT), `per_line/` (one .csv file per
-line, lon/lat) and `broken/` (mistakes the form should catch). In development, the button
+line, lon/lat), `per_layer_columns/` (ICE_THK and SURF_ELEV in the layer files, with optional and
+unknown columns) and `broken/` (mistakes the form should catch). Chung_2023 only has ICE_THK, so
+`per_layer/` and `per_line/` also test the warning about the missing reference of the depths. In development, the button
 "Fill with the fake submission" of the page fills the fields (data/dev/fake_submission.json); then
 drop the files of one of the folders.
 

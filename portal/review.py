@@ -21,11 +21,19 @@ accept:
 2. adds the compiled dataset to it, and rebuilds the index (the ages are already in the files);
 3. exports the data of the 3D viewer and of the download page;
 4. shows what changes, and asks before publishing the database and these data to the bucket;
-5. checks them online, then closes the submission on the server (preview and compiled copy
-   removed, raw files kept, contributor told), and adds the dataset to the docs
-   (book/intro.md, book/changelog.md).
+5. checks them online, then publishes the raw files of the submission to raw/<Dataset>/ in
+   the bucket (below);
+6. closes the submission on the server (preview and compiled copy removed, raw files kept,
+   contributor told), and adds the dataset to the docs (book/intro.md, book/changelog.md).
 It can be run again after a failure: it goes on from where it stopped.
 With --test, it publishes to test/ in the bucket, leaves the submission and the docs alone.
+
+The raw files: raw/<Dataset>/ in the public bucket holds the files as the contributor sent them
+(raw/), the inputs of CompileDatabase made from the form (raw_md.json,
+original_new_column_names.csv) and provenance.json (the submission, without the contact of
+the contributor). It is outside the database prefixes (v1/, v2/...): one copy for all the
+versions of the data, never in a manifest, so sync() and the download page leave it alone.
+remove deletes it with the dataset.
 
 The release copy (default ~/data/isochrones/AntADatabase-release) is only written by this
 script, and made identical to the bucket before each change. Settings in
@@ -59,6 +67,9 @@ ENDPOINT = "https://s3.pub1.infomaniak.cloud"
 BUCKET = "antadatabase"
 # Marks a dataset of the release copy added from a submission: <Dataset>/.submission
 MARKER = ".submission"
+# Bucket prefix of the raw files of the datasets, raw/<Dataset>/ (see above)
+RAW_PREFIX = "raw"
+CONTENT_TYPES = {".csv": "text/csv", ".tab": "text/tab-separated-values", ".json": "application/json"}
 
 
 def settings() -> dict:
@@ -448,6 +459,74 @@ def publish_release(release: Path, cfg: dict, args, name: str, present: bool, co
     return version
 
 
+def raw_prefix(name: str, args) -> str:
+    return f"{'test/' if args.test else ''}{RAW_PREFIX}/{name}"
+
+
+def list_keys(client, prefix: str) -> list[str]:
+    return [item["Key"] for page in client.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=f"{prefix}/")
+            for item in page.get("Contents", [])]
+
+
+def provenance(r: dict, version: str) -> dict:
+    """Where the raw files of a dataset come from: its submission, without the contact of the
+    contributor (the bucket is public)."""
+    keys = ("name", "kind", "irh", "variable", "irh_columns", "columns", "rows", "acquisition_year", "project")
+    return {
+        "dataset": r["dataset"],
+        "citation": r["citation"],
+        "DOI publication": r["publication"].get("doi_publication") or None,
+        "DOI dataset": r["publication"].get("doi_dataset") or None,
+        "submission": r["id"],
+        "received": r["received"],
+        "database version": version,
+        "file structure": "one file per layer" if r["structure"] == "layer" else "one file per line",
+        "files": [{k: f[k] for k in keys if f.get(k) not in (None, [])} for f in r["files"]],
+        "layers": r.get("layers") or [],
+        "survey": r.get("survey") or {},
+        "notes": (r.get("notes") or "").strip(),
+    }
+
+
+def publish_raw(r: dict, cfg: dict, args, version: str) -> None:
+    """Publish the raw files of a submission to raw/<Dataset>/ of the public bucket, in place of
+    those of an earlier version of the dataset."""
+    name = r["dataset"]
+    prefix = raw_prefix(name, args)
+    step(f"Raw files: {BUCKET}/{prefix}/")
+    stage = Path(tempfile.mkdtemp(prefix=f"anta-raw-{r['id']}-"))
+    try:
+        download(s3(cfg["portal_profile"]), r["submissions_bucket"], f"{r['id']}/{name}", stage)
+        if not any((stage / "raw").glob("*")):
+            sys.exit(f"No raw files of {r['id']} in {r['submissions_bucket']}")
+        (stage / "provenance.json").write_text(json.dumps(provenance(r, version), indent=2, ensure_ascii=False))
+        local = {p.relative_to(stage).as_posix(): p for p in sorted(stage.rglob("*")) if p.is_file()}
+        client = s3(cfg["public_profile"])
+        for rel, path in local.items():
+            client.upload_file(str(path), BUCKET, f"{prefix}/{rel}",
+                               ExtraArgs={"ContentType": CONTENT_TYPES.get(path.suffix.lower(), "application/octet-stream")})
+        stale = [key for key in list_keys(client, prefix) if key.removeprefix(f"{prefix}/") not in local]
+        for key in stale:
+            client.delete_object(Bucket=BUCKET, Key=key)
+        if set(list_keys(client, prefix)) != {f"{prefix}/{rel}" for rel in local}:
+            sys.exit(f"The raw files in {BUCKET}/{prefix}/ are not as uploaded. Run accept again.")
+        size = sum(p.stat().st_size for p in local.values())
+        print(f"{len(local)} files ({size / 1e6:.1f} MB) in {public_url(prefix)}/"
+              + (f", {len(stale)} of the earlier version deleted" if stale else ""))
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+
+
+def delete_raw(name: str, cfg: dict, args) -> None:
+    prefix = raw_prefix(name, args)
+    client = s3(cfg["public_profile"])
+    keys = list_keys(client, prefix)
+    for key in keys:
+        client.delete_object(Bucket=BUCKET, Key=key)
+    if keys:
+        print(f"Raw files: {len(keys)} deleted from {BUCKET}/{prefix}/ (still in the bucket of the submissions)")
+
+
 def cmd_accept(args) -> None:
     cfg = settings()
     release = Path(cfg["release_dir"] + ("-test" if args.test else ""))
@@ -484,6 +563,7 @@ def cmd_accept(args) -> None:
     print(f"{len(list((dataset / 'h5').glob('*.h5')))} lines")
 
     version = publish_release(release, cfg, args, name, present=True, command="accept")
+    publish_raw(r, cfg, args, version)
     if args.test:
         print("\nTest: the submission stays open on the server, the docs are unchanged. Clean up with:\n"
               f"  aws --profile {cfg['public_profile']} --endpoint-url {ENDPOINT} s3 rm --recursive s3://{BUCKET}/test/")
@@ -534,6 +614,7 @@ def cmd_remove(args) -> None:
         sys.exit("Nothing done")
     shutil.rmtree(release / name)
     version = publish_release(release, cfg, args, name, present=False, command="remove")
+    delete_raw(name, cfg, args)
     if args.test:
         print("\nTest: the submission and the docs are unchanged. Clean up with:\n"
               f"  aws --profile {cfg['public_profile']} --endpoint-url {ENDPOINT} s3 rm --recursive s3://{BUCKET}/test/")
