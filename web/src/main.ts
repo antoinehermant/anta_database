@@ -1529,6 +1529,7 @@ gui
         } catch {
           // storage blocked
         }
+        tourView();
       },
     },
     "reset",
