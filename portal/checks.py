@@ -209,6 +209,11 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     both = sorted(v for v in variable_files if any(v in have for have in reference.values()))
     if both:
         report.errors.append(f"{', '.join(both)} both in variable files and in layer files: keep only one of them")
+    # Every layer needs an age, as in the form, for now: undated layers may be accepted later
+    ages = {layer["irh"]: layer.get("age") for layer in record.get("layers") or []}
+    undated = sorted(n for n in points if not ages.get(n))
+    if undated:
+        report.errors.append(f"No age for {', '.join(f'IRH {n}' for n in undated)}: every layer needs an age")
     report.summary["raw points"] = points
     return report
 

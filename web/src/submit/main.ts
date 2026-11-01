@@ -636,7 +636,8 @@ function layerIssues(): Issue[] {
     else if (age && !age_unc) issues.push({ level: "warning", text: `IRH ${irh}: no age uncertainty.` });
     if (age && Number(age) < 1000) issues.push({ level: "warning", text: `IRH ${irh}: ${age} years, are ages in years (not ka)?` });
   }
-  if (undated.length) issues.push({ level: "warning", text: `Undated layers: ${undated.map((n) => `IRH ${n}`).join(", ")}.` });
+  // Undated layers may be accepted later (portal/checks.py too): not for now
+  if (undated.length) issues.push({ level: "error", text: `Give the age of ${undated.map((n) => `IRH ${n}`).join(", ")}: every layer needs an age.` });
   if (younger.length)
     issues.push({
       level: "warning",
