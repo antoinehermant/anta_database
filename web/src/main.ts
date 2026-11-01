@@ -591,6 +591,8 @@ scene.add(iceCores.group);
 // One per dataset, flying the legs of its tracks, found once the tracks are loaded
 const AIRCRAFT_DATASETS = ["Franke_2025", "Sanderson_2024", "Yan_2025", "Wang_2023", "Cavitte_2020", "Bodart_2021", "Bodart_2025b"];
 let legs: Map<string, FlightLine[]> | null = null;
+// The index is loaded, and the filters of the last visit restored: what to show is known
+let filtersReady: Promise<void>;
 function aircraftLegs(dataset: string): FlightLine[] {
   if (!tracks.lines.loaded) return [];
   legs ??= flightLines(
@@ -599,6 +601,19 @@ function aircraftLegs(dataset: string): FlightLine[] {
     (f) => tracks.tracks[f]?.dataset ?? "",
   );
   return legs.get(dataset) ?? [];
+}
+/** The tracks of the datasets shown (with the filters), for themselves and for the aircraft. */
+function loadTracks(): void {
+  filtersReady
+    .then(() => (settings.tracks || settings.aircraft ? tracks.load(isochrones.datasetsNotHidden()) : undefined))
+    .then(() => {
+      legs = null;
+      tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 0.5));
+      tracks.applyFilter(isochrones.hiddenDatasets);
+      pointerMoved = true;
+      requestRender();
+    })
+    .catch(showError);
 }
 const aircraft = new Aircraft(
   AIRCRAFT_DATASETS,
@@ -672,6 +687,7 @@ function updateFlowArea(): void {
 
 function showVelocity(): void {
   const on = settings.velocity;
+  if (on) loadDetail("surface").catch(showError);
   if (on && !velocity) loadVelocity().then(showVelocity).catch(showError);
   if (velocity) velocity.visible = on;
   if (flowLines) flowLines.mesh.visible = on && settings.flowLines;
@@ -1052,8 +1068,13 @@ renderer.domElement.addEventListener("pointerup", (event) => {
 
 let maskTexture: THREE.DataTexture | null = null;
 // Grid and data coverage of the current height textures, to rebuild the meshes
-let textureGrid: Grid | null = null;
-let coverage: { bed: Uint8Array; surface: Uint8Array } | null = null;
+const textureGrid: Partial<Record<TerrainLayer, Grid>> = {};
+const coverage: Partial<Record<TerrainLayer, Uint8Array>> = {};
+type TerrainLayer = "bed" | "surface";
+// The detailed height textures, each fetched when its layer is first shown
+const detail: Partial<Record<TerrainLayer, Promise<void>>> = {};
+let detailMask: Promise<THREE.DataTexture> | null = null;
+let terrainPreview: Promise<TerrainMeta>;
 let terrainMeta: TerrainMeta | null = null;
 
 async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
@@ -1075,8 +1096,9 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
       else resetView(true);
     }
   }
-  textureGrid = grid;
-  coverage = { bed: bedTex.userData.valid, surface: surfaceTex.userData.valid };
+  textureGrid.bed = textureGrid.surface = grid;
+  coverage.bed = bedTex.userData.valid;
+  coverage.surface = surfaceTex.userData.valid;
   // Heights are only kept on the CPU for the first (coarse) level
   bedTex.userData = {};
   surfaceTex.userData = {};
@@ -1085,20 +1107,51 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
   maskTexture?.dispose();
   maskTexture = mask;
   terrainMeta = meta;
-  buildMeshes(res === PREVIEW ? PREVIEW : QUALITY[settings.quality]);
+  buildMeshes(PREVIEW);
+}
+
+/** The detailed height texture of a layer, once. */
+function loadDetail(layer: TerrainLayer): Promise<void> {
+  detail[layer] ??= (async () => {
+    const meta = await terrainPreview;
+    const level = meta.resolutions[DETAIL];
+    detailMask ??= loadMaskTexture(DATA_URL, level);
+    const [height, mask] = await Promise.all([loadHeightTexture(DATA_URL, level, layer, meta.nodata), detailMask]);
+    const grid = gridOf(level);
+    textureGrid[layer] = grid;
+    coverage[layer] = height.userData.valid;
+    height.userData = {};
+    setLayerTextures((layer === "bed" ? bed : surface).material, height, mask, grid);
+    // One mask for both layers, also the one still at its preview heights
+    if (maskTexture !== mask) {
+      maskTexture?.dispose();
+      maskTexture = mask;
+      bed.material.uniforms.maskTex.value = surface.material.uniforms.maskTex.value = mask;
+    }
+    buildMeshes(QUALITY[settings.quality]);
+  })();
+  return detail[layer]!;
+}
+
+/** The terrain layers shown (the velocity lies on the surface), in detail. */
+function loadShownTerrain(): Promise<unknown> {
+  const shown: TerrainLayer[] = [];
+  if (settings.bed) shown.push("bed");
+  if (settings.surface || settings.velocity) shown.push("surface");
+  return Promise.all(shown.map(loadDetail));
 }
 
 /** Bed and surface meshes at a resolution, without triangles where a layer has no data. */
 function buildMeshes(res: string): void {
-  if (!terrainMeta || !textureGrid || !coverage) return;
+  if (!terrainMeta || !textureGrid.bed || !textureGrid.surface) return;
   const grid = gridOf(terrainMeta.resolutions[res]);
   bedMesh.meshOrigin.value.set(grid.x0, grid.y0);
   bedMesh.meshDx.value = grid.dx;
   const positions = gridPositions(grid);
   bed.geometry.dispose();
   surface.geometry.dispose();
-  bed.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.bed));
-  surface.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid, coverage.surface));
+  bed.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid.bed, coverage.bed!));
+  surface.geometry = gridGeometry(grid, positions, verticesNearData(grid, textureGrid.surface, coverage.surface!));
   if (velocity) velocity.geometry = surface.geometry;
   bed.visible = settings.bed;
   surface.visible = settings.surface;
@@ -1172,7 +1225,6 @@ function updateLight(): void {
   requestRender();
 }
 aircraft.group.visible = settings.aircraft;
-if (settings.aircraft) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
 updateLight();
 updateBedRange();
 applyTheme();
@@ -1230,6 +1282,7 @@ layers
   .onChange((v: boolean) => {
     bed.visible = v;
     bedRange.show(v);
+    if (v) loadDetail("bed").catch(showError);
     requestRender();
   });
 // Options of a layer are only shown with it
@@ -1244,6 +1297,7 @@ layers
   .onChange((v: boolean) => {
     surface.visible = v;
     surfaceOpacity.show(v);
+    if (v) loadDetail("surface").catch(showError);
     requestRender();
   });
 const surfaceOpacity = layers
@@ -1278,6 +1332,7 @@ layers
   .name("Isochrones")
   .onChange((v: boolean) => {
     isochrones.group.visible = v;
+    loadIsochrones();
     showIsochroneLegend();
     pointerMoved = true;
     requestRender();
@@ -1294,7 +1349,7 @@ if (!SUBMISSION)
     .onChange((v: boolean) => {
       aircraft.group.visible = v;
       // The tracks are their flight paths
-      if (v) irhIndex.then((index) => tracks.load(IRH_URL, index)).catch(showError);
+      if (v) loadTracks();
       lastAircraftUpdate = performance.now();
       requestRender();
     });
@@ -1370,17 +1425,7 @@ function showIceDivides(): void {
 
 function showTracks(): void {
   tracks.group.visible = settings.tracks;
-  if (settings.tracks) {
-    irhIndex
-      .then((index) => tracks.load(IRH_URL, index))
-      .then(() => {
-        tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 0.5));
-        tracks.applyFilter(isochrones.hiddenDatasets);
-        pointerMoved = true;
-        requestRender();
-      })
-      .catch(showError);
-  }
+  loadTracks();
   pointerMoved = true;
   requestRender();
 }
@@ -1389,8 +1434,8 @@ isochroneFolder
   .add(settings, "colorBy", COLOR_BY)
   .name("Colour by")
   .onChange((v: ColorBy) => {
-    isochrones
-      .setColorBy(v)
+    filtersReady
+      .then(() => isochrones.setColorBy(v))
       .then(() => {
         showIsochroneLegend();
         requestRender();
@@ -1406,6 +1451,19 @@ isochroneFolder
     requestRender();
   });
 
+/** The isochrones of the datasets shown, with the filters. */
+function loadIsochrones(): void {
+  filtersReady
+    .then(() => (settings.isochrones ? isochrones.load(isochrones.shownDatasets()) : undefined))
+    .then(() => {
+      isochrones.applyFilter();
+      showIsochroneLegend();
+      pointerMoved = true;
+      requestRender();
+    })
+    .catch(showError);
+}
+
 // Filters: datasets and ages shown, filled once the index is loaded
 const filters = gui.addFolder("Filter");
 let filterQueued = false;
@@ -1417,6 +1475,8 @@ function queueFilter(): void {
     filterQueued = false;
     isochrones.applyFilter();
     tracks.applyFilter(isochrones.hiddenDatasets);
+    loadIsochrones();
+    loadTracks();
     for (const layer of lineLayers) layer.invalidate();
     showIsochroneLegend();
     clearHover();
@@ -1474,7 +1534,7 @@ performanceFolder
   .add(settings, "quality", Object.keys(QUALITY))
   .name("Terrain mesh")
   .onChange((v: string) => {
-    if (textureGrid && textureGrid.dx < 4) buildMeshes(QUALITY[v]);
+    if (Object.values(textureGrid).some((grid) => grid.dx < 4)) buildMeshes(QUALITY[v]);
   });
 performanceFolder.add(settings, "lowResWhileMoving").name("Lower resolution while moving");
 performanceFolder.close();
@@ -1612,19 +1672,29 @@ const tutorial = new Tutorial([
       ]),
 ]);
 
-// Start: quick preview, then the detailed terrain
+// Start: quick preview, then the detailed terrain of the layers shown
 const loading = document.getElementById("loading")!;
+filtersReady = irhIndex.then((index) => {
+  isochrones.init(IRH_URL, index);
+  tracks.init(IRH_URL, index);
+  buildFilters(index);
+  filtersBuilt = true;
+  restoreSettings(filters, lastSettings?.folders.Filter);
+});
+terrainPreview = loadMeta(DATA_URL).then(async (meta) => {
+  document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
+  await loadLevel(meta, PREVIEW);
+  return meta;
+});
 restoreSettings(gui, lastSettings ?? undefined);
 if (!viewFromUrl()) resetView(true);
-loadMeta(DATA_URL)
-  .then(async (meta) => {
-    document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
-    await loadLevel(meta, PREVIEW);
+terrainPreview
+  .then(async () => {
     if (!SUBMISSION && !tutorialSeen() && !document.body.classList.contains("clean")) tutorial.start();
     // A private preview asks instead, once its data is shown (often after its compilation)
     if (SUBMISSION) irhIndex.then(() => askForTour(() => tutorial.start())).catch(() => {});
     loading.textContent = "Loading detailed terrain…";
-    await loadLevel(meta, DETAIL);
+    await loadShownTerrain();
     loading.remove();
   })
   .catch((error) => {
@@ -1633,21 +1703,7 @@ loadMeta(DATA_URL)
   });
 
 showTracks();
-irhIndex
-  .then((index) => {
-    buildFilters(index);
-    filtersBuilt = true;
-    restoreSettings(filters, lastSettings?.folders.Filter);
-  })
-  .catch(showError);
-irhIndex
-  .then((index) => isochrones.load(IRH_URL, index))
-  .then(() => {
-    isochrones.applyFilter();
-    showIsochroneLegend();
-    requestRender();
-  })
-  .catch(showError);
+loadIsochrones();
 
 // Debugging from the browser console in development: window.viewer
 if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial } });

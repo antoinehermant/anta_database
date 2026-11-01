@@ -188,7 +188,7 @@ float inWayAt(vec2 uv, float z) {
     return this.segmentFeatures.length > 0;
   }
 
-  /** Add the lines of a file. Call finish() once all are added. */
+  /** Add the lines of a file. Call finish() once those at hand are added; more can follow. */
   add(name: string, vertices: Float32Array, stride: number, runs: Uint32Array): Part {
     let n = 0;
     for (let r = 0; r < runs.length; r += 3) n += runs[r + 2] - 1;
@@ -238,11 +238,18 @@ float inWayAt(vec2 uv, float z) {
   /** Gather the segments of all parts, for picking and highlighting. */
   finish(): void {
     const total = this.parts.reduce((n, p) => n + p.count, 0);
-    this.positions = new Float32Array(total * 6);
-    this.segmentFeatures = new Uint32Array(total);
-    let offset = 0;
-    let maxFeature = -1;
-    this.parts.forEach((part, i) => {
+    const known = this.segmentFeatures.length;
+    const positions = new Float32Array(total * 6);
+    const segmentFeatures = new Uint32Array(total);
+    positions.set(this.positions);
+    segmentFeatures.set(this.segmentFeatures);
+    this.positions = positions;
+    this.segmentFeatures = segmentFeatures;
+    // The parts added since the last time, after the others
+    let offset = known;
+    let maxFeature = this.featureFirst.length - 1;
+    const added = this.parts.slice(this.parts.length - this.pending.length);
+    added.forEach((part, i) => {
       const { positions, features } = this.pending[i];
       part.first = offset;
       this.positions.set(positions, offset * 6);
@@ -251,10 +258,14 @@ float inWayAt(vec2 uv, float z) {
       offset += part.count;
     });
     this.pending = [];
-    this.featureFirst = new Int32Array(maxFeature + 1).fill(-1);
-    this.featureLast = new Int32Array(maxFeature + 1).fill(-1);
-    this.hiddenFeatures = new Uint8Array(maxFeature + 1);
-    for (let s = 0; s < total; s++) {
+    const grow = <T extends Int32Array | Uint8Array>(old: T, array: T): T => {
+      array.set(old);
+      return array;
+    };
+    this.featureFirst = grow(this.featureFirst, new Int32Array(maxFeature + 1).fill(-1));
+    this.featureLast = grow(this.featureLast, new Int32Array(maxFeature + 1).fill(-1));
+    this.hiddenFeatures = grow(this.hiddenFeatures, new Uint8Array(maxFeature + 1));
+    for (let s = known; s < total; s++) {
       const f = this.segmentFeatures[s];
       if (this.featureFirst[f] < 0) this.featureFirst[f] = s;
       this.featureLast[f] = s;

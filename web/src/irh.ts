@@ -11,10 +11,11 @@
  * with the isochrones, in one colour whatever the colouring.
  *
  * Isochrones can be filtered by dataset and age (and the basal unit), and tracks by dataset.
+ * A dataset is only fetched once it is to be shown: the settings of a visit may hide some.
  */
 import * as THREE from "three";
 import { fetchBytes, fetchData } from "./terrain";
-import { LineLayer } from "./lines";
+import { LineLayer, type Part } from "./lines";
 import type { ProfileInfo } from "./profile";
 import { AGE, AGE_LEGEND, AGE_LEGEND_SPLIT_T, AGE_SPLIT_KA, AGE_SPLIT_T, DEPTH, ELEVATION, scaleT, ticks, type Colormap, type Scale, type Tick } from "./colormaps";
 
@@ -99,6 +100,39 @@ function quantile(values: ArrayLike<number>, q: number, step = 7): number {
   return sample[Math.min(sample.length - 1, Math.floor(q * sample.length))] ?? 0;
 }
 
+/**
+ * Fetch the files of datasets not asked for yet, and hand them over together. Done when all the
+ * datasets asked for are there, also those of an earlier call; those that failed can be asked again.
+ */
+function loadParts(
+  loading: Map<string, Promise<void>>,
+  names: string[],
+  index: IrhIndex,
+  baseUrl: string,
+  filesOf: (files: DatasetFiles) => string[],
+  add: (loaded: { name: string; data: ArrayBuffer[] }[]) => void,
+): Promise<void> {
+  const fresh = names.filter((name) => !loading.has(name));
+  if (fresh.length) {
+    const batch = Promise.all(
+      fresh.map(async (name) => ({
+        name,
+        data: await Promise.all(filesOf(index.datasets[name]).map((file) => fetchBytes(`${baseUrl}/${file}`))),
+      })),
+    ).then(add);
+    for (const name of fresh) {
+      loading.set(
+        name,
+        batch.catch((error) => {
+          loading.delete(name);
+          throw error;
+        }),
+      );
+    }
+  }
+  return Promise.all(names.map((name) => loading.get(name))).then(() => undefined);
+}
+
 export class Isochrones {
   readonly lines = new LineLayer({ linewidth: 2.5 });
   features: Feature[] = [];
@@ -112,6 +146,7 @@ export class Isochrones {
   private depthsLoading: Promise<void> | null = null;
   private fdepths = new Map<string, Uint16Array>();
   private fdepthsLoading: Promise<void> | null = null;
+  private loading = new Map<string, Promise<void>>();
   // Filters
   readonly hiddenDatasets = new Set<string>();
   readonly hiddenAges = new Set<AgeKey>();
@@ -120,7 +155,8 @@ export class Isochrones {
     return this.lines.group;
   }
 
-  async load(baseUrl: string, index: IrhIndex): Promise<void> {
+  /** The index, before any dataset is loaded. */
+  init(baseUrl: string, index: IrhIndex): void {
     this.baseUrl = baseUrl;
     this.index = index;
     this.features = index.features;
@@ -128,27 +164,46 @@ export class Isochrones {
     // with young IRHs over most of the colours
     const ages = this.features.filter((f) => !isBasalUnit(f)).map((f) => f.age_ka).filter((a): a is number => a !== null && a > 0);
     this.ageScale = { min: Math.min(...ages), max: Math.max(...ages), log: true, split: AGE_SPLIT_KA, splitT: AGE_SPLIT_T };
+  }
 
-    await Promise.all(
-      Object.entries(index.datasets).map(async ([name, files]) => {
-        const [vertices, runs] = await Promise.all([
-          fetchBytes(`${baseUrl}/${files.vertices}`).then((b) => new Float32Array(b)),
-          fetchBytes(`${baseUrl}/${files.runs}`).then((b) => new Uint32Array(b)),
-        ]);
-        this.lines.add(name, vertices, 3, runs);
-      }),
-    );
-    this.lines.finish();
-    const elevations = new Float32Array(this.lines.parts.reduce((n, p) => n + p.vertices.length / 3, 0));
+  /** Datasets with something to show, with the filters. */
+  shownDatasets(): string[] {
+    const shown = new Set<string>();
+    for (const f of this.features) {
+      if (!this.hiddenDatasets.has(f.dataset) && !this.hiddenAges.has(ageKey(f))) shown.add(f.dataset);
+    }
+    return [...shown];
+  }
+
+  /** Datasets not filtered out by name: the tracks don't depend on the ages. */
+  datasetsNotHidden(): string[] {
+    return Object.keys(this.index!.datasets).filter((name) => !this.hiddenDatasets.has(name));
+  }
+
+  /** Fetch datasets, each once; done when they are all there. */
+  load(names: string[]): Promise<void> {
+    return loadParts(this.loading, names, this.index!, this.baseUrl, (files) => [files.vertices, files.runs], (loaded) => {
+      const known = this.lines.parts.length;
+      for (const { name, data: [vertices, runs] } of loaded) this.lines.add(name, new Float32Array(vertices), 3, new Uint32Array(runs));
+      this.lines.finish();
+      this.recolor(this.lines.parts.slice(known));
+      this.applyFilter();
+    });
+  }
+
+  /** Elevation colours run over every dataset, so they don't change with the datasets loaded. */
+  private async loadElevationScale(): Promise<void> {
+    await this.load(Object.keys(this.index!.datasets));
+    const parts = this.lines.parts;
+    const elevations = new Float32Array(parts.reduce((n, p) => n + p.vertices.length / 3, 0));
     let k = 0;
-    for (const p of this.lines.parts) for (let i = 2; i < p.vertices.length; i += 3) elevations[k++] = p.vertices[i];
+    for (const p of parts) for (let i = 2; i < p.vertices.length; i += 3) elevations[k++] = p.vertices[i];
     const round = (v: number, up: boolean) => (up ? Math.ceil(v / 100) : Math.floor(v / 100)) * 100;
     this.elevationScale = {
       min: round(quantile(elevations, 0.01), false),
       max: round(quantile(elevations, 0.99), true),
       log: false,
     };
-    this.recolor();
   }
 
   /** Depths of every dataset, fetched once. */
@@ -187,12 +242,13 @@ export class Isochrones {
     this.colorBy = mode;
     if (mode === "Depth") await this.loadDepths();
     if (mode === "Fractional depth") await this.loadFdepths();
-    if (this.colorBy === mode) this.recolor();
+    if (mode === "Elevation") await this.loadElevationScale();
+    if (this.colorBy === mode) this.recolor(this.lines.parts);
   }
 
-  private recolor(): void {
+  private recolor(parts: Part[]): void {
     const mode = this.colorBy;
-    for (const part of this.lines.parts) {
+    for (const part of parts) {
       const v = part.vertices;
       const depths = this.depths.get(part.name);
       const fdepths = this.fdepths.get(part.name);
@@ -274,46 +330,45 @@ export class Tracks {
   // Ages (ka) of the IRHs of each dataset, youngest first, number of IRHs without age, and
   // whether it has a basal unit (not an IRH)
   readonly datasetAges = new Map<string, { ages: number[]; noAge: number; basalUnit: boolean }>();
-  private loading: Promise<void> | null = null;
+  private loading = new Map<string, Promise<void>>();
+  private index: IrhIndex | null = null;
+  private baseUrl = "";
 
   get group(): THREE.Group {
     return this.lines.group;
   }
 
-  /** Fetch the tracks of every dataset, once. */
-  load(baseUrl: string, index: IrhIndex): Promise<void> {
-    this.loading ??= (async () => {
-      this.tracks = index.tracks;
-      const irhs = new Map<string, Map<number, number | null>>();
-      const basalUnit = new Set<string>();
-      for (const f of index.features) {
-        if (isBasalUnit(f)) {
-          basalUnit.add(f.dataset);
-          continue;
-        }
-        if (!irhs.has(f.dataset)) irhs.set(f.dataset, new Map());
-        irhs.get(f.dataset)!.set(f.irh!, f.age_ka);
+  /** The index, before any dataset is loaded. */
+  init(baseUrl: string, index: IrhIndex): void {
+    this.baseUrl = baseUrl;
+    this.index = index;
+    this.tracks = index.tracks;
+    const irhs = new Map<string, Map<number, number | null>>();
+    const basalUnit = new Set<string>();
+    for (const f of index.features) {
+      if (isBasalUnit(f)) {
+        basalUnit.add(f.dataset);
+        continue;
       }
-      for (const [dataset, ages] of irhs) {
-        const known = [...new Set([...ages.values()].filter((a): a is number => a !== null))].sort((a, b) => a - b);
-        this.datasetAges.set(dataset, {
-          ages: known,
-          noAge: [...ages.values()].filter((a) => a === null).length,
-          basalUnit: basalUnit.has(dataset),
-        });
-      }
-      await Promise.all(
-        Object.entries(index.datasets).map(async ([name, files]) => {
-          const [vertices, runs] = await Promise.all([
-            fetchBytes(`${baseUrl}/${files.tracks}`).then((b) => new Float32Array(b)),
-            fetchBytes(`${baseUrl}/${files.track_runs}`).then((b) => new Uint32Array(b)),
-          ]);
-          this.lines.add(name, vertices, 5, runs);
-        }),
-      );
+      if (!irhs.has(f.dataset)) irhs.set(f.dataset, new Map());
+      irhs.get(f.dataset)!.set(f.irh!, f.age_ka);
+    }
+    for (const [dataset, ages] of irhs) {
+      const known = [...new Set([...ages.values()].filter((a): a is number => a !== null))].sort((a, b) => a - b);
+      this.datasetAges.set(dataset, {
+        ages: known,
+        noAge: [...ages.values()].filter((a) => a === null).length,
+        basalUnit: basalUnit.has(dataset),
+      });
+    }
+  }
+
+  /** Fetch the tracks of datasets, each once; done when they are all there. */
+  load(names: string[]): Promise<void> {
+    return loadParts(this.loading, names, this.index!, this.baseUrl, (files) => [files.tracks, files.track_runs], (loaded) => {
+      for (const { name, data: [vertices, runs] } of loaded) this.lines.add(name, new Float32Array(vertices), 5, new Uint32Array(runs));
       this.lines.finish();
-    })();
-    return this.loading;
+    });
   }
 
   /** Show only the tracks of the datasets not hidden. */
