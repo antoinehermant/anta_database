@@ -47,7 +47,7 @@ def _years(values: List[str]) -> str:
 
 
 def _scan_files(files: List[str]) -> Dict:
-    """IRHs, variables, points and coverage cells of the h5 files of a dataset."""
+    """IRHs, variables, points and coverage cells of the nc files of a dataset."""
     n = 2 * EXTENT_KM // CELL_KM
     cells = np.zeros(n * n, dtype=bool)
     irhs: Dict[int, Dict] = {}

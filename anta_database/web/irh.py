@@ -1,7 +1,7 @@
 """
 Export isochrones (IRHs) as 3D polylines for the web viewer.
 
-For every line (h5 file) and IRH, the elevation of the IRH is
+For every line (nc file) and IRH, the elevation of the IRH is
 
     IRH_ELEV = SURF_ELEV - IRH_DEPTH
 

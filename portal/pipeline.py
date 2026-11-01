@@ -8,7 +8,7 @@
    of the catalogue of the download page (anta_database.web.catalog, catalog.json);
 5. store the compiled dataset and the report in the bucket of its purpose: compiled (to add
    to the database after review) or review (kept private). The files the contributor can
-   download from the preview (the h5 files, raw_md.json and the index) are listed in
+   download from the preview (the nc files, raw_md.json and the index) are listed in
    submission.json ("downloads").
 
 The progress is written to submission.json (status "processing", "step"), for the preview page.

@@ -1,6 +1,6 @@
 """Fake submissions to test the portal, made from a compiled dataset (Chung_2023 by default).
 
-The h5 files of the dataset are turned back into raw files with the standard column names, as a
+The nc files of the dataset are turned back into raw files with the standard column names, as a
 contributor would upload them, under the dataset name Fake_2026:
 
     per_layer/  one .tab file per IRH (LINE_ID, PSX, PSY, IRH_DEPTH) and one per variable

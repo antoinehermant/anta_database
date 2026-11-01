@@ -217,7 +217,7 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
 
 
 def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) -> Report:
-    """Check the compiled h5 files of a dataset (after IndexDatabase assigned the ages).
+    """Check the compiled nc files of a dataset (after IndexDatabase assigned the ages).
     surface: anta_database.web.irh.Bedmap3Surface around the dataset, or None."""
     import xarray as xr
 
