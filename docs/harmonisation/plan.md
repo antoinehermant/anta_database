@@ -631,3 +631,5 @@ the NOAA file within 0.5 year.
 
 **Dome Fuji for now:** Uemura et al. (2018) give the depth on AICC2012, an older timescale than AICC2023 and not the
 DF2021 of the plan: replace it when NIPR is back, and mark the ages dated with it until then.
+
+**`v2/manifest.json` in the bucket is not a database:** one file with `schema_version` 3 and no data, so that packages 0.6.0 and 0.6.1 are told to upgrade. Delete it before publishing the real v2 (`anta-publish` refuses a prefix holding another schema).
