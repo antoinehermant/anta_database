@@ -272,6 +272,22 @@ from anta_database.compiling import CompileDatabase
 CompileDatabase(["portal/data/submissions/<id>/Fake_2026"]).compile()
 ```
 
+## Moving the database to another host
+
+`sync()` reads the data from `BUCKET_URL` (`anta_database/cloud/sync.py`). When that no longer answers,
+packages from 0.6.3 on ask the site, `https://antadatabase.com/data-location.json`
+(`web/public/data-location.json`, on GitHub Pages, so not in the bucket), and follow it. To move:
+
+1. Upload the data to the new host, with the same `v1/` layout, and check it with
+   `ANTA_DATABASE_URL=<new>/v1 anta-sync --dir /tmp/test`.
+2. Set `bucket_url` in `data-location.json` to the new address (without `v1/`), and `./publish_site.sh`.
+3. Delete `v1/manifest.json` from the old bucket, or the whole bucket. As long as it answers, packages
+   stay on it without any message, on data that no longer changes.
+4. Set `BUCKET_URL` and `VIEWER_DATA_URL` (`publish_site.sh`) to the new address, and release the package.
+
+Packages before 0.6.3 don't know about this file: they only see a connection error. Keep the old bucket
+online for some months if that matters.
+
 ## Online: api.antadatabase.com
 
 The portal runs on its own small server, in its own Infomaniak Public Cloud project

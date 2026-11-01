@@ -16,11 +16,13 @@ from anta_database.cloud.manifest import (
     check_schema,
     package_update_warning,
     read_manifest,
+    sha256sum,
 )
 from anta_database.cloud.sync import (
     default_database_dir,
     local_version,
     remote_info,
+    remote_status,
     sync as _sync,
 )
 
@@ -73,8 +75,8 @@ class Database:
         Args:
             database_dir: Local database directory. Defaults to the directory used by sync().
             sync: Download or update the published database before loading it.
-            check_updates: Tell if a newer published version is available (fetches only the
-                small manifest, silent when offline). Only for databases downloaded with sync().
+            check_updates: Tell if this database is the latest published version, or why that
+                cannot be checked, e.g. offline (fetches only the small manifest).
             max_displayed_flight_ids: Old name of max_displayed_line_ids.
         """
         # Default to the directory used by sync()
@@ -140,21 +142,24 @@ class Database:
             )
         version = local_version(database_dir)
         print(f"AntADatabase {version} successfully initiated" if version else "AntADatabase successfully initiated")
-        # Only databases downloaded with sync() have a published version to compare with
-        if check_updates and version:
-            remote = remote_info()
-            if remote is None:
-                print("Could not check for AntADatabase updates (offline?).")
-            elif remote["db_version"] == version:
-                print(
-                    f"AntADatabase is up to date (latest version {version}, "
-                    f"published {remote['published']})."
-                )
-            else:
-                print(
-                    f"A new version of the AntADatabase is available ({remote['db_version']}, "
-                    f"published {remote['published']}): run db.sync() to update."
-                )
+        if check_updates:
+            self._print_update_status(version)
+
+    def _print_update_status(self, version: Optional[str]) -> None:
+        """How this database compares to the published one. A database that was not downloaded
+        with sync() has no version: its index tells if it is the published one."""
+        remote, problem = remote_status()
+        if remote is None:
+            print(problem)
+        elif version is None and sha256sum(self._file_db_path) != remote["db_sha256"]:
+            print(f"This AntADatabase is a local build, not the published version {remote['db_version']}.")
+        elif version is None or remote["db_version"] == version:
+            print(f"AntADatabase {remote['db_version']} is up to date in {self._db_dir}.")
+        else:
+            print(
+                f"A new version of the AntADatabase is available ({remote['db_version']}, "
+                f"published {remote['published']}): run db.sync() to update."
+            )
 
     def _connect(self) -> sqlite3.Connection:
         """Open the database read-only, so a wrong path never creates an empty database."""

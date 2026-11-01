@@ -29,7 +29,7 @@ import shutil
 import sys
 import urllib.error
 import urllib.request
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from tqdm import tqdm
 
@@ -57,9 +57,15 @@ DEFAULT_URL = f"{BUCKET_URL}/v{SCHEMA_VERSION}"
 
 _TIMEOUT = 60
 
+# Where the data is now, in case BUCKET_URL no longer answers: on the site, which is not hosted
+# with the data, so it stays when the data moves (web/public/data-location.json, portal/README.md)
+LOCATION_URL = "https://antadatabase.com/data-location.json"
+
 # Download statistics (see the module docstring)
 STATS_URL = "https://api.antadatabase.com/api/stats/sync"
-PRIVACY_URL = "https://antadatabase.com/privacy/"
+SITE_URL = "https://antadatabase.com"
+PRIVACY_URL = f"{SITE_URL}/privacy/"
+CONTACT_URL = f"{SITE_URL}/contact/"
 
 
 def default_url() -> str:
@@ -79,15 +85,66 @@ def default_database_dir() -> str:
     return os.path.join(base, "anta_database", "AntADatabase")
 
 
+def _site_reachable(timeout: float = 3) -> bool:
+    """Whether the site of the database answers, which is not hosted with the data."""
+    try:
+        urllib.request.urlopen(SITE_URL, timeout=timeout).close()
+    except Exception:
+        return False
+    return True
+
+
+def _unavailable(url: str, reason: object, offline: bool) -> str:
+    """Why the published database cannot be read, and what to do about it."""
+    if url != DEFAULT_URL:
+        return f"Could not read the AntADatabase at {url} ({reason}). Check this URL (or ANTA_DATABASE_URL)."
+    if offline:
+        return f"Could not reach the AntADatabase ({reason}). You seem to be offline: database version could not be checked."
+    return (
+        f"The AntADatabase is not available at {url} ({reason}). It may have moved to another host, which a newer "
+        f"anta_database knows about: upgrade with pip install -U anta_database, then try again. "
+        f"If that does not help, please tell us at {CONTACT_URL}"
+    )
+
+
 def _fetch_manifest(url: str, timeout: float = _TIMEOUT) -> Dict:
     try:
         with urllib.request.urlopen(f"{url}/{MANIFEST_NAME}", timeout=timeout) as r:
-            return check_manifest(json.load(r))
-    except urllib.error.URLError as e:
+            manifest = json.load(r)
+    except urllib.error.HTTPError as e:
+        # An answer: this computer is online, the data is not there
+        raise ConnectionError(_unavailable(url, f"HTTP {e.code}", offline=False)) from e
+    except OSError as e:  # URLError and timeouts
         raise ConnectionError(
-            f"Could not fetch the AntADatabase manifest from {url} ({e}). "
-            "Check your internet connection or the URL (ANTA_DATABASE_URL)."
+            _unavailable(url, getattr(e, "reason", e), offline=not _site_reachable())
         ) from e
+    except ValueError as e:  # Something else answers there
+        raise ConnectionError(_unavailable(url, "not a manifest", offline=False)) from e
+    if not isinstance(manifest, dict):
+        raise ConnectionError(_unavailable(url, "not a manifest", offline=False))
+    return check_manifest(manifest)
+
+
+def _moved_url(timeout: float = 3) -> Optional[str]:
+    """URL of the published database according to the site, if it is not the usual one."""
+    try:
+        with urllib.request.urlopen(LOCATION_URL, timeout=timeout) as r:
+            bucket = json.load(r)["bucket_url"].rstrip("/")
+    except Exception:
+        return None
+    url = f"{bucket}/v{SCHEMA_VERSION}"
+    return url if bucket.startswith("https://") and url != DEFAULT_URL else None
+
+
+def _find_manifest(url: str, timeout: float = _TIMEOUT) -> Tuple[Dict, str]:
+    """The manifest of the published database and where it is, which may be a new host."""
+    try:
+        return _fetch_manifest(url, timeout), url
+    except ConnectionError:
+        moved = _moved_url() if url == DEFAULT_URL else None
+        if moved is None:
+            raise
+    return _fetch_manifest(moved, timeout), moved
 
 
 def local_version(database_dir: str) -> Optional[str]:
@@ -96,20 +153,33 @@ def local_version(database_dir: str) -> Optional[str]:
     return manifest.get("db_version") if manifest else None
 
 
-def remote_info(url: Optional[str] = None, timeout: float = 3) -> Optional[Dict]:
-    """Version, publication date and total size of the published database, or None if unreachable."""
+def remote_status(
+    url: Optional[str] = None, timeout: float = 3
+) -> Tuple[Optional[Dict], str]:
+    """The published database (version, publication date, total size, checksum of its index) and
+    "", or None and why it cannot be read."""
     try:
-        manifest = _fetch_manifest((url or default_url()).rstrip("/"), timeout=timeout)
-    except Exception:
-        return None
+        manifest, _ = _find_manifest((url or default_url()).rstrip("/"), timeout=timeout)
+    except ConnectionError as e:
+        return None, str(e)
+    except Exception as e:
+        return None, f"Could not read the published AntADatabase: {e}"
     return {
         "db_version": manifest.get("db_version"),
         "published": (manifest.get("created") or "")[:10],
         "size": sum(entry["size"] for entry in manifest["files"].values()),
-    }
+        "db_sha256": manifest["files"].get(DB_FILE, {}).get("sha256"),
+    }, ""
 
 
-def check_for_update(database_dir: str, url: Optional[str] = None, timeout: float = 3) -> Optional[str]:
+def remote_info(url: Optional[str] = None, timeout: float = 3) -> Optional[Dict]:
+    """The published database, as in remote_status(), or None if unreachable."""
+    return remote_status(url, timeout)[0]
+
+
+def check_for_update(
+    database_dir: str, url: Optional[str] = None, timeout: float = 3
+) -> Optional[str]:
     """
     Newer published version of a synced local database, or None.
 
@@ -163,11 +233,18 @@ class SyncResult(dict):
 
 def _stats_enabled(stats: bool, url: str) -> bool:
     """Count only syncs of the published database (not of a copy, or of tests), unless turned off."""
-    off = os.environ.get("ANTA_NO_STATS", "").strip().lower() not in ("", "0", "false", "no")
+    off = os.environ.get("ANTA_NO_STATS", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+    )
     return stats and not off and url.startswith(BUCKET_URL)
 
 
-def _report_sync(kind: str, n_files: int, n_bytes: int, db_version: Optional[str]) -> None:
+def _report_sync(
+    kind: str, n_files: int, n_bytes: int, db_version: Optional[str]
+) -> None:
     """Send the anonymous count of a sync; never fails, never waits more than a few seconds."""
     try:
         from importlib.metadata import version
@@ -175,15 +252,22 @@ def _report_sync(kind: str, n_files: int, n_bytes: int, db_version: Optional[str
         package = version("anta_database")
     except Exception:
         package = "unknown"
-    body = json.dumps({
-        "kind": kind,
-        "files": n_files,
-        "bytes": n_bytes,
-        "db_version": str(db_version or ""),
-        "package_version": package,
-    }).encode()
+    body = json.dumps(
+        {
+            "kind": kind,
+            "files": n_files,
+            "bytes": n_bytes,
+            "db_version": str(db_version or ""),
+            "package_version": package,
+        }
+    ).encode()
     request = urllib.request.Request(
-        STATS_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": f"anta_database/{package}"}
+        STATS_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": f"anta_database/{package}",
+        },
     )
     try:
         urllib.request.urlopen(request, timeout=3).close()
@@ -205,8 +289,12 @@ def _citation(name: str, remote: Dict, database_dir: str) -> str:
     if remote.get("datasets", {}).get(name):
         return remote["datasets"][name]
     try:
-        with open(os.path.join(database_dir, name, "raw_md.json"), encoding="utf-8") as f:
-            unique = list(dict.fromkeys(i["citation"] for i in json.load(f) if i.get("citation")))
+        with open(
+            os.path.join(database_dir, name, "raw_md.json"), encoding="utf-8"
+        ) as f:
+            unique = list(
+                dict.fromkeys(i["citation"] for i in json.load(f) if i.get("citation"))
+            )
         if unique:
             return "; ".join(unique)
     except (OSError, ValueError, TypeError, KeyError):
@@ -228,7 +316,9 @@ def _changed_datasets(
     for name in changed:
         if name not in published:
             groups["removed"].append(name)
-        elif name in synced or os.path.isfile(os.path.join(database_dir, name, "raw_md.json")):
+        elif name in synced or os.path.isfile(
+            os.path.join(database_dir, name, "raw_md.json")
+        ):
             groups["updated"].append(name)
         else:
             groups["new"].append(name)
@@ -236,8 +326,13 @@ def _changed_datasets(
 
 
 def _print_plan(
-    groups: Dict[str, list], remote: Dict, local: Dict, database_dir: str,
-    total: int, index_only: bool, dry_run: bool,
+    groups: Dict[str, list],
+    remote: Dict,
+    local: Dict,
+    database_dir: str,
+    total: int,
+    index_only: bool,
+    dry_run: bool,
 ) -> None:
     """Tell which datasets will change, before downloading."""
     version = remote.get("db_version")
@@ -252,8 +347,14 @@ def _print_plan(
     old = local.get("db_version")
     since = f" from {old}" if old and old != version else ""
     verb = "Would update" if dry_run else "Updating"
-    print(f"{verb} the AntADatabase in {database_dir}{since} to {version} ({_size(total)}):")
-    labels = {"new": "New dataset", "updated": "Updated dataset", "removed": "Removed dataset"}
+    print(
+        f"{verb} the AntADatabase in {database_dir}{since} to {version} ({_size(total)}):"
+    )
+    labels = {
+        "new": "New dataset",
+        "updated": "Updated dataset",
+        "removed": "Removed dataset",
+    }
     for key, label in labels.items():
         for name in groups[key]:
             print(f"  {label}: {_citation(name, remote, database_dir)}")
@@ -287,10 +388,10 @@ def sync(
         and "deleted", and the lists of datasets "new", "updated" and "removed".
     """
     database_dir = database_dir or default_database_dir()
-    url = (url or default_url()).rstrip("/")
+    asked_url = (url or default_url()).rstrip("/")
     disable_tqdm = os.getenv("JUPYTER_BOOK_BUILD", "0") not in ("", "0")
 
-    remote = _fetch_manifest(url)
+    remote, url = _find_manifest(asked_url)
     check_schema(remote, url)
     warning = package_update_warning(remote)
     if warning:
@@ -322,7 +423,9 @@ def sync(
         index_only = not any(groups.values()) and DB_FILE in to_download
         _print_plan(groups, remote, local, database_dir, total, index_only, dry_run)
     elif dry_run:
-        print(f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}.")
+        print(
+            f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}."
+        )
     if dry_run:
         return result
 
@@ -354,9 +457,14 @@ def sync(
     write_manifest(remote, local_manifest_path)
 
     # The first download of the whole database into a directory, and later syncs, apart
-    if to_download and _stats_enabled(stats, url):
+    if to_download and _stats_enabled(stats, asked_url):
         first = not local["files"]
-        _report_sync("download" if first else "update", len(to_download), total, remote.get("db_version"))
+        _report_sync(
+            "download" if first else "update",
+            len(to_download),
+            total,
+            remote.get("db_version"),
+        )
         if first:
             print(
                 "This download was counted, anonymously, in the statistics of the AntADatabase. "
@@ -366,7 +474,9 @@ def sync(
     if to_download or to_delete:
         print(f"AntADatabase {remote.get('db_version')} synced to {database_dir}.")
     else:
-        print(f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}.")
+        print(
+            f"AntADatabase {remote.get('db_version')} is up to date in {database_dir}."
+        )
     return result
 
 
@@ -374,15 +484,37 @@ def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         prog="anta-sync", description="Download or update the AntADatabase."
     )
-    parser.add_argument("--dir", help=f"Local database directory (default: {default_database_dir()})")
-    parser.add_argument("--url", help=f"URL of the published database (default: {default_url()})")
-    parser.add_argument("--dry-run", action="store_true", help="Only show what would change")
-    parser.add_argument("--no-delete", action="store_true", help="Keep files that are no longer published")
-    parser.add_argument("--files", action="store_true", help="With --dry-run, also list the files")
-    parser.add_argument("--no-stats", action="store_true", help=f"Don't count this download in the statistics ({PRIVACY_URL})")
+    parser.add_argument(
+        "--dir", help=f"Local database directory (default: {default_database_dir()})"
+    )
+    parser.add_argument(
+        "--url", help=f"URL of the published database (default: {default_url()})"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only show what would change"
+    )
+    parser.add_argument(
+        "--no-delete",
+        action="store_true",
+        help="Keep files that are no longer published",
+    )
+    parser.add_argument(
+        "--files", action="store_true", help="With --dry-run, also list the files"
+    )
+    parser.add_argument(
+        "--no-stats",
+        action="store_true",
+        help=f"Don't count this download in the statistics ({PRIVACY_URL})",
+    )
     args = parser.parse_args(argv)
 
-    result = sync(args.dir, args.url, dry_run=args.dry_run, delete=not args.no_delete, stats=not args.no_stats)
+    result = sync(
+        args.dir,
+        args.url,
+        dry_run=args.dry_run,
+        delete=not args.no_delete,
+        stats=not args.no_stats,
+    )
     if args.dry_run and args.files:
         for rel in result["downloaded"]:
             print(f"  + {rel}")
