@@ -548,7 +548,9 @@ class CompileDatabase:
             raw_md.set_index("raw file", inplace=True)
             raw_md = raw_md.loc[file_dict["file"]]
 
-            df["IRH_DEPTH"] = self._to_depth(df["IRH_DEPTH"], "IRH_DEPTH", settings)
+            # Not in the files of a single variable (ICE_THK.tab...)
+            if "IRH_DEPTH" in df.columns:
+                df["IRH_DEPTH"] = self._to_depth(df["IRH_DEPTH"], "IRH_DEPTH", settings)
 
             df = df.astype({"Line_ID": str})
             df["Line_ID"] = df["Line_ID"].str.replace(
