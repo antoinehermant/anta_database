@@ -11,6 +11,13 @@ after any dataset is added (see section 16).
 
 Package version at the snapshot: **0.6.1** (tag of 2026-10-30), main branch at commit `d920ac9`.
 
+**Planned restructuring (since 2026-11-01): read `harmonisation/plan.md` with this brief.** The
+layers are to be harmonised across datasets (horizons, ages from the ice cores). The file format
+is to change too: one netCDF per dataset, plus per-layer files. This will change the sections on
+the data model, ages, design and outlook (5, 7, 13, 15 and 16 here), and add a methods section and
+an appendix of age changes to the paper. The plan's decisions log says what is agreed and what is
+still a proposal.
+
 ---
 
 ## 1. Summary in a few sentences
