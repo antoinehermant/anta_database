@@ -389,7 +389,7 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compiling-datasets">Compiling Datasets</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-compilation">Basic Compilation</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-twt-data">Handling TWT Data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conversions-of-the-raw-data-and-lines-without-ids">Conversions of the raw data, and lines without IDs</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
 </ul>
 </li>
@@ -441,8 +441,9 @@ document.write(`
 ├── FirstAuthor_YYYY/        # Dataset directory (e.g., Cavitte_2020)
 │   ├── raw_md.json          # Metadata file (required)
 │   ├── original_new_column_names.csv  # Column mapping file (required)
+│   ├── compile_settings.json  # Conversions of the raw data (optional)
 │   ├── raw/                 # Original raw data files
-│   └── h5/                  # Processed HDF5 files (created during compilation)
+│   └── nc/                  # Processed netCDF files (created during compilation)
 └── ...
 </pre></div>
 </div>
@@ -479,7 +480,7 @@ document.write(`
 </section>
 <section id="compiling-datasets">
 <h2>Compiling Datasets<a class="headerlink" href="#compiling-datasets" title="Link to this heading">#</a></h2>
-<p>Compile raw data files into the standardized HDF5 format used by AntADatabase.</p>
+<p>Compile raw data files into the standardized netCDF format used by AntADatabase.</p>
 <section id="prerequisites">
 <h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
@@ -510,18 +511,47 @@ document.write(`
 </pre></div>
 </div>
 </section>
-<section id="handling-twt-data">
-<h3>Handling TWT Data<a class="headerlink" href="#handling-twt-data" title="Link to this heading">#</a></h3>
-<p>If your depth data is in Two-Way Travel Time (TWT) rather than meters, specify the wave speed and firn correction:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dir_path</span> <span class="o">=</span> <span class="s1">&#39;./Wang_2023&#39;</span>
-<span class="n">compiler</span> <span class="o">=</span> <span class="n">CompileDatabase</span><span class="p">(</span>
-    <span class="n">dir_path</span><span class="p">,</span> 
-    <span class="n">wave_speed</span><span class="o">=</span><span class="mf">0.1685</span><span class="p">,</span>    <span class="c1"># Wave speed in m/ns (units must match file)</span>
-    <span class="n">firn_correction</span><span class="o">=</span><span class="mf">15.5</span>  <span class="c1"># Firn correction in meters</span>
-<span class="p">)</span>
-<span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<section id="conversions-of-the-raw-data-and-lines-without-ids">
+<h3>Conversions of the raw data, and lines without IDs<a class="headerlink" href="#conversions-of-the-raw-data-and-lines-without-ids" title="Link to this heading">#</a></h3>
+<p>What a dataset needs goes in a <code class="docutils literal notranslate"><span class="pre">compile_settings.json</span></code> next to its <code class="docutils literal notranslate"><span class="pre">raw/</span></code> directory. It is recorded in the attribute <code class="docutils literal notranslate"><span class="pre">processing</span></code> of its files, and shown by <code class="docutils literal notranslate"><span class="pre">db.query(dataset=&quot;...&quot;)</span></code> when a single dataset is queried.</p>
+<p>For depths in Two-Way Travel Time (TWT), as Wang_2023 (<code class="docutils literal notranslate"><span class="pre">wave_speed</span></code> is half the speed in ice, in m/ns, as the travel time goes both ways):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;wave_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.08425</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">15.5</span><span class="p">}</span>
 </pre></div>
 </div>
+<p>For depths without the firn correction, as Cavitte_2020 (only the IRH depths: its ice thickness already has it):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">14.6</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction_vars&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;IRH_DEPTH&quot;</span><span class="p">]}</span>
+</pre></div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Setting</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">wave_speed</span></code></p></td>
+<td><p>Multiplies <code class="docutils literal notranslate"><span class="pre">IRH_DEPTH</span></code> and <code class="docutils literal notranslate"><span class="pre">ICE_THK</span></code> (TWT in ns to metres)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">firn_correction</span></code></p></td>
+<td><p>Metres added to the variables of <code class="docutils literal notranslate"><span class="pre">firn_correction_vars</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">firn_correction_vars</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[&quot;IRH_DEPTH&quot;,</span> <span class="pre">&quot;ICE_THK&quot;]</span></code> by default. Elevations are never changed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">line_ids</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;dataset&quot;</span></code>: the raw files have no line IDs, so the lines are named after the dataset</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">split_at_jump_km</span></code></p></td>
+<td><p>Cut each file of the line structure where two consecutive points are further apart than this. The lines are then named <code class="docutils literal notranslate"><span class="pre">Dataset_1</span></code>, <code class="docutils literal notranslate"><span class="pre">Dataset_2</span></code>…</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">note</span></code></p></td>
+<td><p>Anything else to report</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The arguments <code class="docutils literal notranslate"><span class="pre">wave_speed</span></code> and <code class="docutils literal notranslate"><span class="pre">firn_correction</span></code> of <code class="docutils literal notranslate"><span class="pre">CompileDatabase</span></code> still exist, and take over the settings.</p>
+<p>Line IDs made by the database: the raw files of Leysinger_Vieli_2011 and Siegert_2004 have none. Leysinger_Vieli_2011 is one file with several survey lines, cut at the jumps of more than 50 km (<code class="docutils literal notranslate"><span class="pre">Leysinger_Vieli_2011_1</span></code> to <code class="docutils literal notranslate"><span class="pre">_9</span></code>), and Siegert_2004 is a single line (<code class="docutils literal notranslate"><span class="pre">Siegert_2004</span></code>).</p>
 </section>
 <section id="multiprocessing">
 <h3>Multiprocessing<a class="headerlink" href="#multiprocessing" title="Link to this heading">#</a></h3>
@@ -588,8 +618,8 @@ document.write(`
 <td><p>DOI linking to original dataset</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.15784/601411'</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">publication</span></code></p></td>
-<td><p>DOI of associated publication</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DOI</span> <span class="pre">article</span></code></p></td>
+<td><p>DOI of the associated article</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">'https://doi.org/10.5194/essd-13-4759-2021'</span></code></p></td>
 </tr>
 </tbody>
@@ -739,7 +769,7 @@ document.write(`
 <ol class="arabic simple">
 <li><p>Reindex the database (see <a class="reference internal" href="#reindexing-the-database"><span class="xref myst">Reindexing the Database</span></a>)</p></li>
 <li><p>Verify the data by running some test queries</p></li>
-<li><p>Check the processed HDF5 files in the <code class="docutils literal notranslate"><span class="pre">h5/</span></code> directory</p></li>
+<li><p>Check the processed netCDF files in the <code class="docutils literal notranslate"><span class="pre">nc/</span></code> directory</p></li>
 </ol>
 </section>
 </section>
@@ -818,7 +848,7 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compiling-datasets">Compiling Datasets</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-compilation">Basic Compilation</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-twt-data">Handling TWT Data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conversions-of-the-raw-data-and-lines-without-ids">Conversions of the raw data, and lines without IDs</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiprocessing">Multiprocessing</a></li>
 </ul>
 </li>

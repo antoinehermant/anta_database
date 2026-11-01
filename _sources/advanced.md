@@ -26,8 +26,9 @@ AntADatabase/
 ├── FirstAuthor_YYYY/        # Dataset directory (e.g., Cavitte_2020)
 │   ├── raw_md.json          # Metadata file (required)
 │   ├── original_new_column_names.csv  # Column mapping file (required)
+│   ├── compile_settings.json  # Conversions of the raw data (optional)
 │   ├── raw/                 # Original raw data files
-│   └── h5/                  # Processed HDF5 files (created during compilation)
+│   └── nc/                  # Processed netCDF files (created during compilation)
 └── ...
 ```
 
@@ -59,7 +60,7 @@ db = Database(db_path, index_database=True)
 
 ## Compiling Datasets
 
-Compile raw data files into the standardized HDF5 format used by AntADatabase.
+Compile raw data files into the standardized netCDF format used by AntADatabase.
 
 ### Prerequisites
 1. **Directory Structure**: Create a directory for your dataset following the structure above
@@ -87,18 +88,33 @@ compiler = CompileDatabase(dir_path_list)
 compiler.compile()
 ```
 
-### Handling TWT Data
-If your depth data is in Two-Way Travel Time (TWT) rather than meters, specify the wave speed and firn correction:
+### Conversions of the raw data, and lines without IDs
+What a dataset needs goes in a `compile_settings.json` next to its `raw/` directory. It is recorded in the attribute `processing` of its files, and shown by `db.query(dataset="...")` when a single dataset is queried.
 
-```python
-dir_path = './Wang_2023'
-compiler = CompileDatabase(
-    dir_path, 
-    wave_speed=0.1685,    # Wave speed in m/ns (units must match file)
-    firn_correction=15.5  # Firn correction in meters
-)
-compiler.compile()
+For depths in Two-Way Travel Time (TWT), as Wang_2023 (`wave_speed` is half the speed in ice, in m/ns, as the travel time goes both ways):
+
+```json
+{"wave_speed": 0.08425, "firn_correction": 15.5}
 ```
+
+For depths without the firn correction, as Cavitte_2020 (only the IRH depths: its ice thickness already has it):
+
+```json
+{"firn_correction": 14.6, "firn_correction_vars": ["IRH_DEPTH"]}
+```
+
+| Setting | Meaning |
+|---------|---------|
+| `wave_speed` | Multiplies `IRH_DEPTH` and `ICE_THK` (TWT in ns to metres) |
+| `firn_correction` | Metres added to the variables of `firn_correction_vars` |
+| `firn_correction_vars` | `["IRH_DEPTH", "ICE_THK"]` by default. Elevations are never changed |
+| `line_ids` | `"dataset"`: the raw files have no line IDs, so the lines are named after the dataset |
+| `split_at_jump_km` | Cut each file of the line structure where two consecutive points are further apart than this. The lines are then named `Dataset_1`, `Dataset_2`... |
+| `note` | Anything else to report |
+
+The arguments `wave_speed` and `firn_correction` of `CompileDatabase` still exist, and take over the settings.
+
+Line IDs made by the database: the raw files of Leysinger_Vieli_2011 and Siegert_2004 have none. Leysinger_Vieli_2011 is one file with several survey lines, cut at the jumps of more than 50 km (`Leysinger_Vieli_2011_1` to `_9`), and Siegert_2004 is a single line (`Siegert_2004`).
 
 ### Multiprocessing
 The compilation uses multiprocessing for better performance. By default, it uses all available CPUs minus one. To manually set the number of CPUs:
@@ -130,7 +146,7 @@ For datasets where each file contains data for a specific layer/age:
 | `age uncertainty` | Uncertainty on the age of the layer | `'800'` |
 | `citation` | How the dataset should be cited | `'Cavitte et al. 2020'` |
 | `DOI dataset` | DOI linking to original dataset | `'https://doi.org/10.15784/601411'` |
-| `DOI publication` | DOI of associated publication | `'https://doi.org/10.5194/essd-13-4759-2021'` |
+| `DOI article` | DOI of the associated article | `'https://doi.org/10.5194/essd-13-4759-2021'` |
 
 Example dataset: Cavitte_2020
 
@@ -219,4 +235,4 @@ compiler.compile(cpus=2)  # Use exactly 2 CPUs
 After compiling your datasets, remember to:
 1. Reindex the database (see [Reindexing the Database](#reindexing-the-database))
 2. Verify the data by running some test queries
-3. Check the processed HDF5 files in the `h5/` directory 
+3. Check the processed netCDF files in the `nc/` directory 
