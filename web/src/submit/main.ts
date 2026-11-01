@@ -39,7 +39,7 @@ localStorage.removeItem("submit-draft");
 
 interface Draft {
   structure: Structure | null;
-  publication: { first_author: string; et_al: boolean; year: string; doi_publication: string; doi_dataset: string };
+  publication: { first_author: string; et_al: boolean; year: string; doi_article: string; doi_dataset: string };
   survey: { institutes: string[]; projects: string[]; radar_instruments: string[]; acquisition_year: string };
   contributor: { name: string; email: string; affiliation: string; orcid: string };
   notes: string;
@@ -55,7 +55,7 @@ interface Draft {
 
 const emptyDraft = (): Draft => ({
   structure: null,
-  publication: { first_author: "", et_al: true, year: "", doi_publication: "", doi_dataset: "" },
+  publication: { first_author: "", et_al: true, year: "", doi_article: "", doi_dataset: "" },
   survey: { institutes: [], projects: [], radar_instruments: [], acquisition_year: "" },
   contributor: { name: "", email: "", affiliation: "", orcid: "" },
   notes: "",
@@ -77,6 +77,7 @@ function loadDraft(): Draft {
         (draft as any)[key] = base && typeof base === "object" && !Array.isArray(base) ? { ...base, ...value } : value;
       }
       // Drafts of older versions of the form
+      if (saved.publication?.doi_publication && !draft.publication.doi_article) draft.publication.doi_article = saved.publication.doi_publication;
       if (!["yes", "review", "no"].includes(draft.licence)) draft.licence = "";
       // Only the structure chosen, nothing filled in: start again from the choice
       if (JSON.stringify({ ...draft, structure: null }) === JSON.stringify(emptyDraft())) draft.structure = null;
@@ -255,15 +256,15 @@ function naming(): Naming | undefined {
 
 function publicationIssues(): Issue[] {
   const issues: Issue[] = [];
-  const { first_author, year, doi_publication, doi_dataset } = draft.publication;
+  const { first_author, year, doi_article, doi_dataset } = draft.publication;
   if (!first_author.trim()) issues.push({ level: "error", text: "The family name of the first author is missing." });
   const now = new Date().getFullYear();
   if (!/^\d{4}$/.test(year) || Number(year) < 1950 || Number(year) > now + 1)
     issues.push({ level: "error", text: "The year of publication is missing or not a year." });
-  const doi = doiOf(doi_publication);
+  const doi = doiOf(doi_article);
   if (!doi && draft.licence !== "review")
-    issues.push({ level: "warning", text: "No DOI of the publication: the AntADatabase holds published data, please add it once available." });
-  else if (!isDoi(doi)) issues.push({ level: "error", text: `"${doi_publication}" is not a DOI (10.xxxx/...).` });
+    issues.push({ level: "warning", text: "No DOI of the article: the AntADatabase holds published data, please add it once available." });
+  else if (!isDoi(doi)) issues.push({ level: "error", text: `"${doi_article}" is not a DOI (10.xxxx/...).` });
   if (!doi_dataset.trim() && draft.licence !== "review")
     issues.push({ level: "warning", text: "No DOI of the dataset: if the data is in a repository (PANGAEA, Zenodo...), please add it." });
   if (doi_dataset.trim() && !isDoi(doiOf(doi_dataset)) && !/^https?:\/\/\S+$/.test(doi_dataset.trim()))
@@ -273,10 +274,10 @@ function publicationIssues(): Issue[] {
   for (const d of name?.same ?? [])
     issues.push({
       level: "warning",
-      text: `The database already has ${d.citation} (${d.doi_publication.join(", ") || d.name}). If yours is another publication, it will be added as ${name!.citation}.`,
+      text: `The database already has ${d.citation} (${d.doi_article.join(", ") || d.name}). If yours is another publication, it will be added as ${name!.citation}.`,
     });
   if (doi) {
-    const published = (catalog?.datasets ?? []).find((d) => d.doi_publication.some((p) => doiOf(p).toLowerCase() === doi.toLowerCase()));
+    const published = (catalog?.datasets ?? []).find((d) => d.doi_article.some((p) => doiOf(p).toLowerCase() === doi.toLowerCase()));
     if (published)
       issues.push({
         level: "warning",
@@ -289,9 +290,9 @@ function publicationIssues(): Issue[] {
 /** Author and year from the DOI, from Crossref. */
 async function fillFromDoi() {
   const status = $("doi-status");
-  const doi = doiOf(draft.publication.doi_publication);
+  const doi = doiOf(draft.publication.doi_article);
   if (!isDoi(doi)) {
-    status.textContent = "Enter the DOI of the publication first (10.xxxx/...).";
+    status.textContent = "Enter the DOI of the article first (10.xxxx/...).";
     return;
   }
   status.textContent = "Looking up the DOI...";
@@ -811,7 +812,7 @@ function payload() {
     citation: name.citation,
     publication: {
       ...publication,
-      doi_publication: publication.doi_publication.trim() ? doiUrl(publication.doi_publication) : "",
+      doi_article: publication.doi_article.trim() ? doiUrl(publication.doi_article) : "",
       doi_dataset: publication.doi_dataset.trim() ? doiUrl(publication.doi_dataset) : "",
     },
     survey,

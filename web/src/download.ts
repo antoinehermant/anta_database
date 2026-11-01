@@ -13,7 +13,7 @@ import { themeButton } from "./theme";
 // Published database (bucket prefix of manifest.json), as in anta_database.cloud.sync
 const DB_URL = (
   import.meta.env.VITE_DB_URL ||
-  "https://s3.pub1.infomaniak.cloud/object/v1/AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase/v2"
+  "https://s3.pub1.infomaniak.cloud/object/v1/AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase/v1"
 ).replace(/\/$/, "");
 const ROOT_DIR = "AntADatabase";
 const DB_FILE = "AntADatabase.db";
@@ -79,8 +79,8 @@ function readme(): string {
     `Downloaded on ${new Date().toISOString().slice(0, 10)} from https://antadatabase.com/download/`,
     `Database version: ${manifest.db_version ?? "unknown"}`,
     "",
-    "Each dataset directory holds raw_md.json (the metadata of its IRHs) and h5/, one HDF5",
-    "(netCDF) file per radar line, with the depth of each IRH along the line (IRH_DEPTH, m).",
+    "Each dataset directory holds raw_md.json (the metadata of its IRHs) and nc/, one netCDF",
+    "file per radar line, with the depth of each IRH along the line (IRH_DEPTH, m).",
     "",
     ...(full
       ? [
@@ -109,7 +109,7 @@ function readme(): string {
     const info = d.info;
     lines.push(`- ${info?.citation ?? d.name} (${d.name})`);
     for (const doi of info?.doi_dataset ?? []) lines.push(`    Dataset: ${doi}`);
-    for (const doi of info?.doi_publication ?? []) lines.push(`    Publication: ${doi}`);
+    for (const doi of info?.doi_article ?? []) lines.push(`    Article: ${doi}`);
   }
   return lines.join("\n") + "\n";
 }

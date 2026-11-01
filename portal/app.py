@@ -41,7 +41,7 @@ from typing import Literal, Optional
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import AliasChoices, BaseModel, Field, ValidationError, field_validator
 
 from . import config, mail, storage, store
 
@@ -69,7 +69,7 @@ class Publication(BaseModel):
     first_author: str = Field(min_length=1, max_length=100)
     et_al: bool
     year: str = Field(pattern=r"^\d{4}$")
-    doi_publication: str = Field(default="", max_length=300)
+    doi_article: str = Field(default="", max_length=300, validation_alias=AliasChoices("doi_article", "doi_publication"))
     doi_dataset: str = Field(default="", max_length=300)
 
 
@@ -162,7 +162,7 @@ def raw_metadata(s: Submission) -> list[dict]:
         "acquisition year": years(s.survey.acquisition_year),
         "citation": s.citation,
         "DOI dataset": s.publication.doi_dataset,
-        "DOI publication": s.publication.doi_publication,
+        "DOI article": s.publication.doi_article,
     }
     entries = []
     if s.structure == "layer":
@@ -243,7 +243,7 @@ def submission_summary(s: Submission, submission_id: str, total: int) -> str:
         f"Submission: {submission_id}",
         f"Purpose: {purpose}",
         f"Dataset: {s.dataset}, {s.citation}",
-        f"Publication: {s.publication.doi_publication or '(no DOI)'}",
+        f"Article: {s.publication.doi_article or '(no DOI)'}",
         f"Data: {s.publication.doi_dataset or '(no DOI)'}",
         f"Files: {len(s.files)} ({structure}, {total / 1e6:.1f} MB)",
         f"Layers: {layers or 'none'}",

@@ -17,8 +17,8 @@ function readme(status: PreviewStatus, info: CatalogDataset | undefined): string
     `Downloaded on ${new Date().toISOString().slice(0, 10)} from its private preview on https://antadatabase.com.`,
     "This is the dataset as it was compiled for the review of the submission.",
     "",
-    `${status.dataset}/raw_md.json holds the metadata of its IRHs, and ${status.dataset}/h5/ one HDF5`,
-    "(netCDF) file per radar line, with the depth of each IRH along the line (IRH_DEPTH, m).",
+    `${status.dataset}/raw_md.json holds the metadata of its IRHs, and ${status.dataset}/nc/ one netCDF`,
+    "file per radar line, with the depth of each IRH along the line (IRH_DEPTH, m).",
     `AntADatabase.db is the index of this ${ROOT_DIR} directory, for the Python package`,
     "(pip install anta_database):",
     "",
@@ -35,7 +35,7 @@ function readme(status: PreviewStatus, info: CatalogDataset | undefined): string
 export async function showDownload(panel: HTMLElement, baseUrl: string, status: PreviewStatus): Promise<void> {
   const downloads = status.downloads ?? {};
   const paths = Object.keys(downloads);
-  if (!paths.some((p) => p.endsWith(".h5"))) return; // compiled before the frame existed
+  if (!paths.some((p) => p.endsWith(".nc"))) return; // compiled before the frame existed
   const catalog: Catalog | undefined = await fetch(`${baseUrl}/catalog.json`, { cache: "no-cache" })
     .then((r) => (r.ok ? r.json() : undefined))
     .catch(() => undefined);
@@ -58,7 +58,7 @@ export async function showDownload(panel: HTMLElement, baseUrl: string, status: 
   const statusText = element("p", { className: "dl-status", role: "status" });
 
   const update = () => {
-    summary.textContent = selected.size ? `${paths.filter((p) => p.endsWith(".h5")).length} files, ${formatSize(dataset.size)}` : "Nothing selected";
+    summary.textContent = selected.size ? `${paths.filter((p) => p.endsWith(".nc")).length} files, ${formatSize(dataset.size)}` : "Nothing selected";
     downloadButton.disabled = busy || !selected.size;
   };
   const setBusy = (value: boolean) => {
@@ -116,7 +116,7 @@ export async function showDownload(panel: HTMLElement, baseUrl: string, status: 
     title,
     element("p", {
       textContent:
-        `The HDF5 files of your dataset as ${status.licence === "redistribute" ? "they will be in the database" : "compiled for the review"}, ` +
+        `The netCDF files of your dataset as ${status.licence === "redistribute" ? "they will be in the database" : "compiled for the review"}, ` +
         "with the index to open them with the Python package. Available until the review is done.",
     }),
     element("section", { className: "dl-toolbar" }, summary, element("span", { className: "spacer" }), downloadButton, cancelButton, progress, statusText),

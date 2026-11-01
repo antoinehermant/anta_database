@@ -29,7 +29,7 @@ export interface CatalogDataset {
   name: string;
   citation: string;
   doi_dataset: string[];
-  doi_publication: string[];
+  doi_article: string[];
   institutes: string[];
   projects: string[];
   radar_instruments: string[];

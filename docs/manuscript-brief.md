@@ -11,6 +11,12 @@ after any dataset is added (see section 16).
 
 Package version at the snapshot: **0.6.1** (tag of 2026-10-30), main branch at commit `d920ac9`.
 
+**Changes since this snapshot (2026-11-01):** the figures and paths below are for v2 `2026.10.30-1403`. The next
+publication is a new `v1/`: `.nc` files in `nc/`, 248 MB, 1,014 lines (Winter_2018 now has 77, by its real line IDs,
+Leysinger_Vieli_2011 has 9), an attribute `processing`, and a corrected Cavitte `ICE_THK` and `BED_ELEV`. The methods
+of each dataset are in `harmonisation/datasets_methods.csv`. To report in the manuscript: the line IDs made by the
+database, and the processing of Cavitte and Wang.
+
 **Planned restructuring (since 2026-11-01): read `harmonisation/plan.md` with this brief.** The
 layers are to be harmonised across datasets (horizons, ages from the ice cores). The file format
 is to change too: one netCDF per dataset, plus per-layer files. This will change the sections on
@@ -201,7 +207,7 @@ columns show the list as stored, and some datasets store them per line.
 
 ### 4.4 DOIs and ages, per dataset (as stored in `raw_md.json` / the h5 files)
 
-| Dataset | DOI dataset | DOI publication |
+| Dataset | DOI dataset | DOI article |
 |---|---|---|
 | Ashmore_2020 | 10.5281/zenodo.4945301 | 10.1029/2019GL086663 |
 | Beem_2021 | 10.15784/601437 | 10.5194/tc-15-1719-2021 |
@@ -299,7 +305,7 @@ It is written with xarray and h5netcdf, so it is netCDF4-compatible. It has:
     point).
 - **attributes:** `dataset`, `institute`, `project`, `radar instrument`, `acquisition year`,
   `line ID`, `line ID flag` (original / not_provided / project_acq-year_number), `DOI dataset`,
-  `DOI publication`, and `IMBIE_basins` (a JSON map of basin to region, from a spatial join with
+  `DOI article`, and `IMBIE_basins` (a JSON map of basin to region, from a spatial join with
   IMBIE2 v1.6).
 - **compression and chunks:** zlib level 1. Chunks hold 100 points for lines under 1 M points,
   1,000 under 10 M, and 10,000 above; `IRH_DEPTH` is chunked one IRH at a time. This makes
@@ -339,7 +345,7 @@ The inputs per dataset directory are:
 3. **`raw_md.json`**, one record per raw file (structure `IRH`) or per IRH (structure `line`).
    - Keys: `file structure`, `dataset`, `IRH`, `age`, `age uncertainty`, `institute`, `project`,
      `acquisition year` (an integer, or `"YYYY-YYYY"`), `citation`, `DOI dataset`,
-     `DOI publication`.
+     `DOI article`.
    - Optional: `radar instrument` (a string or a list); for `IRH` only, `raw file`, `line ID`
      (one ID for the whole file) and `line ID prefix`.
    - Institute, project and radar instrument may be lists.
@@ -582,7 +588,7 @@ still open when writing.
 
 1. **File structure:** one file per layer (with a `LINE_ID` column), or one file per radar line
    (the file name is the line ID, with layer columns `IRH1`, `IRH2`, …). Small diagrams show each.
-2. **Publication:** DOI of the publication, with "Fill from DOI"; DOI or URL of the dataset
+2. **Publication:** DOI of the article, with "Fill from DOI"; DOI or URL of the dataset
    (optional but encouraged); first author, year and "et al.". The dataset name `Author_YYYY` is
    suggested and checked against the catalogue.
 3. **Survey defaults:** institute(s), project(s), radar instrument(s), and the acquisition year or
@@ -835,7 +841,7 @@ pre-portal datasets there, after cleaning, is planned.
 
 **Data and metadata (to fix or verify):**
 - **DOIs to check:**
-  - Mulvaney_2023 has the same publication DOI as Chung_2023 (10.5194/tc-17-3461-2023);
+  - Mulvaney_2023 has the same article DOI as Chung_2023 (10.5194/tc-17-3461-2023);
   - Muldoon_2023 publication `10.1093/climatesystem/dzy004`;
   - Siegert_2004's "DOI dataset" is a Wiley paper (esp.1238), its citation reads "Siegert and
     Payne (2024)" while the directory says 2004, and `book/intro.md` says 2024;

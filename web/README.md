@@ -63,7 +63,7 @@ with the SQLite index and the manifest; with a selection, only the dataset direc
 an existing database directory. The files come from the manifest of the
 published database (`VITE_DB_URL`, the bucket by default, also in development), so the download
 always matches what `anta_database.sync()` gets; only the descriptions come from `catalog.json`.
-The zip is built in the browser while the files arrive, without compression (the HDF5 files gain
+The zip is built in the browser while the files arrive, without compression (the netCDF files gain
 little). In Chromium browsers it is written straight to disk; elsewhere it is built in memory, then
 saved. A selection is then indexed with `Database("path/to/AntADatabase", index_database=True)`, as
 its README.txt explains.

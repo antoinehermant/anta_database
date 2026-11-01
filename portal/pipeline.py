@@ -28,8 +28,8 @@ from . import checks, config, storage
 log = logging.getLogger("portal.pipeline")
 
 # Files of the compiled dataset the contributor can download from the preview, as in the
-# published database: the index, and raw_md.json and the h5 files of the dataset
-DOWNLOADS = ("AntADatabase.db", "*/raw_md.json", "*/h5/*.h5")
+# published database: the index, and raw_md.json and the nc files of the dataset
+DOWNLOADS = ("AntADatabase.db", "*/raw_md.json", "*/nc/*.nc")
 
 # Steps shown on the preview page
 STEPS = {
@@ -115,8 +115,6 @@ def run(submission_id: str) -> dict:
     CompileDatabase(
         [str(dataset)],
         extract_data=True,
-        hdf5=True,
-        netcdf=False,
         compute_IRH_density=True,
         compute_distance=True,
         compute_IMBIE_basins=True,
@@ -124,7 +122,6 @@ def run(submission_id: str) -> dict:
         shapefiles=False,
         geopackages=False,
         remove_tmp_files=True,
-        break_transects=False,
         var_attrs_json=str(config.VAR_ATTRS),
     ).compile(cpus=1)
 

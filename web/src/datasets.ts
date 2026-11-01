@@ -109,7 +109,7 @@ export function datasetCard(
     body.append(element("p", { className: "description", textContent: description(info) }));
     const rows: [string, (Node | string)[]][] = [
       ["Dataset", links(info.doi_dataset)],
-      ["Publication", links(info.doi_publication)],
+      ["Article", links(info.doi_article)],
       ["Projects", [info.projects.join(", ")]],
       ["Radar", [info.radar_instruments.join(", ")]],
       ["IMBIE basins", [info.imbie_basins.join(", ")]],
@@ -119,7 +119,7 @@ export function datasetCard(
     const ages = element("div", { className: "ages" }, ...info.irhs.map((irh) => element("span", { textContent: formatAge(irh), title: `IRH ${irh.irh}` })));
     body.append(element("details", {}, element("summary", { textContent: `Ages of the ${info.irhs.length} IRHs` }), ages));
   } else {
-    body.append(element("p", { className: "description muted", textContent: `${d.files.filter((f) => f.endsWith(".h5")).length} radar lines.` }));
+    body.append(element("p", { className: "description muted", textContent: `${d.files.filter((f) => f.endsWith(".nc")).length} radar lines.` }));
   }
   root.append(box, body);
   if (info && grid) {

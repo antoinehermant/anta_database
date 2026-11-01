@@ -51,9 +51,9 @@ def to_lonlat(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def read_dataset(path: str) -> list[xr.Dataset]:
-    files = sorted(glob(os.path.join(path, "h5", "*.h5")))
+    files = sorted(glob(os.path.join(path, "nc", "*.nc")))
     if not files:
-        raise SystemExit(f"No h5 files in {path}/h5")
+        raise SystemExit(f"No nc files in {path}/nc")
     return [xr.load_dataset(f, engine="h5netcdf") for f in files]
 
 
@@ -190,7 +190,7 @@ def form_data(path: str, lines: list[xr.Dataset]) -> dict:
                         "affiliation": "University of Bern", "orcid": ""},
         "licence": "yes",
         "publication": {"first_author": "Fake", "et_al": True, "year": "2026",
-                        "doi_publication": "10.5194/fake-2026", "doi_dataset": md.get("DOI dataset") or ""},
+                        "doi_article": "10.5194/fake-2026", "doi_dataset": md.get("DOI dataset") or ""},
         "survey": {"institutes": listed(md.get("institute")), "projects": listed(md.get("project")),
                    "radar_instruments": listed(md.get("radar instrument")),
                    "acquisition_year": str(md.get("acquisition year") or "")},

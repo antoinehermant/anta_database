@@ -222,7 +222,7 @@ def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) 
     import xarray as xr
 
     report = Report()
-    paths = sorted(glob.glob(os.path.join(dataset_dir, "h5", "*.h5")))
+    paths = sorted(glob.glob(os.path.join(dataset_dir, "nc", "*.nc")))
     if not paths:
         report.errors.append("The compilation made no line")
         return report

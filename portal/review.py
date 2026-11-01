@@ -158,7 +158,7 @@ def cmd_show(args) -> None:
     print(f"Purpose:     {'redistribute after review' if r['licence'] == 'redistribute' else 'review only'}")
     print(f"From:        {contributor['name']} <{contributor['email']}>, {contributor.get('affiliation') or '-'}"
           f"{', ORCID ' + contributor['orcid'] if contributor.get('orcid') else ''}")
-    print(f"Publication: {r['publication'].get('doi_publication') or '-'}")
+    print(f"Article: {doi_article(r) or '-'}")
     print(f"Data:        {r['publication'].get('doi_dataset') or '-'}")
     print(f"Received:    {r['received']}, {len(r['files'])} files ({r['bytes'] / 1e6:.1f} MB, "
           f"{'one per layer' if r['structure'] == 'layer' else 'one per line'})")
@@ -324,7 +324,7 @@ def release_copy(release: Path, keep: str | None = None) -> dict:
 def docs_line(r: dict) -> str:
     """The line of the dataset in the list of book/intro.md."""
     citation = re.sub(r"\s*\((\d{4}[a-z]?)\)$", r" \1", r["citation"])
-    doi = r["publication"].get("doi_dataset") or r["publication"].get("doi_publication") or ""
+    doi = r["publication"].get("doi_dataset") or doi_article(r) or ""
     if not doi:
         return f"- {citation}"
     url = doi if doi.startswith("http") else f"https://doi.org/{doi}"
@@ -459,6 +459,11 @@ def publish_release(release: Path, cfg: dict, args, name: str, present: bool, co
     return version
 
 
+def doi_article(r: dict) -> str:
+    """The DOI of the article of a submission (doi_publication in the older ones)."""
+    return r["publication"].get("doi_article") or r["publication"].get("doi_publication") or ""
+
+
 def raw_prefix(name: str, args) -> str:
     return f"{'test/' if args.test else ''}{RAW_PREFIX}/{name}"
 
@@ -475,7 +480,7 @@ def provenance(r: dict, version: str) -> dict:
     return {
         "dataset": r["dataset"],
         "citation": r["citation"],
-        "DOI publication": r["publication"].get("doi_publication") or None,
+        "DOI article": doi_article(r) or None,
         "DOI dataset": r["publication"].get("doi_dataset") or None,
         "submission": r["id"],
         "received": r["received"],
@@ -555,12 +560,12 @@ def cmd_accept(args) -> None:
     tmp = release.parent / f".{release.name}.{args.id}"
     shutil.rmtree(tmp, ignore_errors=True)
     n = download(s3(cfg["portal_profile"]), r["compiled_bucket"], f"{args.id}/{name}", tmp)
-    if not n or not list((tmp / "h5").glob("*.h5")):
+    if not n or not list((tmp / "nc").glob("*.nc")):
         sys.exit(f"No compiled data of {args.id} in {r['compiled_bucket']}")
     (tmp / MARKER).write_text(args.id)
     shutil.rmtree(dataset, ignore_errors=True)
     tmp.rename(dataset)
-    print(f"{len(list((dataset / 'h5').glob('*.h5')))} lines")
+    print(f"{len(list((dataset / 'nc').glob('*.nc')))} lines")
 
     version = publish_release(release, cfg, args, name, present=True, command="accept")
     publish_raw(r, cfg, args, version)

@@ -12,6 +12,20 @@ import json
 import ast
 from typing import Optional, Union
 
+from anta_database.netcdf import write
+
+
+AGE_ATTRS = {
+    "IRH_AGE": {"units": "years", "long_name": "IRH age", "description": "Age of the IRH in years before present, as published"},
+    "IRH_AGE_UNC": {"units": "years", "long_name": "IRH age uncertainty", "description": "Uncertainty on the age of the IRH, as published"},
+}
+
+
+def _year_string(value) -> str:
+    """A year in the index: 160, not 160.0, when the file stores floats for its missing values."""
+    value = float(value)
+    return str(int(value)) if value.is_integer() else str(value)
+
 
 class IndexDatabase:
     def __init__(
@@ -154,8 +168,8 @@ class IndexDatabase:
         with xr.open_dataset(h5_file, engine="h5netcdf") as ds:
             ds = ds.load()
 
-        ds["IRH_AGE"] = ("IRH", self._stored(ages))
-        ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs))
+        ds["IRH_AGE"] = ("IRH", self._stored(ages), AGE_ATTRS["IRH_AGE"])
+        ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs), AGE_ATTRS["IRH_AGE_UNC"])
         if ids is not None:
             ds = ds.assign_coords(IRH_ID=("IRH", ids))
             ds = ds.set_coords(["IRH_ID", "IRH_AGE"])
@@ -167,16 +181,7 @@ class IndexDatabase:
         else:
             ds = ds.set_coords("IRH_AGE")
 
-        # A new file, then replaced: the age variables change type when an age becomes
-        # missing (NaN), which writing into the existing file cannot do, and a failure
-        # never leaves a half-written file
-        tmp_file = f"{h5_file}.tmp"
-        try:
-            ds.to_netcdf(tmp_file, engine="h5netcdf", mode="w")
-            os.replace(tmp_file, h5_file)
-        finally:
-            if os.path.exists(tmp_file):
-                os.remove(tmp_file)
+        write(ds, h5_file)
         return result
 
     @staticmethod
@@ -252,7 +257,7 @@ class IndexDatabase:
                 for item in index:
                     combo = (
                         item["dataset"],
-                        item["DOI publication"],
+                        item.get("DOI article", item.get("DOI publication")),
                         item["DOI dataset"],
                     )
                     if combo not in seen:
@@ -261,7 +266,7 @@ class IndexDatabase:
                             {
                                 "dataset": item["dataset"],
                                 "citation": item["citation"],
-                                "DOI publication": item["DOI publication"],
+                                "DOI article": item.get("DOI article", item.get("DOI publication")),
                                 "DOI dataset": item["DOI dataset"],
                             }
                         )
@@ -270,7 +275,7 @@ class IndexDatabase:
 
         for ref in self._dataset_list:
             found_files = sorted(
-                glob.glob(f'{self._db_dir}/{ref["dataset"]}/h5/*.h5', recursive=False)
+                glob.glob(f'{self._db_dir}/{ref["dataset"]}/nc/*.nc', recursive=False)
             )
             if found_files:
                 h5_files.extend(found_files)
@@ -329,19 +334,20 @@ class IndexDatabase:
                 name TEXT UNIQUE,
                 citation TEXT,
                 DOI_dataset TEXT,
-                DOI_publication TEXT
+                DOI_article TEXT,
+                processing TEXT
             )
         """)
 
         for row in self._dataset_list:
             try:
                 cursor.execute(
-                    "INSERT INTO sources (name, citation, DOI_dataset, DOI_publication) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO sources (name, citation, DOI_dataset, DOI_article) VALUES (?, ?, ?, ?)",
                     (
                         row["dataset"],
                         row["citation"],
                         row["DOI dataset"],
-                        row["DOI publication"],
+                        row["DOI article"],
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -542,12 +548,15 @@ class IndexDatabase:
                     age_uncs = None
 
                 basin_mapping = json.loads(ds.attrs["IMBIE_basins"])
+                processing = ds.attrs.get("processing", "")
 
-            relative_file_path = f"{dataset}/h5/{file_name}"
+            relative_file_path = f"{dataset}/nc/{file_name}"
 
             # Get the dataset's ID from the dataset table NOTE: This is essential!! Don't remove
             cursor.execute("SELECT id FROM sources WHERE name = ?", (dataset,))
             dataset_id = cursor.fetchone()[0]
+            if processing:
+                cursor.execute("UPDATE sources SET processing = ? WHERE id = ?", (processing, dataset_id))
 
             # Insert into datasets and get the new row id
             cursor.execute(
@@ -639,11 +648,11 @@ class IndexDatabase:
                 for age, age_unc in zip(ages, age_uncs):
                     cursor.execute(
                         "INSERT OR IGNORE INTO ages (age, age_unc) VALUES (?, ?)",
-                        (str(age), str(age_unc)),
+                        (_year_string(age), _year_string(age_unc)),
                     )
                     age_id = cursor.execute(
                         "SELECT id FROM ages WHERE age = ? AND age_unc = ?",
-                        (str(age), str(age_unc)),
+                        (_year_string(age), _year_string(age_unc)),
                     ).fetchone()[0]
                     cursor.execute(
                         """

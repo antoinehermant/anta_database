@@ -84,9 +84,9 @@ def _scan_files(files: List[str]) -> Dict:
 def export_catalog(database_dir: str, output_dir: str) -> Dict:
     db = Database(database_dir, check_updates=False)
     datasets = []
-    for d in sorted(glob.glob(os.path.join(database_dir, "*", "h5"))):
+    for d in sorted(glob.glob(os.path.join(database_dir, "*", "nc"))):
         name = os.path.basename(os.path.dirname(d))
-        files = sorted(glob.glob(os.path.join(d, "*.h5")))
+        files = sorted(glob.glob(os.path.join(d, "*.nc")))
         if not files:
             continue
         md = db.query(dataset=name)
@@ -94,7 +94,7 @@ def export_catalog(database_dir: str, output_dir: str) -> Dict:
             "name": name,
             "citation": ", ".join(md["reference"]),
             "doi_dataset": _clean(md["DOI_dataset"]),
-            "doi_publication": _clean(md["DOI_publication"]),
+            "doi_article": _clean(md["DOI_article"]),
             "institutes": _clean(md["institute"]),
             "projects": _clean(md["project"]),
             "radar_instruments": _clean(md["radar_instrument"]),

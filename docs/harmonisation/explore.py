@@ -122,3 +122,6 @@ for r in sorted(match, key=lambda r: (r["A"], r["B"], r["depth"])):
     da = r["ageB"] - r["ageA"]
     print(f"  {r['A']:20s} IRH{r['irhA']:<3d} {r['ageA']/1e3:7.1f} ka | {r['B']:20s} IRH{r['irhB']:<3d} {r['ageB']/1e3:7.1f} ka | "
           f"n={r['n']:4d} depth {r['depth']:6.0f} m  dz {r['dz_med']:+6.1f} ± {r['dz_mad']:4.1f} m  dAge {da/1e3:+6.1f} ka")
+
+# For check_depth_correction.py
+json.dump(rows, open("/tmp/anta_pairs.json", "w"))

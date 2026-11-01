@@ -245,7 +245,7 @@ def export_dataset(
     n_track_vertices = 0
     profiles = []
 
-    for path in sorted(glob.glob(os.path.join(dataset_dir, "h5", "*.h5"))):
+    for path in sorted(glob.glob(os.path.join(dataset_dir, "nc", "*.nc"))):
         with xr.open_dataset(path) as ds:
             if "IRH_DEPTH" not in ds or "IRH" not in ds.dims:
                 continue
@@ -292,7 +292,7 @@ def export_dataset(
                         **layer,
                         "citation": md.get("citation"),
                         "doi_dataset": md.get("DOI dataset", ds.attrs.get("DOI dataset")),
-                        "doi_publication": md.get("DOI publication", ds.attrs.get("DOI publication")),
+                        "doi_article": md.get("DOI article", ds.attrs.get("DOI article")),
                         "institute": ds.attrs.get("institute"),
                         "surface": surface_source,
                         "thickness": thickness_source,
@@ -395,7 +395,7 @@ def _bbox(dataset_dirs: List[str]) -> Optional[tuple]:
     """Extent (xmin, xmax, ymin, ymax, in m) of the lines of datasets."""
     xs, ys = [], []
     for dataset_dir in dataset_dirs:
-        for path in glob.glob(os.path.join(dataset_dir, "h5", "*.h5")):
+        for path in glob.glob(os.path.join(dataset_dir, "nc", "*.nc")):
             with xr.open_dataset(path) as ds:
                 xs += [float(ds.PSX.min()), float(ds.PSX.max())]
                 ys += [float(ds.PSY.min()), float(ds.PSY.max())]
@@ -431,7 +431,7 @@ def export_irh(
     os.makedirs(output_dir, exist_ok=True)
     if datasets is None:
         datasets = sorted(
-            d for d in os.listdir(database_dir) if os.path.isdir(os.path.join(database_dir, d, "h5"))
+            d for d in os.listdir(database_dir) if os.path.isdir(os.path.join(database_dir, d, "nc"))
         )
     surface = None
     if bedmap_path:

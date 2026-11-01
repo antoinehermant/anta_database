@@ -56,7 +56,7 @@ class LineZarrConverter:
         if not dir_path.endswith("/"):
             dir_path += "/"
 
-        h5_dir = os.path.join(self.base_dir, dir_path, "h5")
+        h5_dir = os.path.join(self.base_dir, dir_path, "nc")
         # Create zarr directory within the dataset directory
         zarr_dataset_dir = os.path.join(self.base_dir, dir_path, "zarr")
 
@@ -67,7 +67,7 @@ class LineZarrConverter:
         os.makedirs(zarr_dataset_dir, exist_ok=True)
 
         converted_files = []
-        h5_files = [f for f in os.listdir(h5_dir) if f.endswith(".h5")]
+        h5_files = [f for f in os.listdir(h5_dir) if f.endswith(".nc")]
 
         for h5_file in tqdm(h5_files, desc=f"Converting {dataset_name}"):
             try:
@@ -80,7 +80,7 @@ class LineZarrConverter:
                 elif "flight_line" in ds.coords:
                     ds = ds.drop_vars("flight_line")
 
-                line = h5_file.replace(".h5", "")
+                line = h5_file.replace(".nc", "")
                 zarr_path = os.path.join(zarr_dataset_dir, f"{line}.zarr")
 
                 # Remove existing zarr directory if it exists

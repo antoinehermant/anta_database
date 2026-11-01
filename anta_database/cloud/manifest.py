@@ -4,8 +4,8 @@ Manifest shared by publish (maintainer) and sync (users).
 A manifest lists every file of a published database with its checksum:
     {
         "format": 1,
-        "schema_version": 2,
-        "min_package_version": "0.6.0",
+        "schema_version": 1,
+        "min_package_version": "0.6.2",
         "db_version": "2026.10.27-1530",
         "created": "2026-10-27T15:30:00+00:00",
         "files": {"AntADatabase.db": {"sha256": "...", "size": 123}, ...},
@@ -17,8 +17,6 @@ Paths are relative to the database directory and always use "/".
 changes with breaking changes, which are published under a new bucket prefix
 (v1/, v2/, ...), so each package version keeps syncing data it can read.
 Manifests without it are schema 1.
-Schema 2 renamed flight IDs to line IDs (h5 attribute "line ID", SQLite column
-datasets.line_id), as some lines come from ground-based radar.
 
 "datasets" (optional) gives the citation of each dataset directory, so sync can tell
 which datasets it updates before downloading them.
@@ -38,7 +36,7 @@ from typing import Dict, Optional
 MANIFEST_NAME = "manifest.json"
 MANIFEST_FORMAT = 1
 # Data layout this package reads. Bump only for breaking changes, see above.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 1
 DB_FILE = "AntADatabase.db"
 
 # Files of a database directory that are published, relative to the directory.
@@ -46,7 +44,7 @@ DB_FILE = "AntADatabase.db"
 PUBLISHED_PATTERNS = [
     DB_FILE,
     "*/raw_md.json",
-    "*/h5/*.h5",
+    "*/nc/*.nc",
 ]
 
 
@@ -139,7 +137,8 @@ def check_schema(manifest: Dict, where: str) -> None:
         raise RuntimeError(
             f"The AntADatabase in {where} uses data schema {schema}, but this anta_database "
             f"({package_version() or 'unknown version'}) only reads schema {SCHEMA_VERSION}. "
-            "Upgrade it with: pip install -U anta_database"
+            "Upgrade it with: pip install -U anta_database. If you have the latest package, "
+            "download the current data with sync()."
         )
     if schema < SCHEMA_VERSION:
         raise RuntimeError(

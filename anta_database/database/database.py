@@ -47,6 +47,13 @@ class Metadata(dict):
                 stacklevel=2,
             )
             return self["line_id"]
+        if key == "DOI_publication" and "DOI_article" in self:
+            warnings.warn(
+                'metadata["DOI_publication"] is deprecated, use metadata["DOI_article"] instead',
+                FutureWarning,
+                stacklevel=2,
+            )
+            return self["DOI_article"]
         raise KeyError(key)
 
 
@@ -124,6 +131,13 @@ class Database:
             warning = package_update_warning(manifest)
             if warning:
                 print(warning)
+        with sqlite3.connect(f"file:{self._file_db_path}?mode=ro", uri=True) as conn:
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(sources)")]
+        if columns and "DOI_article" not in columns:
+            raise RuntimeError(
+                f"The AntADatabase in {database_dir} was made by an older anta_database. "
+                "Download the current data with sync(), or index it again with IndexDatabase."
+            )
         version = local_version(database_dir)
         print(f"AntADatabase {version} successfully initiated" if version else "AntADatabase successfully initiated")
         # Only databases downloaded with sync() have a published version to compare with
@@ -582,7 +596,7 @@ class Database:
         select_clause = "s.name AS dataset, \
                         s.citation, \
                         s.DOI_dataset, \
-                        s.DOI_publication, \
+                        s.DOI_article, \
                         institutes_list.institutes, \
                         projects_list.projects, \
                         d.acq_year, \
@@ -673,7 +687,7 @@ class Database:
             "age": results[0][7],
             "line_id": results[0][10],
             "DOI_dataset": results[0][2],
-            "DOI_publication": results[0][3],
+            "DOI_article": results[0][3],
             "institute": results[0][4],
             "project": results[0][5],
             "acquisition_year": results[0][6],
@@ -709,7 +723,7 @@ class Database:
         select_clause = "s.name AS dataset, \
                         s.citation, \
                         s.DOI_dataset, \
-                        s.DOI_publication, \
+                        s.DOI_article, \
                         institutes_list.institutes, \
                         projects_list.projects, \
                         d.acq_year, \
@@ -758,7 +772,7 @@ class Database:
             "var": [],
             "reference": [],
             "DOI_dataset": [],
-            "DOI_publication": [],
+            "DOI_article": [],
             "line_id": [],
             "region": [],
             "IMBIE_basin": [],
@@ -803,7 +817,7 @@ class Database:
             dataset_name,
             citations,
             DOI_dataset,
-            DOI_publication,
+            DOI_article,
             institutes,
             projects,
             acq_years,
@@ -818,7 +832,7 @@ class Database:
             metadata["dataset"].append(dataset_name)
             metadata["reference"].append(citations)
             metadata["DOI_dataset"].append(DOI_dataset)
-            metadata["DOI_publication"].append(DOI_publication)
+            metadata["DOI_article"].append(DOI_article)
             metadata["line_id"].append(line_id)
             # Check if the age is numeric
             if ages is not None and ages.isdigit():
@@ -888,7 +902,7 @@ class Database:
                 "dataset": metadata["dataset"],
                 "reference": metadata["reference"],
                 "DOI_dataset": metadata["DOI_dataset"],
-                "DOI_publication": metadata["DOI_publication"],
+                "DOI_article": metadata["DOI_article"],
             }
         ).sort_values("dataset")
 
@@ -902,18 +916,31 @@ class Database:
         metadata["dataset"] = list(dict.fromkeys(df_dataset_sorted["dataset"]))
         metadata["reference"] = list(dict.fromkeys(df_dataset_sorted["reference"]))
         metadata["DOI_dataset"] = list(dict.fromkeys(df_dataset_sorted["DOI_dataset"]))
-        metadata["DOI_publication"] = list(
-            dict.fromkeys(df_dataset_sorted["DOI_publication"])
+        metadata["DOI_article"] = list(
+            dict.fromkeys(df_dataset_sorted["DOI_article"])
         )
         metadata["line_id"] = list(set(metadata["line_id"]))
         metadata["radar_instrument"] = sorted(set(unique_radar_instruments))
         metadata["region"] = sorted(set(region_list))
         metadata["IMBIE_basin"] = sorted(set(unique_basins))
+        # What was done to the raw data: shown for a query of a single dataset
+        metadata["processing"] = (
+            self._processing(metadata["dataset"][0]) if len(metadata["dataset"]) == 1 else ""
+        )
 
         if retain_query:
             self._md = metadata
 
         return MetadataResult(metadata, self._max_displayed_line_ids)
+
+    def _processing(self, dataset: str) -> str:
+        """What the compilation did to the raw files of a dataset, in words."""
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT processing FROM sources WHERE name = ?", (dataset,)).fetchone()
+        finally:
+            conn.close()
+        return (row[0] or "") if row else ""
 
     def _get_file_paths_from_metadata(self, metadata) -> List:
 
@@ -1087,7 +1114,7 @@ class Database:
                 "age_unc": md["age_unc"],
                 "reference": file_md["reference"],
                 "DOI_dataset": file_md["DOI_dataset"],
-                "DOI_publication": file_md["DOI_publication"],
+                "DOI_article": file_md["DOI_article"],
                 "region": file_md["region"],
                 "IMBIE_basin": file_md["IMBIE_basin"],
                 "radar_instrument": file_md["radar_instrument"],
@@ -1165,9 +1192,11 @@ class MetadataResult:
                 f"\n  - radar_instrument: {', '.join(md['radar_instrument'])}"
             )
             output.append(f"\n  - line_id: {line_id_str}")
+            if md.get("processing"):
+                output.append(f"\n  - processing: {md['processing']}")
             output.append(f"\n  - reference: {', '.join(md['reference'])}")
             output.append(f"  - dataset DOI: {', '.join(md['DOI_dataset'])}")
-            output.append(f"  - publication DOI: {', '.join(md['DOI_publication'])}")
+            output.append(f"  - article DOI: {', '.join(md['DOI_article'])}")
             output.append(f"\n  - database: {md['database_path']}/{md['file_db']}")
             output.append(f"  - query params: {md['_query_params']}")
             output.append(f"  - filter params: {md['_filter_params']}")

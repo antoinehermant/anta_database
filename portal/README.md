@@ -42,7 +42,7 @@ with `pipeline.py`:
    serves it to whoever has the key of the submission: `/viewer/?preview=<id>&key=<key>`. The
    link is on the receipt of the form and in the receipt email. While the worker runs, the page
    shows its progress, then the warnings of the checks (`web/src/preview.ts`).
-5. **Storing** the compiled dataset (h5 files, `raw_md.json`, `AntADatabase.db`, `report.json`)
+5. **Storing** the compiled dataset (nc files, `raw_md.json`, `AntADatabase.db`, `report.json`)
    in the bucket of its purpose: `antadatabase-compiled` (to add to the database after review)
    or `antadatabase-review` (review only, never redistributed).
 

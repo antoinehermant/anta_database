@@ -1,5 +1,6 @@
 import warnings
 import h5py
+import json
 import os
 import ast
 import shutil
@@ -17,10 +18,25 @@ from tqdm import tqdm
 from importlib.resources import files
 from scipy.spatial.distance import cdist
 
+from anta_database.netcdf import write
+
 # Lines were called flights before ground-based radar joined the database: the old
 # names of raw files and raw_md.json are still read as the new ones.
 OLD_COLUMN_NAMES = {"Flight_ID": "Line_ID"}
 OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
+
+# What the compilation has to do to the raw files of a dataset, kept next to them, and recorded
+# in the attribute "processing" of its files:
+#   wave_speed             m/ns: the raw depths are two-way travel times (ns), multiplied by it
+#   firn_correction        m: added to the depths
+#   firn_correction_vars   what it is added to, ["IRH_DEPTH", "ICE_THK"] by default
+#   line_ids               "dataset": the raw files have no line IDs, the lines are named after
+#                          the dataset (Dataset_1, Dataset_2... when split)
+#   split_at_jump_km       cut a file of the "line" structure where consecutive points are further
+#                          apart than this
+#   note                   anything else to report
+SETTINGS_FILE = "compile_settings.json"
+DEPTH_VARS = ["IRH_DEPTH", "ICE_THK"]
 
 
 class CompileDatabase:
@@ -30,15 +46,12 @@ class CompileDatabase:
         wave_speed: Optional[float] = None,
         firn_correction: Optional[float] = None,
         extract_data: bool = True,
-        hdf5: bool = True,
-        netcdf: bool = False,
         compute_distance: bool = True,
         compute_IMBIE_basins: bool = True,
         compute_IRH_density: bool = True,
         set_attributes: bool = True,
         shapefiles: bool = False,
         geopackages: bool = False,
-        break_transects: bool = False,
         remove_tmp_files: bool = True,
         var_attrs_json: Optional[str] = None,
     ) -> None:
@@ -50,11 +63,8 @@ class CompileDatabase:
         self._compute_IRH_density = compute_IRH_density
         self._compute_IMBIE_basins = compute_IMBIE_basins
         self._set_attributes = set_attributes
-        self._hdf5 = hdf5
-        self._netcdf = netcdf
         self._shapefiles = shapefiles
         self._geopackages = geopackages
-        self._break_transects = break_transects
         self._remove_tmp_files = remove_tmp_files
         imbie_path = files("anta_database.data").joinpath(
             "ANT_Basins_IMBIE2_v1.6.parquet"
@@ -62,6 +72,65 @@ class CompileDatabase:
         self._basins = gpd.read_parquet(imbie_path)
         self._var_list = ["ICE_THK", "BED_ELEV", "SURF_ELEV", "BASAL_UNIT"]
         self._var_attrs_json = var_attrs_json
+
+    def _settings(self, dir_path: str) -> dict:
+        """The settings of a dataset (SETTINGS_FILE), the arguments of the class taking over."""
+        path = os.path.join(dir_path, SETTINGS_FILE)
+        settings = {}
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                settings = json.load(f)
+        if self._wave_speed:
+            settings["wave_speed"] = self._wave_speed
+        if self._firn_correction:
+            settings["firn_correction"] = self._firn_correction
+        return settings
+
+    def _processing(self, dir_path: str) -> str:
+        """What was done to the raw files, in words, for the attribute "processing"."""
+        settings = self._settings(dir_path)
+        done = []
+        if settings.get("wave_speed"):
+            done.append(
+                f"Two-way travel times converted to depths with {settings['wave_speed']} m/ns "
+                f"({', '.join(DEPTH_VARS)})."
+            )
+        if settings.get("firn_correction"):
+            done.append(
+                f"Firn correction of {settings['firn_correction']:+g} m added "
+                f"({', '.join(settings.get('firn_correction_vars', DEPTH_VARS))})."
+            )
+        if settings.get("line_ids") == "dataset":
+            split = settings.get("split_at_jump_km")
+            done.append(
+                "The raw files have no line IDs: lines named after the dataset"
+                + (f", cut at jumps of more than {split:g} km." if split else ".")
+            )
+        if settings.get("note"):
+            done.append(settings["note"])
+        return " ".join(done)
+
+    @staticmethod
+    def _to_depth(values: pd.Series, var: str, settings: dict) -> pd.Series:
+        """Travel times to depths, and the firn correction, as the settings of the dataset ask."""
+        if settings.get("wave_speed"):
+            values = values * settings["wave_speed"]
+        if settings.get("firn_correction") and var in settings.get("firn_correction_vars", DEPTH_VARS):
+            values = values + settings["firn_correction"]
+        return values
+
+    def _segments(self, df: pd.DataFrame, line_id: str, settings: dict) -> list:
+        """(line ID, points) of each line in the file of a line: cut at the jumps if asked."""
+        if settings.get("line_ids") == "dataset":
+            line_id = settings["dataset"]
+        km = settings.get("split_at_jump_km")
+        if not km:
+            return [(line_id, df)]
+        jumps = np.hypot(df["PSX"].diff(), df["PSY"].diff()) > km * 1000
+        parts = [part for _, part in df.groupby(jumps.cumsum().values)]
+        if len(parts) == 1:
+            return [(line_id, df)]
+        return [(f"{line_id}_{n}", part) for n, part in enumerate(parts, start=1)]
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -120,71 +189,38 @@ class CompileDatabase:
                 for file_dict in tqdm(all_files_list, desc="Processing", unit="file"):
                     self.extract(file_dict=file_dict)
 
-        if self._hdf5 is True or self._netcdf is True:
-            all_dirs = []
-            for dir_ in self._dir_list:
-                dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
-                all_dirs.extend(dirs)
-
-            num_tasks = len(all_dirs)
-            num_workers = min(num_tasks, cpus)
-
-            print(
-                "\n",
-                "Will start creating the hdf5/netcdf for",
-                len(all_dirs),
-                "traces\n" "\n   ",
-                num_workers,
-                "worker(s) allocated out of",
-                cpu_count(),
-                "available cpus\n",
-            )
-
-            if num_workers > 1:
-                with Pool(num_workers) as pool:
-                    for _ in tqdm(
-                        pool.imap_unordered(self.combine_dfs, all_dirs), total=num_tasks
-                    ):
-                        pass
-            else:
-                for trace_dir in tqdm(all_dirs, desc="Processing"):
-                    self.combine_dfs(trace_dir)
-
-        all_h5 = []
+        all_dirs = []
         for dir_ in self._dir_list:
-            h5_files = glob.glob(f"{dir_}/h5/*.h5")
-            all_h5.extend(h5_files)
+            dirs = [d for d in glob.glob(f"{dir_}/pkl/*") if os.path.isdir(d)]
+            all_dirs.extend(dirs)
 
-        num_tasks = len(all_h5)
+        num_tasks = len(all_dirs)
         num_workers = min(num_tasks, cpus)
 
-        if self._break_transects:
+        print(
+            "\n",
+            "Will start creating the netCDF files for",
+            len(all_dirs),
+            "traces\n" "\n   ",
+            num_workers,
+            "worker(s) allocated out of",
+            cpu_count(),
+            "available cpus\n",
+        )
 
-            print(
-                "\n",
-                "Breaking possible line transects in separated h5 files for",
-                num_tasks,
-                "h5 files\n" "\n   ",
-                num_workers,
-                "worker(s) allocated out of",
-                cpu_count(),
-                "available cpus\n",
-            )
-
-            if num_workers > 1:
-                with Pool(num_workers) as pool:
-                    for _ in tqdm(
-                        pool.imap_unordered(self.do_break_transects, all_h5),
-                        total=num_tasks,
-                    ):
-                        pass
-            else:
-                for h5_file in tqdm(all_h5, desc="Processing"):
-                    self.do_break_transects(h5_file)
+        if num_workers > 1:
+            with Pool(num_workers) as pool:
+                for _ in tqdm(
+                    pool.imap_unordered(self.combine_dfs, all_dirs), total=num_tasks
+                ):
+                    pass
+        else:
+            for trace_dir in tqdm(all_dirs, desc="Processing"):
+                self.combine_dfs(trace_dir)
 
         all_h5 = []
         for dir_ in self._dir_list:
-            h5_files = glob.glob(f"{dir_}/h5/*.h5")
+            h5_files = glob.glob(f"{dir_}/nc/*.nc")
             all_h5.extend(h5_files)
 
         num_tasks = len(all_h5)
@@ -196,7 +232,7 @@ class CompileDatabase:
                 "\n",
                 "Computing distances along transects for",
                 num_tasks,
-                "h5 files\n" "\n   ",
+                "files\n" "\n   ",
                 num_workers,
                 "worker(s) allocated out of",
                 cpu_count(),
@@ -220,7 +256,7 @@ class CompileDatabase:
                 "\n",
                 "Computing IRH density in",
                 num_tasks,
-                "h5 files\n" "\n   ",
+                "files\n" "\n   ",
                 num_workers,
                 "worker(s) allocated out of",
                 cpu_count(),
@@ -244,7 +280,7 @@ class CompileDatabase:
                 "\n",
                 "Computing IMBIE basins for",
                 num_tasks,
-                "h5 files\n" "\n   ",
+                "files\n" "\n   ",
                 num_workers,
                 "worker(s) allocated out of",
                 cpu_count(),
@@ -268,7 +304,7 @@ class CompileDatabase:
                 "\n",
                 "Settings variable attributes in",
                 num_tasks,
-                "h5 files\n" "\n   ",
+                "files\n" "\n   ",
                 num_workers,
                 "worker(s) allocated out of",
                 cpu_count(),
@@ -284,6 +320,15 @@ class CompileDatabase:
             else:
                 for h5_file in tqdm(all_h5, desc="Processing"):
                     self.set_attrs(h5_file)
+
+        print("\nWriting the final files ...")
+        if num_workers > 1:
+            with Pool(num_workers) as pool:
+                for _ in tqdm(pool.imap_unordered(self.finalise, all_h5), total=num_tasks):
+                    pass
+        else:
+            for h5_file in tqdm(all_h5, desc="Processing"):
+                self.finalise(h5_file)
 
         if self._remove_tmp_files:
             print("\nRemoving temporary directories ...")
@@ -457,6 +502,13 @@ class CompileDatabase:
             if var in df.columns:
                 df[var] = self.convert_col_to_num(df[var])
 
+        settings = self._settings(file_dict["dir_path"])
+        settings["dataset"] = os.path.basename(os.path.normpath(file_dict["dir_path"]))
+        # Elevations are not travel times: only the depths and the thickness are converted, before
+        # the third of ice thickness, surface and bed is worked out from the other two
+        if "ICE_THK" in df.columns:
+            df["ICE_THK"] = self._to_depth(df["ICE_THK"], "ICE_THK", settings)
+
         if (
             "ICE_THK" in df.columns
             and "SURF_ELEV" in df.columns
@@ -475,15 +527,6 @@ class CompileDatabase:
             and not "ICE_THK" in df.columns
         ):
             df["ICE_THK"] = df["SURF_ELEV"] - df["BED_ELEV"]
-
-        if self._wave_speed:
-            for var in ["ICE_THK", "BED_ELEV"]:
-                if var in df.columns:
-                    df[var] *= self._wave_speed
-        if self._firn_correction:
-            for var in ["ICE_THK", "BED_ELEV"]:
-                if var in df.columns:
-                    df[var] += self._firn_correction
 
         if "PSX" not in df.columns and "PSY" not in df.columns:
             if "lon" in df.columns and "lat" in df.columns:
@@ -505,10 +548,7 @@ class CompileDatabase:
             raw_md.set_index("raw file", inplace=True)
             raw_md = raw_md.loc[file_dict["file"]]
 
-            if self._wave_speed:
-                df["IRH_DEPTH"] *= self._wave_speed
-            if self._firn_correction:
-                df["IRH_DEPTH"] += self._firn_correction
+            df["IRH_DEPTH"] = self._to_depth(df["IRH_DEPTH"], "IRH_DEPTH", settings)
 
             df = df.astype({"Line_ID": str})
             df["Line_ID"] = df["Line_ID"].str.replace(
@@ -543,7 +583,7 @@ class CompileDatabase:
             project_flag = "original"
             acq_year_flag = "original"
             doi_data = raw_md["DOI dataset"]
-            doi_pub = raw_md["DOI publication"]
+            doi_article = raw_md.get("DOI article", raw_md.get("DOI publication"))
             acq_year = raw_md["acquisition year"]
             IRH = raw_md["IRH"]
             if "radar instrument" in raw_md.index:
@@ -606,7 +646,7 @@ class CompileDatabase:
                             "acq_year": [acq_year, acq_year_flag],
                             "radar_instrument": [radar_inst, None],
                             "doi_data": [doi_data, None],
-                            "doi_pub": [doi_pub, None],
+                            "doi_article": [doi_article, None],
                         }
                     )
                     trace_md.set_index("line_id", inplace=True)
@@ -615,76 +655,73 @@ class CompileDatabase:
         elif raw_md.iloc[0]["file structure"] == "line":
             IRH_md = pd.read_json(f"{file_dict['dir_path']}/raw_md.json")
 
-            line_id = file_name_
             IRH_md.set_index("IRH", inplace=True)
 
-            for IRH, row in IRH_md.iterrows():
-                if IRH in df.columns:
-                    df_IRH = df[IRH]
-                    df_IRH = pd.DataFrame(
-                        {
-                            "PSX": df["PSX"],
-                            "PSY": df["PSY"],
-                            "IRH_DEPTH": df_IRH,
-                        }
-                    )
-
-                    df_IRH["IRH_DEPTH"] = self.convert_col_to_num(df_IRH["IRH_DEPTH"])
-
-                    if self._wave_speed:
-                        df_IRH["IRH_DEPTH"] *= self._wave_speed
-                    if self._firn_correction:
-                        df_IRH["IRH_DEPTH"] += self._firn_correction
-
-                    for var in self._var_list:
-                        if var in df.columns:
-                            df_IRH[var] = df[var]
-
-                    dataset = row["dataset"]
-                    institute = row["institute"]
-                    if isinstance(institute, list):
-                        if all(pd.isna(institute)):
-                            institute = "nan"
-                    else:
-                        if pd.isna(institute):
-                            institute = "nan"
-                    institute_flag = "original"
-                    project = row["project"]
-                    project_flag = "original"
-                    acq_year = row["acquisition year"]
-                    acq_year_flag = "original"
-                    line_id_flag = "original"
-                    doi_data = row["DOI dataset"]
-                    doi_pub = row["DOI publication"]
-                    if "radar instrument" in row.index:
-                        radar_inst = row["radar instrument"]
-                    else:
-                        radar_inst = "nan"
-
-                    # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
-                    ds_trace_file = f"{file_dict['dir_path']}/pkl/{line_id}/{IRH}.pkl"
-
-                    line_dir, _ = os.path.split(ds_trace_file)
-                    os.makedirs(line_dir, exist_ok=True)
-                    df_IRH.reset_index(drop=True, inplace=True)
-                    df_IRH.to_pickle(ds_trace_file)
-
-                    trace_metadata = f"{line_dir}/metadata.csv"
-                    if not os.path.exists(trace_metadata):
-                        trace_md = pd.DataFrame(
+            for line_id, df in self._segments(df, file_name_, settings):
+                for IRH, row in IRH_md.iterrows():
+                    if IRH in df.columns:
+                        df_IRH = df[IRH]
+                        df_IRH = pd.DataFrame(
                             {
-                                "dataset": [dataset, "original"],
-                                "line_id": [line_id, line_id_flag],
-                                "institute": [institute, institute_flag],
-                                "project": [project, project_flag],
-                                "acq_year": [acq_year, acq_year_flag],
-                                "radar_instrument": [radar_inst, None],
-                                "doi_data": [doi_data, None],
-                                "doi_pub": [doi_pub, None],
+                                "PSX": df["PSX"],
+                                "PSY": df["PSY"],
+                                "IRH_DEPTH": df_IRH,
                             }
                         )
-                        trace_md.set_index("line_id", inplace=True)
-                        trace_md.to_csv(trace_metadata)
+
+                        df_IRH["IRH_DEPTH"] = self._to_depth(
+                            self.convert_col_to_num(df_IRH["IRH_DEPTH"]), "IRH_DEPTH", settings
+                        )
+
+                        for var in self._var_list:
+                            if var in df.columns:
+                                df_IRH[var] = df[var]
+
+                        dataset = row["dataset"]
+                        institute = row["institute"]
+                        if isinstance(institute, list):
+                            if all(pd.isna(institute)):
+                                institute = "nan"
+                        else:
+                            if pd.isna(institute):
+                                institute = "nan"
+                        institute_flag = "original"
+                        project = row["project"]
+                        project_flag = "original"
+                        acq_year = row["acquisition year"]
+                        acq_year_flag = "original"
+                        line_id_flag = "not_provided" if settings.get("line_ids") == "dataset" else "original"
+                        doi_data = row["DOI dataset"]
+                        doi_article = row.get("DOI article", row.get("DOI publication"))
+                        if "radar instrument" in row.index:
+                            radar_inst = row["radar instrument"]
+                        else:
+                            radar_inst = "nan"
+
+                        # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
+                        ds_trace_file = f"{file_dict['dir_path']}/pkl/{line_id}/{IRH}.pkl"
+
+                        line_dir, _ = os.path.split(ds_trace_file)
+                        os.makedirs(line_dir, exist_ok=True)
+                        df_IRH.reset_index(drop=True, inplace=True)
+                        df_IRH.to_pickle(ds_trace_file)
+
+                        trace_metadata = f"{line_dir}/metadata.csv"
+                        if not os.path.exists(trace_metadata):
+                            trace_md = pd.DataFrame(
+                                {
+                                    "dataset": [dataset, "original"],
+                                    "line_id": [line_id, line_id_flag],
+                                    "institute": [institute, institute_flag],
+                                    "project": [project, project_flag],
+                                    "acq_year": [acq_year, acq_year_flag],
+                                    "radar_instrument": [radar_inst, None],
+                                    "doi_data": [doi_data, None],
+                                    "doi_article": [doi_article, None],
+                                }
+                            )
+                            trace_md.set_index("line_id", inplace=True)
+                            trace_md.to_csv(trace_metadata)
 
     def combine_dfs(self, trace_dir: str) -> None:
         files = glob.glob(f"{trace_dir}/*.pkl")
@@ -772,7 +809,8 @@ class CompileDatabase:
                 "line ID": str(trace_md.iloc[0]["line_id"]),
                 "line ID flag": str(trace_md.iloc[1]["line_id"]),
                 "DOI dataset": str(trace_md.iloc[0]["doi_data"]),
-                "DOI publication": str(trace_md.iloc[0]["doi_pub"]),
+                "DOI article": str(trace_md.iloc[0]["doi_article"]),
+                "processing": self._processing(dataset_dir),
             },
         )
         point_shape = len(merged_df)
@@ -815,53 +853,14 @@ class CompileDatabase:
                     "chunksizes": (chunk_size_point),
                 }
 
-        if self._hdf5:
-            h5_dir = os.path.join(dataset_dir, "h5")
-            os.makedirs(h5_dir, exist_ok=True)
-            if not isinstance(institute, (list, tuple, set)) and institute != "nan":
-                h5_file = f"{h5_dir}/{institute}_{line_id}.h5"
-            else:
-                h5_file = f"{h5_dir}/{line_id}.h5"
+        nc_dir = os.path.join(dataset_dir, "nc")
+        os.makedirs(nc_dir, exist_ok=True)
+        if not isinstance(institute, (list, tuple, set)) and institute != "nan":
+            nc_file = f"{nc_dir}/{institute}_{line_id}.nc"
+        else:
+            nc_file = f"{nc_dir}/{line_id}.nc"
 
-            ds.to_netcdf(h5_file, engine="h5netcdf", encoding=encoding, mode="w")
-
-        if self._netcdf:
-            nc_dir = os.path.join(dataset_dir, "nc")
-            os.makedirs(nc_dir, exist_ok=True)
-            if not isinstance(institute, (list, tuple, set)) and institute != "nan":
-                nc_file = f"{nc_dir}/{institute}_{line_id}.nc"
-            else:
-                nc_file = f"{nc_dir}/{line_id}.nc"
-
-            ds.to_netcdf(nc_file, engine="netcdf4", encoding=encoding, mode="w")
-
-    def do_break_transects(self, h5_file: str) -> None:
-        h5_dir, name = os.path.split(h5_file)
-        file_, ext = os.path.splitext(name)
-        with h5py.File(h5_file, "a") as f:
-            with xr.open_dataset(f, engine="h5netcdf") as ds:
-
-                line_id_flag = ds.attrs["line ID flag"]
-
-                if line_id_flag == "not_provided":
-                    x = ds["PSX"].values
-                    x_diff = np.diff(x)
-                    idx = np.abs(x_diff) < 50000
-                    break_points = np.where(idx == 0)[0] + 1
-                    break_points = np.append(0, break_points)
-
-                    for t in range(len(break_points) - 1):
-                        ds_line = ds.isel(
-                            point=slice(break_points[t], break_points[t + 1])
-                        ).copy()
-                        ds_line["point"] = np.arange(len(ds_line.point))
-                        ds_line.attrs["line ID"] += f"_{t}"
-
-                        h5_line_file = f"{h5_dir}/{file_}_{t}.h5"
-
-                        ds_line.to_netcdf(
-                            h5_line_file, engine="h5netcdf", mode="a"
-                        )
+        ds.to_netcdf(nc_file, engine="h5netcdf", encoding=encoding, mode="w")
 
     def compute_fractional_depth(self, h5_file: str) -> None:
         with h5py.File(h5_file, "a") as f:
@@ -1019,8 +1018,6 @@ class CompileDatabase:
                 ].drop_duplicates()
                 lookup_df.reset_index(drop=True, inplace=True)
                 basin_mapping = dict(zip(lookup_df["Subregion"], lookup_df["Regions"]))
-                import json
-
                 ds.attrs["IMBIE_basins"] = json.dumps(basin_mapping)
 
                 ds = ds[list(ds.variables)]
@@ -1047,8 +1044,15 @@ class CompileDatabase:
                 ds = ds[list(ds.variables)]
                 ds.to_netcdf(h5_file, engine="h5netcdf", mode="a")
 
+    @staticmethod
+    def finalise(path: str) -> None:
+        """Rewrite a line with the encoding of the database (anta_database.netcdf)."""
+        with xr.open_dataset(path, engine="h5netcdf") as ds:
+            ds = ds.load()
+        write(ds, path)
+
     def make_shapefile(self, dataset_dir: str) -> None:
-        h5files = glob.glob(f"{dataset_dir}/h5/*.h5")
+        h5files = glob.glob(f"{dataset_dir}/nc/*.nc")
 
         all_dfs = []
         for h5f in h5files:
@@ -1108,7 +1112,7 @@ class CompileDatabase:
         df_points.to_file(points_shp_path)
 
     def make_geopackage(self, dataset_dir: str) -> None:
-        h5files = glob.glob(f"{dataset_dir}/h5/*.h5")
+        h5files = glob.glob(f"{dataset_dir}/nc/*.nc")
 
         all_points = []
         all_md = []

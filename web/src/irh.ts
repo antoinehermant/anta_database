@@ -27,7 +27,7 @@ export interface Feature {
   age_unc_ka: number | null;
   citation: string | null;
   doi_dataset: string | null;
-  doi_publication: string | null;
+  doi_article: string | null;
   institute: string | null;
   surface: string; // where the surface elevation comes from: "SURF_ELEV" or "Bedmap3"
   thickness?: string; // where the ice thickness comes from: "ICE_THK" (completed with Bedmap3) or "Bedmap3"
