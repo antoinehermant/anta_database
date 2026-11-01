@@ -621,15 +621,27 @@ function layerIssues(): Issue[] {
   const missing = missingReference();
   if (missing) issues.push({ level: "warning", text: missing });
   const undated: number[] = [];
+  // Layers usually get older with their number, but need not to: not an error
+  let previous: { irh: number; age: number } | undefined;
+  const younger: string[] = [];
   for (const irh of irhNumbers()) {
     const { age = "", age_unc = "" } = draft.ages[irh] ?? {};
     if (!age) undated.push(irh);
+    if (Number(age) > 0) {
+      if (previous && Number(age) < previous.age) younger.push(`IRH ${irh} (${age} years) is younger than IRH ${previous.irh} (${previous.age} years)`);
+      previous = { irh, age: Number(age) };
+    }
     else if (!(Number(age) > 0)) issues.push({ level: "error", text: `IRH ${irh}: the age must be a positive number of years.` });
     if (age_unc && !(Number(age_unc) >= 0)) issues.push({ level: "error", text: `IRH ${irh}: the uncertainty must be a number of years.` });
     else if (age && !age_unc) issues.push({ level: "warning", text: `IRH ${irh}: no age uncertainty.` });
     if (age && Number(age) < 1000) issues.push({ level: "warning", text: `IRH ${irh}: ${age} years, are ages in years (not ka)?` });
   }
   if (undated.length) issues.push({ level: "warning", text: `Undated layers: ${undated.map((n) => `IRH ${n}`).join(", ")}.` });
+  if (younger.length)
+    issues.push({
+      level: "warning",
+      text: `Ages usually increase with the IRH number, but ${younger.join(", ")}. Fine if your numbering does not follow the age; otherwise, please check the ages and the IRH numbers.`,
+    });
   return issues;
 }
 
@@ -935,6 +947,10 @@ async function submit(event: Event) {
     $("receipt").hidden = false;
     $("receipt").scrollIntoView();
     status.textContent = "";
+    // Sent: nothing of it is left in the browser, also if the page is simply left or reloaded
+    draft = emptyDraft();
+    files = [];
+    save();
   } catch (e) {
     status.textContent = `The submission failed: ${(e as Error).message}. Please try again, or contact antoine.hermant@unibe.ch.`;
     button.disabled = false;
@@ -1040,12 +1056,7 @@ function init() {
   );
   $("form").addEventListener("submit", submit);
   $("reset").addEventListener("click", reset);
-  $("new-submission").addEventListener("click", () => {
-    draft = emptyDraft();
-    files = [];
-    save();
-    location.reload();
-  });
+  $("new-submission").addEventListener("click", () => location.reload());
 
   showFiles();
   showLayers();
