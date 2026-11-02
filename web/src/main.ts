@@ -1274,7 +1274,18 @@ view.add(settings, "edgeMove").name("Move at the edges of the view").onChange((o
   if (!on) keyNavigation.setEdge(0, 0);
 });
 view.add(settings, "autoZoom").name("Fly to a clicked line");
-view.add({ tutorial: () => tutorial.start() }, "tutorial").name("Tutorial (tour of the viewer)");
+view
+  .add(
+    {
+      // The tour explains the viewer as it is by default
+      tutorial: () => {
+        resetSettings();
+        tutorial.start();
+      },
+    },
+    "tutorial",
+  )
+  .name("Tutorial (tour of the viewer)");
 const layers = gui.addFolder("Layers");
 layers
   .add(settings, "bed")
@@ -1579,22 +1590,16 @@ function restoreSettings(folder: GUI, saved: SavedGui | undefined): void {
   }
 }
 gui.onChange(saveSettings);
-gui
-  .add(
-    {
-      reset: () => {
-        gui.reset();
-        try {
-          localStorage.removeItem(SETTINGS_KEY);
-        } catch {
-          // storage blocked
-        }
-        tourView();
-      },
-    },
-    "reset",
-  )
-  .name("Reset all settings");
+function resetSettings(): void {
+  gui.reset();
+  try {
+    localStorage.removeItem(SETTINGS_KEY);
+  } catch {
+    // storage blocked
+  }
+  tourView();
+}
+gui.add({ reset: resetSettings }, "reset").name("Reset all settings");
 
 // Tour of the viewer, started by itself on the first visit (not in a private preview)
 const openInMenu = (folder: GUI) => () => {
