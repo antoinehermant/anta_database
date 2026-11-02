@@ -126,18 +126,40 @@
         <div id="steps" hidden>
           <section class="step" id="step-publication">
             <h3><span class="number">2</span> Publication</h3>
-            <p class="muted">The dataset is named and cited after the publication describing it.</p>
+            <p class="muted">The AntADatabase only distributes datasets published in a data repository (PANGAEA, Zenodo,
+              USAP-DC, the UK Polar Data Centre...). Unpublished datasets are accepted for review only.</p>
+            <fieldset class="consent">
+              <legend>Can the AntADatabase redistribute your data?</legend>
+              <label class="check">
+                <input type="radio" name="licence" value="yes" data-bind="licence" />
+                <span><strong>Yes:</strong> the dataset is published in a data repository, and I am entitled to share it so
+                that the AntADatabase redistributes it openly, with the citation and DOIs below: the compiled data, and the
+                files I send as they are.</span>
+              </label>
+              <label class="check">
+                <input type="radio" name="licence" value="review" data-bind="licence" />
+                <span><strong>Review only:</strong> the dataset is not published yet, or must not be redistributed, but I
+                would like the AntADatabase team to check that it follows the standards of the database (e.g. before
+                publishing it). It stays private and is not added to the database; you can submit it again once it can
+                be shared.</span>
+              </label>
+              <label class="check">
+                <input type="radio" name="licence" value="no" data-bind="licence" />
+                <span><strong>No:</strong> I am not entitled to share this data.</span>
+              </label>
+              <p id="licence-message" class="notice" hidden></p>
+            </fieldset>
+            <p class="muted">The dataset is named and cited after the publication describing it, or the dataset itself.</p>
             <div class="grid">
-              <label>DOI of the article
+              <label>DOI of the dataset
+                <input data-bind="publication.doi_dataset" placeholder="10.1594/PANGAEA.957176" />
+                <span class="hint">Required, except for review only: it is how users find and cite the original data.</span>
+              </label>
+              <label><span>DOI of the article <span class="muted">(optional)</span></span>
                 <span class="with-button">
                   <input data-bind="publication.doi_article" placeholder="10.5194/tc-17-3461-2023" />
                   <button type="button" id="doi-fill">Fill from DOI</button>
                 </span>
-              </label>
-              <label>DOI or URL of the dataset
-                <input data-bind="publication.doi_dataset" placeholder="10.1594/PANGAEA.957176" />
-                <span class="hint">Optional, but if your data is in a repository (PANGAEA, Zenodo, USAP-DC, the UK Polar
-                  Data Centre...), please give it: it is how users find and cite the original data.</span>
               </label>
               <label>Family name of the first author
                 <input data-bind="publication.first_author" placeholder="Chung" autocomplete="off" />
@@ -235,27 +257,6 @@
               hold, anything we should know; kept with your raw files, and published with them)</span>
               <textarea data-bind="notes" rows="3"></textarea>
             </label>
-            <fieldset class="consent">
-              <legend>Can the AntADatabase redistribute your data?</legend>
-              <label class="check">
-                <input type="radio" name="licence" value="yes" data-bind="licence" />
-                <span><strong>Yes:</strong> the data is published (or about to be), and I am entitled to share it so that
-                the AntADatabase redistributes it openly, with the citation and DOIs above: the compiled data, and the files
-                I send as they are.</span>
-              </label>
-              <label class="check">
-                <input type="radio" name="licence" value="review" data-bind="licence" />
-                <span><strong>Review only:</strong> the data is not published yet, or must not be redistributed, but I
-                would like the AntADatabase team to check that it follows the standards of the database (e.g. before
-                publishing it). It stays private and is not added to the database; you can submit it again once it can
-                be shared.</span>
-              </label>
-              <label class="check">
-                <input type="radio" name="licence" value="no" data-bind="licence" />
-                <span><strong>No:</strong> I am not entitled to share this data.</span>
-              </label>
-              <p id="licence-message" class="notice" hidden></p>
-            </fieldset>
             <!-- Left empty by people, filled by bots -->
             <label class="hp" aria-hidden="true">Website <input id="website" name="website" tabindex="-1" autocomplete="off" /></label>
           </section>

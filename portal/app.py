@@ -41,7 +41,7 @@ from typing import Literal, Optional
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import AliasChoices, BaseModel, Field, ValidationError, field_validator
+from pydantic import AliasChoices, BaseModel, Field, ValidationError, field_validator, model_validator
 
 from . import config, mail, storage, store
 
@@ -127,7 +127,15 @@ class Submission(BaseModel):
     licence: Literal["redistribute", "review"]
     files: list[SubmittedFile] = Field(min_length=1, max_length=config.MAX_FILES)
     layers: list[Layer] = Field(default=[], max_length=1000)
+    # The line of the layer files without a LINE_ID column; without it, named after the dataset
+    line_id: str = Field(default="", pattern=r"^([A-Za-z0-9._-]+)?$", max_length=200)
     warnings: list[str] = Field(default=[], max_length=10000)
+
+    @model_validator(mode="after")
+    def published_in_a_repository(self) -> "Submission":
+        if self.licence == "redistribute" and not self.publication.doi_dataset.strip():
+            raise ValueError("The DOI of the dataset is required: unpublished datasets are accepted for review only")
+        return self
     # Sent from the development version of the page (/submit/?dev)
     test: bool = False
 

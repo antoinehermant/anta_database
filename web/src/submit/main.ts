@@ -266,13 +266,17 @@ function publicationIssues(): Issue[] {
   if (!/^\d{4}$/.test(year) || Number(year) < 1950 || Number(year) > now + 1)
     issues.push({ level: "error", text: "The year of publication is missing or not a year." });
   const doi = doiOf(doi_article);
-  if (!doi && draft.licence !== "review")
-    issues.push({ level: "warning", text: "No DOI of the article: the AntADatabase holds published data, please add it once available." });
-  else if (!isDoi(doi)) issues.push({ level: "error", text: `"${doi_article}" is not a DOI (10.xxxx/...).` });
-  if (!doi_dataset.trim() && draft.licence !== "review")
-    issues.push({ level: "warning", text: "No DOI of the dataset: if the data is in a repository (PANGAEA, Zenodo...), please add it." });
-  if (doi_dataset.trim() && !isDoi(doiOf(doi_dataset)) && !/^https?:\/\/\S+$/.test(doi_dataset.trim()))
-    issues.push({ level: "error", text: "The dataset DOI is neither a DOI (10.xxxx/...) nor a URL." });
+  if (doi && !isDoi(doi)) issues.push({ level: "error", text: `"${doi_article}" is not a DOI (10.xxxx/...).` });
+  if (!doi_dataset.trim()) {
+    if (draft.licence !== "review")
+      issues.push({
+        level: "error",
+        text: "Please provide the DOI of the dataset: the AntADatabase only distributes datasets published in a data " +
+          "repository. Unpublished datasets are accepted for review only.",
+      });
+  } else if (!isDoi(doiOf(doi_dataset))) {
+    issues.push({ level: "error", text: `"${doi_dataset}" is not a DOI (10.xxxx/...).` });
+  }
 
   const name = naming();
   for (const d of name?.same ?? [])
