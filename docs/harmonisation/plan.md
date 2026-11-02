@@ -1,9 +1,8 @@
 # Harmonising the layers, and the data structure that follows
 
 Working document, started 2026-11-01. It records the decisions as they are taken, so that the
-manuscript (`../manuscript-brief.md`, and the ESSD draft) can be updated. Nothing here is
-implemented yet. **The steps to follow are in section 8, the issues to fix first in
-`metadata-issues.md`.** Status of each item:
+manuscript (`../manuscript-brief.md`, and the ESSD draft) can be updated. **The steps to follow are in
+section 8, the remaining challenges and decisions in 8b.** Status of each item:
 - *Proposed*: a suggestion, not discussed yet;
 - *Agreed*: discussed and accepted;
 - *Open*: needs a decision or more data.
@@ -518,65 +517,118 @@ leaves room for a later breaking change. The manifest lists it apart, so `sync()
 
 ## 8. The plan
 
-Who: **A** = Antoine, **C** = Claude. Branches: phase 0 is on `main`, since it changes what is online;
-the other phases are on `harmonisation`, which merges `main` after phase 0.
+Updated 2026-11-02. Who: **A** = Antoine, **C** = Claude. All work is on `harmonisation` (currently level with
+an older `main`: 0 commits of its own, 9 behind). Nothing goes online before phase 4.
 
-### Phase 0: clean up what is published (`main`)
+**The order, and why:** the harmonisation decides what the files must hold, so the format is changed once, after it
+(section 9). Original layers and ages are never touched, so **a layer that can't be matched with confidence stays its own
+horizon with its original age**. The review below 1,500 m can therefore stop at a defensible point without blocking v2.
 
-*Agreed:* no compilation from raw. The h5 files of `myAntADatabase` are converted to `.nc` by
-`build_v1.py`, with the encoding of `anta_database/netcdf.py` (float32 values, zlib 4 + shuffle, larger chunks).
+### Phase 0: published v1 (done)
 
-| # | Step | Status |
-|---|---|---|
-| 0.1 | Issues of `metadata-issues.md` | Answered; some checks left, none blocks v1 |
-| 0.2 | Line IDs, `processing`, units, compile settings | Done (not committed) |
-| 0.3 | `.h5` → `.nc` in code and docs; `SCHEMA_VERSION = 1`; default URLs to `v1/` | Done (not committed) |
-| 0.4 | Build in `~/data/isochrones/AntADatabase-v1-build`: **248 MB, 1,014 lines** (was 630 MB, 956) | Done, checked value by value (at most 0.1 mm), 18 datasets, publish dry-run OK |
-| 0.5 | Antoine checks the build, then: commit, tag 0.6.2, publish `v1/`, exports to `web/`, site, portal, delete `v2/` and `test/` | Waits for A |
+`v1/` is online (schema 1, 1,014 lines, 248 MB), with packages 0.6.2 and 0.6.3, the site and the portal. Left, none blocks
+v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A).
 
-**Yank (optional):** older packages would break on the new data. Marking 0.5.0–0.6.1 as "yanked" on PyPI makes
-`pip install` skip them. Antoine considers the crash unimportant, so it can be skipped.
+### Phase 1: inputs and baseline
 
-### Phase 1: collect what the methods need
+| # | Step | Who | Status |
+|---|---|---|---|
+| 1.1 | Merge `main` into `harmonisation`; freeze the input: a read-only copy of the published v1, with its `db_version` recorded | C | To do |
+| 1.2 | Port `explore.py` and `check_depth_correction.py` to the `.nc` files and rerun them: the figures of section 1 predate the 1,014 lines | C | To do |
+| 1.3 | Dataset table `datasets_methods.csv`: check every row, add the missing papers | **A** | Draft (15 of 18 read) |
+| 1.4 | Which raw files have travel times | A | To do |
+| 1.5 | Chronologies in `chronologies/`, precise core positions, licences | C collects, A checks | Tables fetched (section 10), positions and licences to do |
+| 1.6 | Decisions D1 to D5 below | **A** | Open |
 
-| # | Step | Who |
-|---|---|---|
-| 1.1 | Per dataset: wave speed, firn correction, dating method, core, chronology, tie. **Draft done:** `datasets_methods.csv`, with quotes (15 of 18 from the papers) | **A checks** every row, adds the missing papers |
-| 1.2 | Published travel times per dataset: which raw files have them | A (has the raw files) |
-| 1.3 | Choose the common wave speed and the firn model | A decides, C proposes |
-| 1.4 | Chronologies and precise core positions (4.3), and their licences | C collects, A checks |
-
-### Phase 2: harmonise
+### Phase 2: the harmonisation (`anta-harmonise`, rerunnable, writes tables only)
 
 | # | Step | Who |
 |---|---|---|
-| 2.1 | Segments; clusters of crossovers; coincident tracks (1.1) | C |
-| 2.2 | Level 1 depth correction, and its test against the measured offsets (3.2) | C |
-| 2.3 | Chronology update only (4.5, level 1): the first table of age changes | C |
-| 2.4 | Level 2 offsets, order-preserving matching, horizons (3.2–3.4) | C |
-| 2.5 | Horizon review mode in the viewer, and **the review of the horizons, above all below 1,500 m** | C builds, **A decides** |
-| 2.6 | Depth at the cores, dating, several cores, uncertainties (4.1–4.4) | C |
-| 2.7 | Validation (4.4), and the table of age changes with its causes | C, A checks |
+| 2.1 | Segments, clusters of crossovers, coincident tracks (1.1) | C |
+| 2.2 | Chronology update only (4.5, level 1): the first table of age changes | C |
+| 2.3 | Level 2 offsets, order-preserving matching, horizons (3.2 to 3.4) | C |
+| 2.4 | Repeat the depth test on the matched horizons (3.2): **go or no-go for `IRH_DEPTH_H`** | C, **A decides** |
+| 2.5 | Horizon review mode in the viewer, local only; then the review, above all below 1,500 m | C builds, **A decides** |
+| 2.6 | Depth at the cores, dating, several cores, uncertainties (4.1 to 4.4) | C |
+| 2.7 | Validation (4.4): leave one core out, no crossings, loops; table of age changes with causes | C, A checks |
 
-Where it can go wrong: the code is days of work, but **the correctness of the matching isn't a coding
-problem**. Below 1,500 m, the layers are as close together as the offsets between datasets; some links will
-stay a judgement call, and those are yours. Reviewers will look there first.
+**Gate before phase 3:** A accepts the horizons and the validation. Stable horizon ids are needed from here on (issue T3).
 
-### Phase 3: the new format (`v2/`, schema 2, package 0.7.0 or 1.0.0)
+### Phase 3: the new structure
 
 | # | Step | Who |
 |---|---|---|
-| 3.1 | **Compile unchanged**: still one `.nc` per line, as an intermediate. A new step `assemble` builds the line view (one file per dataset), adding CF attributes (`Conventions`, `featureType`, `grid_mapping` with EPSG:3031; no spaces in attribute names) | C |
-| 3.2 | Layer view (6.2), generated | C |
-| 3.3 | Index: line, segment, horizon, ties; `db.horizon()`, `db.line()`, original or harmonised ages | C |
-| 3.4 | Viewer, download page and portal on the new files; a harmonised colouring in the viewer | C |
-| 3.5 | Parquet, built from the views; compare size and speed with netCDF, then decide | C |
-| 3.6 | Publish to `v2/` (test prefix first), `anta-harmonise` for new submissions | C, A confirms |
+| 3.1 | Compile unchanged, one `.nc` per line as an intermediate. New step `assemble`: the line view, one CF file per dataset | C |
+| 3.2 | Layer view, one file per horizon | C |
+| 3.3 | Index with lines, segments, horizons, ties. `db.horizon()`, `db.line()`, original or harmonised ages. `query`, `get_files`, `data_generator` and the plotting keep working on the new files | C |
+| 3.4 | Viewer, download page and exports on the new files; harmonised colouring | C |
+| 3.5 | Portal: `anta-review` assembles and harmonises; a submission's report proposes its horizons | C |
+| 3.6 | Parquet, built from the views: compare size and speed, then decide | C |
 
-### Phase 4: documentation and manuscript
+### Phase 4: release
 
-Section 7: a chapter "Ages and harmonisation" in the docs, and the changes to the manuscript, with the
-appendix generated by script. C, in the manuscript session; A decides the content.
+| # | Step | Who |
+|---|---|---|
+| 4.1 | Publish to a test prefix, then a clean install, `sync()` and comparison against v1: same values for every original layer | C |
+| 4.2 | Docs chapter "Ages and harmonisation" | C, A checks |
+| 4.3 | Publish `v2/`, package 0.7.0 or 1.0.0, site. **In this order:** data, package, viewer | **A confirms each** |
+| 4.4 | Data DOI for the release, and the manuscript with its generated appendix (section 7) | A, C in the manuscript session |
+
+---
+
+## 8b. Remaining challenges (2026-11-02)
+
+### Science: can change the results
+
+- **S1. The depth corrections may not work.** The test of 3.2 failed (correlation −0.18), though partly on wrong pairs. If it fails on matched horizons too,
+  v2 ships without `IRH_DEPTH_H`, and the paper reports the offsets per dataset. The rest of the plan doesn't depend on it.
+- **S2. Deep matching.** Below about 1,500 m, layers are as close together as the offsets between datasets. Some links stay a judgement call, and reviewers
+  will look there first. Rule proposed above: no confident link, no merge.
+- **S3. Agreement isn't independent evidence.** Several datasets took their ages from another by correlation (Bodart_2025a from Franke, Sanderson from Winter,
+  Yan from Cavitte), and some share the same radar flights (57 % of Chung's points lie within 50 m of Mulvaney's). Their agreement partly
+  reflects that shared origin, so links must be counted per cluster, and the validation must not treat them as separate confirmations.
+- **S4. No single age scale across the continent.** The East is on AICC2023; the West is probably a separate network on WD2014. The published WD2014-AICC2023
+  table only covers 10 to 57 ka, while WD2014 goes to 67.75 ka. Horizons with no core connection keep older published scales, or model ages (Napoleoni).
+  Each age must state its scale, and comparing ages across scales needs care.
+- **S5. Dome Fuji.** DF2021 is still unavailable (the NIPR site returned 503 on 2026-11-02) and only reaches 207 ka. Until then: AICC2012 from Uemura et al. (2018), an older
+  scale than the other cores, and a source of false disagreement between cores.
+- **S6. Uncertainties.** AICC2023 errors between cores are correlated, and `sigma_offset` depends on the matching. Their definitions differ between papers, and some layers have none
+  (Beem_2021, Leysinger_Vieli_2011). The harmonised uncertainty needs one definition, stated in the paper.
+- **S7. Doubtful data in the matching.** Open from `metadata-issues.md`: Cavitte depths below the bed, including IRH 11, one of the deep layers that are hard to match (15,311 points on
+  one line, up to 744 m below); Napoleoni's jumps; Winter IRH 1 and 5. Proposed: published values stay, these points are excluded from the matching, and the exclusion is listed.
+- **S8. Missing parameters.** Jacobel, Leysinger-Vieli and Siegert have no known wave speed or firn correction, Beem no firn correction, and Yan none described. The firn model (GSFC-FDM, 8 GB) isn't downloaded.
+  Only level 1 needs them.
+
+### Technical: known problems to design around
+
+- **T1. A real `v2/` with schema 2 would break packages 0.6.0 and 0.6.1.** They read `v2/` and accept schema 2, so they would pass the check and then fail on the new layout, instead of being told to
+  upgrade. The stub in `v2/` protects them today by saying schema 3. See D1.
+- **T2. Inputs are not all v1.** `AntADatabase` and `AntADatabase-release` still hold the older 956 `.h5` files (`anta-review` refreshes the release copy when it runs), and `explore.py` only reads `.h5`.
+  Everything must start from the frozen v1 (step 1.1).
+- **T3. Stable horizon ids aren't designed yet.** Section 5 asks for it, but a single new link can merge or split connected components. Proposed: the reviewed links are the source, and a new
+  component takes the id of the old horizon it shares most observations with; a merge retires an id, listed in the changelog.
+- **T4. Submissions during the work.** A dataset approved now joins v1 and moves the frozen input. See D3.
+- **T5. The API on ragged files.** `get_files`, `data_generator`, plotting, viewer export and the portal checks all assume one file per line; each needs porting or a compatibility layer.
+  Horizon and age filters also build on a query layer whose older review listed open bugs (ages stored as text, for instance): recheck them in 3.3.
+- **T6. The download grows.** Section 6.2 compares 330 to 360 MB with the old 629 MB, but v1 is now 248 MB. Line view plus layer view would be larger than v1: to be measured in 3.2. If it
+  matters, `sync()` can fetch the layer view on request, like Parquet.
+- **T7. Publishing and citing.**
+  - The manuscript brief still has no DOI for the database (line 896). A journal such as ESSD will expect a long-term repository, not only a bucket. A snapshot per release, on Zenodo for example, also needs its licence settled.
+  - USAP-DC lists SP19 as CC BY-NC, which could block redistributing that table. If so, the database can link to it and store only the ages derived from it.
+- **T8. No automatic checks.** Tests stay out of git, by choice, so the validation of 2.7 should be part of `anta-harmonise` itself and written to its report, so it runs on every rerun.
+
+- **T9. Lines with turns.** One line of a survey can hold several straight profiles joined at turns: `Davis_2026_15` is one 241 km line of that kind, and
+  other datasets have the same issue. Not handled for now, as there is no agreed rule for what makes a separate profile. The harmonisation's `segment` level (section 5) is the natural place to solve it.
+
+### Decisions needed from A
+
+| # | Question | Recommendation |
+|---|---|---|
+| D1 | Address and schema number of the new data | Keep the name `v2/`, with `schema_version` 3 in its manifest (`v{SCHEMA_VERSION}` is split into two constants). Old packages then get the upgrade message. The alternative, using `v3/`, needs no code but drops the agreed name |
+| D2 | What happens to `v1/` after v2 | Frozen and online, so 0.6.2 and 0.6.3 keep working. No new datasets there |
+| D3 | Submissions during the harmonisation | Keep accepting them, published to v1; each new one is added at the next rerun of phase 2. Freeze the input only for the final run |
+| D4 | `BASAL_UNIT` as an undated IRH, and undated layers | Decide now, since the format changes once. Allow horizons without an age in the schema either way; moving `BASAL_UNIT` could still wait, as it isn't needed for the harmonisation, but later it takes another schema change |
+| D5 | The common depth reference: 168.5 m/us and GSFC-FDM (3.2b) | Decide only after 2.4: without a go, level 1 isn't built and the 8 GB download isn't needed |
 
 ---
 
@@ -632,4 +684,4 @@ the NOAA file within 0.5 year.
 **Dome Fuji for now:** Uemura et al. (2018) give the depth on AICC2012, an older timescale than AICC2023 and not the
 DF2021 of the plan: replace it when NIPR is back, and mark the ages dated with it until then.
 
-**`v2/manifest.json` in the bucket is not a database:** one file with `schema_version` 3 and no data, so that packages 0.6.0 and 0.6.1 are told to upgrade. Delete it before publishing the real v2 (`anta-publish` refuses a prefix holding another schema).
+**`v2/manifest.json` in the bucket is not a database:** one file with `schema_version` 3 and no data, so that packages 0.6.0 and 0.6.1 are told to upgrade. Before publishing the real v2, settle D1 of section 8b: real data with schema 2 there would be accepted by those packages, which can't read it.
