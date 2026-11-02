@@ -26,6 +26,8 @@ import pandas as pd
 COORDINATES = ("PSX", "PSY", "LON", "LAT")
 VARIABLES = ("ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT")
 MISSING = ["", "-9999", "-9999.0", "NaN", "nan"]
+# Not a coordinate: 9999 m is a place, but no depth, thickness or elevation
+MISSING_VALUES = [*MISSING, "9999", "9999.0"]
 SEPARATORS = {".csv": ",", ".tab": "\t"}
 IRH_COLUMN = re.compile(r"^IRH(\d+)$")
 # Optional columns, kept in the raw files but not compiled (as LAYER_EXTRAS and POINT_EXTRAS
@@ -93,6 +95,7 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     structure = record["structure"]
     reference: dict[str, set[str]] = {}  # variables of REFERENCE in each layer or line file
     variable_files: set[str] = set()
+    no_line_ids: list[str] = []
     for f in record["files"]:
         name = f["name"]
         path = dataset_dir / "raw" / name
@@ -134,7 +137,7 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
         required = values
         missing = [c for c in required if c not in header]
         if structure == "layer" and line_column is None:
-            missing.insert(0, "LINE_ID")
+            no_line_ids.append(name)
         if missing:
             report.errors.append(f"{name}: no {', '.join(missing)} column")
             continue
@@ -164,8 +167,9 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
                 table = {}
                 for c in numeric:
                     text = chunk[c].str.strip()
-                    number = pd.to_numeric(text.where(~text.isin(MISSING)), errors="coerce")
-                    invalid += int((number.isna() & ~text.isin(MISSING)).sum())
+                    missing_here = MISSING if c in coords else MISSING_VALUES
+                    number = pd.to_numeric(text.where(~text.isin(missing_here)), errors="coerce")
+                    invalid += int((number.isna() & ~text.isin(missing_here)).sum())
                     table[c] = number.to_numpy(dtype=float)
                 x, y = table[coords[0]], table[coords[1]]
                 if coords == ("LON", "LAT"):
@@ -199,6 +203,13 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
         elif kind == "line":
             for n in f.get("irh_columns") or []:
                 points[n] = points.get(n, 0) + counts[f"IRH{n}"]
+    if no_line_ids:
+        line = record.get("line_id") or record.get("dataset")
+        report.warnings.append(
+            f"No LINE_ID in {plural(len(no_line_ids), 'file')}: their points form one line, {line}, or several "
+            f"({line}_1, {line}_2...) if they have large jumps: "
+            f"{', '.join(no_line_ids[:5])}{', ...' if len(no_line_ids) > 5 else ''}"
+        )
     # The form asks for two of REFERENCE but lets the contributor submit without: a warning
     short = sorted(n for n, have in reference.items() if len((have | variable_files) & set(REFERENCE)) < 2)
     if short:

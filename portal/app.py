@@ -151,6 +151,15 @@ def one_or_list(values: list[str]):
     return values[0] if len(values) == 1 else values
 
 
+# km: the points of files without line IDs are cut into lines at larger jumps, as MAX_LINE_JUMP_KM
+# in web/src/submit/files.ts says in the form
+MAX_LINE_JUMP_KM = 10
+
+
+def has_line_ids(f: SubmittedFile) -> bool:
+    return any(c in f.columns for c in ("LINE_ID", "Line_ID", "Flight_ID"))
+
+
 def raw_metadata(s: Submission) -> list[dict]:
     """raw_md.json: one entry per file (one file per layer) or per layer (one file per line)."""
     ages = {layer.irh: layer for layer in s.layers}
@@ -177,6 +186,8 @@ def raw_metadata(s: Submission) -> list[dict]:
                 "age uncertainty": layer.age_unc if layer else None,
                 **{k: v for k, v in common.items() if k != "dataset"},
             }
+            if not has_line_ids(f):
+                entry["line ID"] = s.line_id or s.dataset
             if f.project:
                 entry["project"] = f.project
             if f.acquisition_year:
@@ -224,6 +235,16 @@ def write_submission(directory: Path, s: Submission, record: dict) -> None:
         columns = column_names(s)
         writer.writerow([c for c, _ in columns])
         writer.writerow([n for _, n in columns])
+    if s.structure == "layer" and not all(has_line_ids(f) for f in s.files):
+        settings = {
+            "split_at_jump_km": MAX_LINE_JUMP_KM,
+            "note": "No line IDs in the raw files: the points were put in order along each line by joining the pieces end to "
+                    "end, also across gaps of up to 30 km when they are in one straight transect.",
+        }
+        if not s.line_id:
+            settings["line_ids"] = "dataset"
+        with open(dataset / "compile_settings.json", "w") as f:
+            json.dump(settings, f, indent=4)
     with open(directory / "submission.json", "w") as f:
         json.dump(record, f, indent=2)
 
@@ -238,6 +259,7 @@ def submission_summary(s: Submission, submission_id: str, total: int) -> str:
         for l in s.layers
     )
     structure = "one file per layer" if s.structure == "layer" else "one file per line"
+    no_ids = [f for f in s.files if s.structure == "layer" and not has_line_ids(f)]
     purpose = "added to the database after review" if s.licence == "redistribute" else "REVIEW ONLY, not to be redistributed"
     return "\n".join([
         f"Submission: {submission_id}",
@@ -247,6 +269,10 @@ def submission_summary(s: Submission, submission_id: str, total: int) -> str:
         f"Data: {s.publication.doi_dataset or '(no DOI)'}",
         f"Files: {len(s.files)} ({structure}, {total / 1e6:.1f} MB)",
         f"Layers: {layers or 'none'}",
+        *(
+            [f"Line ID: {s.line_id or f'{s.dataset} (none given)'}, for {len(no_ids)} file(s) without LINE_ID"]
+            if no_ids else []
+        ),
         f"Institutes: {', '.join(s.survey.institutes) or '-'}; projects: {', '.join(s.survey.projects) or '-'}; "
         f"radar: {', '.join(s.survey.radar_instruments) or '-'}; acquisition year: {s.survey.acquisition_year or '-'}",
     ])

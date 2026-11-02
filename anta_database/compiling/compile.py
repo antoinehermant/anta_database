@@ -18,6 +18,7 @@ from tqdm import tqdm
 from importlib.resources import files
 from scipy.spatial.distance import cdist
 
+from anta_database.compiling.lines import split_into_lines
 from anta_database.netcdf import write
 
 # Lines were called flights before ground-based radar joined the database: the old
@@ -31,9 +32,11 @@ OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
 #   firn_correction        m: added to the depths
 #   firn_correction_vars   what it is added to, ["IRH_DEPTH", "ICE_THK"] by default
 #   line_ids               "dataset": the raw files have no line IDs, the lines are named after
-#                          the dataset (Dataset_1, Dataset_2... when split)
+#                          the dataset (Dataset_1, Dataset_2... when split). With one file per
+#                          layer, raw_md.json gives that name as "line ID"
 #   split_at_jump_km       cut a file of the "line" structure where consecutive points are further
-#                          apart than this
+#                          apart than this; with one file per layer, the points named by "line ID"
+#                          are put in order and cut into lines at larger gaps (lines.py)
 #   note                   anything else to report
 SETTINGS_FILE = "compile_settings.json"
 DEPTH_VARS = ["IRH_DEPTH", "ICE_THK"]
@@ -106,6 +109,8 @@ class CompileDatabase:
                 "The raw files have no line IDs: lines named after the dataset"
                 + (f", cut at jumps of more than {split:g} km." if split else ".")
             )
+        elif settings.get("split_at_jump_km"):
+            done.append(f"Lines cut at jumps of more than {settings['split_at_jump_km']:g} km.")
         if settings.get("note"):
             done.append(settings["note"])
         return " ".join(done)
@@ -131,6 +136,18 @@ class CompileDatabase:
         if len(parts) == 1:
             return [(line_id, df)]
         return [(f"{line_id}_{n}", part) for n, part in enumerate(parts, start=1)]
+
+    def _split_km(self, trace_dir: str) -> Optional[float]:
+        """The jump to cut this line at: only the line of layer files without line IDs."""
+        dataset_dir = os.path.dirname(os.path.dirname(trace_dir))
+        km = self._settings(dataset_dir).get("split_at_jump_km")
+        if not km:
+            return None
+        raw_md = pd.read_json(f"{dataset_dir}/raw_md.json").rename(columns=OLD_RAW_MD_KEYS)
+        if raw_md.iloc[0]["file structure"] != "IRH" or "line ID" not in raw_md:
+            return None
+        names = raw_md["line ID"].dropna().astype(str)
+        return km if os.path.basename(trace_dir) in set(names) else None
 
     def _pre_compile_checks(self, dir_list: list[str]) -> bool:
         missing = False
@@ -208,15 +225,13 @@ class CompileDatabase:
             "available cpus\n",
         )
 
-        if num_workers > 1:
-            with Pool(num_workers) as pool:
-                for _ in tqdm(
-                    pool.imap_unordered(self.combine_dfs, all_dirs), total=num_tasks
-                ):
-                    pass
-        else:
-            for trace_dir in tqdm(all_dirs, desc="Processing"):
-                self.combine_dfs(trace_dir)
+        # Always in a worker: one directory can make several files (split_into_lines), and the pools
+        # below would hang if this process had used the threads of dask before forking
+        with Pool(max(num_workers, 1)) as pool:
+            for _ in tqdm(
+                pool.imap_unordered(self.combine_dfs, all_dirs), total=num_tasks
+            ):
+                pass
 
         all_h5 = []
         for dir_ in self._dir_list:
@@ -467,6 +482,8 @@ class CompileDatabase:
         df = df.rename(columns=OLD_COLUMN_NAMES)
 
         values_to_replace = ["-9999", "-9999.0", "NaN", "nan", ""]
+        # Not a coordinate: 9999 m is a place, but no depth, thickness or elevation
+        missing_values = [*values_to_replace, "9999", "9999.0"]
 
         if "PSX" in df.columns and "PSY" in df.columns:
             # Create a mask for rows where both PSX and PSY are in values_to_replace
@@ -481,7 +498,7 @@ class CompileDatabase:
             df = df[~mask].copy()
 
         cols_to_replace = [col for col in df.columns if col not in ["PSX", "PSY"]]
-        df[cols_to_replace] = df[cols_to_replace].replace(values_to_replace, pd.NA)
+        df[cols_to_replace] = df[cols_to_replace].replace(missing_values, pd.NA)
 
         pattern_values = original_new_columns[1:]
         pattern_header = original_new_columns.iloc[0]
@@ -552,20 +569,31 @@ class CompileDatabase:
             if "IRH_DEPTH" in df.columns:
                 df["IRH_DEPTH"] = self._to_depth(df["IRH_DEPTH"], "IRH_DEPTH", settings)
 
-            df = df.astype({"Line_ID": str})
-            df["Line_ID"] = df["Line_ID"].str.replace(
-                r"/\s+", "_", regex=True
-            )  # Replace slashes with underscores, otherwise the paths can get messy
-            df["Line_ID"] = df["Line_ID"].str.replace("/", "_")
-            df.set_index("Line_ID", inplace=True)
+            # Files without line IDs hold one line, named by "line ID" in raw_md.json
+            has_line_ids = "Line_ID" in df.columns
+            if has_line_ids:
+                df = df.astype({"Line_ID": str})
+                df["Line_ID"] = df["Line_ID"].str.replace(
+                    r"/\s+", "_", regex=True
+                )  # Replace slashes with underscores, otherwise the paths can get messy
+                df["Line_ID"] = df["Line_ID"].str.replace("/", "_")
+                df.set_index("Line_ID", inplace=True)
+            elif pd.isna(raw_md.get("line ID")):
+                raise ValueError(
+                    f"{file_name}: no Line_ID column and no \"line ID\" in raw_md.json"
+                )
 
             line_id = []
             line_id_flag = "original"
+            one_line = False
 
             if "line ID" in raw_md.index:
                 if not pd.isna(raw_md["line ID"]):
                     line_id = raw_md["line ID"]
                     line_id_flag = "not_provided"
+                    one_line = True
+                    if not has_line_ids and "line_ids" not in settings:
+                        line_id_flag = "original"  # given with the data, not made up
 
             if "line ID prefix" in raw_md.index:
                 if not pd.isna(raw_md["line ID prefix"]):
@@ -594,7 +622,7 @@ class CompileDatabase:
                 radar_inst = "nan"
 
             line_ids = np.unique(df.index)
-            if line_id_flag == "not_provided":
+            if one_line:
                 line_ids = [line_id]
 
             def extract_year(time: str, pattern: str):
@@ -602,10 +630,10 @@ class CompileDatabase:
                 return time[position : position + 4]
 
             for line_id in line_ids:
-                if line_id_flag == "not_provided":
+                if one_line:
                     df_trace = df.copy()
                 else:
-                    df_trace = df.loc[line_id].copy()
+                    df_trace = df.loc[[line_id]].copy()
 
                 if "acq_year" in pattern_values.columns:
                     pattern = pattern_values.iloc[0]["acq_year"]
@@ -726,12 +754,14 @@ class CompileDatabase:
                             trace_md.to_csv(trace_metadata)
 
     def combine_dfs(self, trace_dir: str) -> None:
-        files = glob.glob(f"{trace_dir}/*.pkl")
+        # Sorted: the order of the points must not change from one compilation to the next
+        files = sorted(glob.glob(f"{trace_dir}/*.pkl"))
         if not files:
             return
 
+        split_km = self._split_km(trace_dir)
+        dfs_prep = []
         if len(files) > 1:
-            dfs_prep = []
             for f in files:
                 df = pd.read_pickle(f)
                 df = df.set_index(["PSX", "PSY"])
@@ -757,16 +787,38 @@ class CompileDatabase:
                     merged_df = merged_df.drop(columns=matching_cols)
                     merged_df = merged_df.rename(columns={temp_col: col})
 
+            points = pd.MultiIndex.from_frame(merged_df[["PSX", "PSY"]])
         else:
             f = files[0]
             df = pd.read_pickle(f)
             df = df.set_index(["PSX", "PSY"])
             df = df[~df.index.duplicated(keep="first")]
-            df.reset_index(inplace=True)
+            dfs_prep.append(df)
+            points = df.index
+            df = df.reset_index()
             _, f_name = os.path.split(f)
             IRH, _ = os.path.splitext(f_name)
             merged_df = df.rename(columns={"IRH_DEPTH": IRH})
 
+        if not split_km:
+            self._write_line(merged_df, trace_dir, None)
+            return
+        lines = split_into_lines(
+            merged_df[["PSX", "PSY"]].to_numpy(dtype=float),
+            [points.get_indexer(df.index) for df in dfs_prep],
+            split_km * 1000,
+        )
+        if len(lines) == 1:
+            self._write_line(merged_df.iloc[lines[0]].reset_index(drop=True), trace_dir, None)
+            return
+        line_id = os.path.basename(trace_dir)
+        for n, line in enumerate(lines, start=1):
+            # Without the layers and variables missing from this part of the data
+            part = merged_df.iloc[line].dropna(axis=1, how="all").reset_index(drop=True)
+            self._write_line(part, trace_dir, f"{line_id}_{n}")
+
+    def _write_line(self, merged_df: pd.DataFrame, trace_dir: str, name: Optional[str]) -> None:
+        """Write the nc file of a line; name: when it is not the one of its directory."""
         x = merged_df["PSX"]
         y = merged_df["PSY"]
         data_vars = {
@@ -796,7 +848,7 @@ class CompileDatabase:
                 institute = [institute]
         else:
             institute = list(institute)
-        line_id = str(trace_md.iloc[0]["line_id"])
+        line_id = name or str(trace_md.iloc[0]["line_id"])
         ds = xr.Dataset(
             coords={
                 "point": np.arange(len(merged_df)),
@@ -808,7 +860,7 @@ class CompileDatabase:
                 "project": str(trace_md.iloc[0]["project"]),
                 "radar instrument": str(trace_md.iloc[0]["radar_instrument"]),
                 "acquisition year": str(trace_md.iloc[0]["acq_year"]),
-                "line ID": str(trace_md.iloc[0]["line_id"]),
+                "line ID": line_id,
                 "line ID flag": str(trace_md.iloc[1]["line_id"]),
                 "DOI dataset": str(trace_md.iloc[0]["doi_data"]),
                 "DOI article": str(trace_md.iloc[0]["doi_article"]),

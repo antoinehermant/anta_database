@@ -112,6 +112,8 @@ def run(submission_id: str) -> dict:
     dataset.mkdir(parents=True)
     for name in ("raw", "raw_md.json", "original_new_column_names.csv"):
         (shutil.copytree if name == "raw" else shutil.copy)(source / name, dataset / name)
+    if (source / "compile_settings.json").exists():
+        shutil.copy(source / "compile_settings.json", dataset)
     CompileDatabase(
         [str(dataset)],
         extract_data=True,

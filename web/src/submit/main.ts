@@ -9,6 +9,7 @@ import { type Catalog, MAP_EXTENT_KM, loadCatalog, loadMask, DATA_ROOT, fetchDat
 import { onThemeChange, themeButton } from "../theme";
 import { setupVerification, token, verified } from "../verify";
 import {
+  MAX_LINE_JUMP_KM,
   type FileInfo,
   type Issue,
   type Structure,
@@ -49,6 +50,8 @@ interface Draft {
   ages: Record<string, { age: string; age_unc: string }>;
   /** IRH number of each layer file (one file per layer) */
   fileIrh: Record<string, string>;
+  /** The line of the layer files without a LINE_ID column */
+  line_id: string;
   /** Acquisition year and project of a file, when different from the survey */
   fileSurvey: Record<string, { acquisition_year: string; project: string }>;
 }
@@ -62,6 +65,7 @@ const emptyDraft = (): Draft => ({
   licence: "",
   ages: {},
   fileIrh: {},
+  line_id: "",
   fileSurvey: {},
 });
 
@@ -339,7 +343,8 @@ function columnsHelp(structure: Structure): HTMLElement {
   help.innerHTML =
     structure === "layer"
       ? `<p>Name the columns with the standard names of the database. Every file has a <code>LINE_ID</code> column
-         and the coordinates, ${coords}, on each row.</p>
+         and the coordinates, ${coords}, on each row. Without <code>LINE_ID</code>, the points form one line, put in
+         order and split automatically at gaps of more than ${MAX_LINE_JUMP_KM} km (up to 30 km within one straight transect).</p>
          <ul>
            <li><strong>Layer files</strong>, one per isochrone: <code>IRH_DEPTH</code>, and ${variables} at the same
              points.</li>
@@ -357,7 +362,7 @@ function columnsHelp(structure: Structure): HTMLElement {
     "beforeend",
     `<p><strong>Depths are in metres below the ice surface, with the firn correction applied.</strong> Convert the
      two-way travel times first, with your wave speed in ice and your firn correction, and say which ones in the
-     notes (step 6). The travel times themselves may come as optional columns (below). Missing values are empty, <code>NaN</code> or <code>-9999</code>.</p>
+     notes (step 6). The travel times themselves may come as optional columns (below). Missing values are empty, <code>NaN</code>, <code>-9999</code> or <code>9999</code>.</p>
      <p>A description may come at the top of the file, above the header, with every line starting with
      <code>#</code>: these lines are ignored. Do not use <code>#</code> anywhere else.</p>`,
   );
@@ -410,8 +415,37 @@ async function rereadFiles() {
 
 function issueList(issues: Issue[], where?: string): HTMLElement[] {
   return issues.map((i) =>
-    element("li", { className: i.level }, ...(where ? [element("strong", {}, `${where}: `)] : []), i.text),
+    element(
+      "li",
+      { className: i.level },
+      ...(where ? [element("strong", {}, `${where}: `)] : []),
+      i.strong ? element("strong", {}, i.text) : i.text,
+    ),
   );
+}
+
+/** Layer or variable files without a LINE_ID column: their points form one line. */
+const filesWithoutLineIds = () =>
+  draft.structure === "layer" ? files.filter((f) => (f.kind === "irh" || f.kind === "variable") && !f.hasLineIds) : [];
+
+/** The name of that line: the one given, or the name of the dataset. */
+const lineName = () => draft.line_id.trim() || naming()?.dataset || "Author_YEAR";
+
+/** Largest jump in the files without line IDs, when they clearly hold several lines. */
+function largestJump(): number | undefined {
+  const km = Math.max(0, ...filesWithoutLineIds().map((f) => f.maxJumpKm));
+  return km > MAX_LINE_JUMP_KM ? km : undefined;
+}
+
+/** What happens to the points of the files without line IDs. */
+function lineFate(): string {
+  const km = largestJump();
+  const name = lineName();
+  return km
+    ? `they seem to hold several lines (jumps of up to ${Math.round(km)} km between consecutive points). The points will be put ` +
+        `in order automatically and split at gaps of more than ${MAX_LINE_JUMP_KM} km (up to 30 km within one straight transect), ` +
+        `into lines called ${name}_1, ${name}_2, ...`
+    : `their points form one line, ${name}.`;
 }
 
 function fileDescription(f: FileInfo): string {
@@ -618,6 +652,12 @@ function layerIssues(): Issue[] {
         issues.push({ level: "warning", text: `${f.name}: ${alone.length} line(s) without any layer (${alone.slice(0, 3).join(", ")}...).` });
     }
   }
+  const noIds = filesWithoutLineIds();
+  if (noIds.length) {
+    issues.push({ level: "warning", strong: true, text: `No LINE_ID column in ${noIds.length} file${noIds.length === 1 ? "" : "s"} (${noIds.slice(0, 3).map((f) => f.name).join(", ")}${noIds.length > 3 ? ", ..." : ""}): ${lineFate()}` });
+    if (draft.line_id.trim() && !/^[A-Za-z0-9._-]+$/.test(draft.line_id.trim()))
+      issues.push({ level: "error", text: "Line ID: use only letters, digits, '.', '_' and '-'." });
+  }
   const missing = missingReference();
   if (missing) issues.push({ level: "warning", text: missing });
   const undated: number[] = [];
@@ -770,6 +810,20 @@ function update() {
     ...(issues.length ? issues : [element("li", { className: "ok" }, "Everything looks good.")]),
   );
   $("summary").textContent = summary();
+  const noIds = filesWithoutLineIds();
+  $("no-line-ids").hidden = !noIds.length;
+  $("no-line-ids-text").replaceChildren(
+    element(
+      "strong",
+      {},
+      largestJump()
+        ? `Warning: no LINE_ID column in ${noIds.length} file${noIds.length === 1 ? "" : "s"}: ${lineFate()} We encourage you to provide the ` +
+            `actual line IDs, in a LINE_ID column of your files. If they are all one line with an ID, please enter it below: ` +
+            `the names will start with it.`
+        : `Warning: no LINE_ID column in ${noIds.length} file${noIds.length === 1 ? "" : "s"}. If your dataset contains only one line with no ID, ` +
+            `please ignore this: the line will be called ${naming()?.dataset ?? "Author_YEAR"}. If you have the line ID, please enter it below.`,
+    ),
+  );
   const submit = $<HTMLButtonElement>("submit");
   submit.disabled = errors || !open;
   submit.title = !open ? "The portal is closed" : errors ? "Fix the errors first" : "";
@@ -832,6 +886,7 @@ function payload() {
     contributor: draft.contributor,
     notes: draft.notes,
     licence: draft.licence === "yes" ? "redistribute" : draft.licence === "review" ? "review" : "",
+    line_id: filesWithoutLineIds().length ? draft.line_id.trim() : "",
     files: files.map((f) => ({
       name: f.name,
       kind: f.kind,

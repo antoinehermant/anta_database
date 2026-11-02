@@ -4,7 +4,7 @@
  * The rules follow what CompileDatabase reads (anta_database/compiling/compile.py): the
  * standard column names, comma (.csv) or tab (.tab) separated files with "#" comment lines
  * (e.g. a description at the top),
- * and empty, NaN or -9999 for missing values. The checks of the package
+ * and empty, NaN, -9999 or 9999 for missing values. The checks of the package
  * (anta_database/compiling/validate.py, to come) should follow the same rules.
  */
 
@@ -14,6 +14,8 @@ export type Level = "error" | "warning";
 export interface Issue {
   level: Level;
   text: string;
+  /** An important one, in bold */
+  strong?: boolean;
 }
 
 export const COORDINATES = ["PSX", "PSY", "LON", "LAT"];
@@ -52,6 +54,8 @@ export const lineExtra = (name: string, irh: number | string) => name.replace(/^
 const LINE_EXTRA = new RegExp(`^IRH(\\d+)_(${Object.keys(LAYER_EXTRAS).map((n) => n.slice(4)).join("|")})$`);
 /** Missing values recognised by CompileDatabase. */
 export const MISSING = ["", "-9999", "-9999.0", "NaN", "nan"];
+/** Not a coordinate: 9999 m is a place, but no depth, thickness or elevation */
+const MISSING_VALUES = [...MISSING, "9999", "9999.0"];
 export const EXTENSIONS: Record<string, string> = { csv: ",", tab: "\t" };
 
 const IRH_COLUMN = /^IRH(\d+)$/;
@@ -65,6 +69,8 @@ export const REDUCE =
   "Try to reduce the size of your files (remove the columns that are not needed, round the values to a sensible " +
   "precision), or contact us.";
 const MAX_DEPTH = 5000; // m, deeper than any ice in Antarctica
+/** Files without line IDs are cut into lines at larger jumps: as MAX_LINE_JUMP_KM in portal/app.py */
+export const MAX_LINE_JUMP_KM = 10;
 const MAP_POINTS = 4000; // points of a file drawn on the map
 
 export interface FileInfo {
@@ -86,6 +92,10 @@ export interface FileInfo {
   /** Points with a value, per IRH (line file) */
   irhPoints: Map<number, number>;
   lineIds: Set<string>;
+  /** A LINE_ID column in the file (one file per layer) */
+  hasLineIds: boolean;
+  /** Largest distance between consecutive points, in km */
+  maxJumpKm: number;
   /** Points for the map, EPSG:3031 in km, x and y interleaved */
   points: Float32Array;
   issues: Issue[];
@@ -190,6 +200,8 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     extras: [],
     irhPoints: new Map(),
     lineIds: new Set(),
+    hasLineIds: false,
+    maxJumpKm: 0,
     points: new Float32Array(),
     issues: [],
   };
@@ -254,6 +266,7 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
   }
   const column = (name: string) => header.indexOf(name);
   const lineColumn = "LINE_ID";
+  info.hasLineIds = column(lineColumn) >= 0;
 
   const duplicates = header.filter((c, i) => header.indexOf(c) !== i);
   if (duplicates.length)
@@ -295,7 +308,6 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     if (header.some((c) => LINE_EXTRA.test(c)))
       warning("Columns like IRH3_DEPTH_UNC are for files per line: in a layer file, name them IRH_DEPTH_UNC, ....");
     if (irhColumns.length) error(`Columns ${irhColumns.join(", ")} are for files per line: one file per layer has one IRH_DEPTH column.`);
-    if (column(lineColumn) < 0) error("The LINE_ID column is missing: it says which radar line each point belongs to.");
     if (column("IRH_DEPTH") >= 0) {
       info.kind = "irh";
       info.variables = variables;
@@ -319,6 +331,7 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
 
   // Values
   const missing = new Set(MISSING);
+  const missingValue = new Set(MISSING_VALUES);
   const [ix, iy] = usePS ? [column("PSX"), column("PSY")] : [column("LON"), column("LAT")];
   const iLine = column(lineColumn);
   const depthColumns = structure === "layer" ? (info.kind === "irh" ? [column("IRH_DEPTH")] : []) : irhColumns.map(column);
@@ -337,6 +350,7 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
   // About MAP_POINTS points on the map, from the size of the first lines
   const step = Math.max(1, Math.floor(file.size / (bytes / lineNumbers[1]) / MAP_POINTS));
   const points: number[] = [];
+  let previous: [number, number] | undefined;
   let hashLine = 0;
   let header_ = true;
 
@@ -354,7 +368,7 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
     if (info.preview.length < 5) info.preview.push(values);
     for (const c of numeric) {
       const v = values[c] ?? "";
-      if (!missing.has(v) && !Number.isFinite(Number(v))) {
+      if (!missingValue.has(v) && !Number.isFinite(Number(v))) {
         if (!notNumber++) firstBad = `"${v}" in ${header[c]}, line ${n}`;
       }
     }
@@ -377,10 +391,12 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
       return true;
     }
     if (r % step === 0) points.push(x / 1000, y / 1000);
+    if (previous) info.maxJumpKm = Math.max(info.maxJumpKm, Math.hypot(x - previous[0], y - previous[1]) / 1000);
+    previous = [x, y];
     if (iLine >= 0) info.lineIds.add(values[iLine]);
     for (const c of depthOrThickness) {
       const v = values[c] ?? "";
-      if (missing.has(v)) continue;
+      if (missingValue.has(v)) continue;
       const d = Number(v);
       if (d < 0) negative++;
       else if (d > MAX_DEPTH) tooDeep++;
@@ -393,10 +409,10 @@ export async function readFile(file: File, structure: Structure): Promise<FileIn
   if (structure === "line") info.lineIds.add(stem(file.name));
 
   if (hashLine) error(`Line ${hashLine} contains "#": only comment lines may, and they must start with it (everything after a "#" is ignored).`);
-  if (notNumber) error(`${plural(notNumber, "value")} are not numbers, for example ${firstBad}. Missing values must be empty, NaN or -9999.`);
+  if (notNumber) error(`${plural(notNumber, "value")} are not numbers, for example ${firstBad}. Missing values must be empty, NaN, -9999 or 9999.`);
   if (outside) error(`${plural(outside, "point")} are outside Antarctica (${usePS ? "PSX, PSY must be EPSG:3031 in metres" : "latitudes must be south of 60°S"}).`);
   if (negative) error(`${plural(negative, "value")} are negative: depths and thicknesses are in metres below the ice surface (not elevations).`);
-  if (tooDeep) warning(`${plural(tooDeep, "value")} are deeper than ${MAX_DEPTH} m: are they missing values? Missing values must be empty, NaN or -9999.`);
+  if (tooDeep) warning(`${plural(tooDeep, "value")} are deeper than ${MAX_DEPTH} m: are they missing values? Missing values must be empty, NaN, -9999 or 9999.`);
   if (noCoordinates) warning(`${plural(noCoordinates, "row")} without coordinates will be ignored.`);
   if (iLine >= 0 && info.lineIds.has("")) warning("Some rows have no LINE_ID.");
   return info;
