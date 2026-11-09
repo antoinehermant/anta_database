@@ -214,9 +214,19 @@ function fillSuggestions() {
 
 // --- Publication: citation and dataset name
 
-/** "10.5194/tc-17-3461-2023" from a DOI, with or without https://doi.org/. */
+/**
+ * "10.5194/tc-17-3461-2023" from a DOI, or from a link holding one: https://doi.org/..., or the link
+ * of a repository like https://doi.pangaea.de/10.1594/PANGAEA.957176. Otherwise the value itself.
+ */
 function doiOf(value: string): string {
-  return value.trim().replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "");
+  let text = value.trim();
+  try {
+    text = decodeURIComponent(text); // 10.1594%2F...
+  } catch {
+    // not encoded
+  }
+  const doi = text.match(/10\.\d{4,9}\/[^\s?#]+/)?.[0];
+  return doi ? doi.replace(/[.,;]+$/, "") : text.replace(/^doi:\s*/i, "");
 }
 
 const isDoi = (doi: string) => /^10\.\d{4,9}\/\S+$/.test(doi);
@@ -266,7 +276,7 @@ function publicationIssues(): Issue[] {
   if (!/^\d{4}$/.test(year) || Number(year) < 1950 || Number(year) > now + 1)
     issues.push({ level: "error", text: "The year of publication is missing or not a year." });
   const doi = doiOf(doi_article);
-  if (doi && !isDoi(doi)) issues.push({ level: "error", text: `"${doi_article}" is not a DOI (10.xxxx/...).` });
+  if (doi && !isDoi(doi)) issues.push({ level: "error", text: `"${doi_article}" is not a DOI (10.xxxx/...) or a link to one.` });
   if (!doi_dataset.trim()) {
     if (draft.licence !== "review")
       issues.push({
@@ -275,7 +285,7 @@ function publicationIssues(): Issue[] {
           "repository. Unpublished datasets are accepted for review only.",
       });
   } else if (!isDoi(doiOf(doi_dataset))) {
-    issues.push({ level: "error", text: `"${doi_dataset}" is not a DOI (10.xxxx/...).` });
+    issues.push({ level: "error", text: `"${doi_dataset}" is not a DOI (10.xxxx/...) or a link to one.` });
   }
 
   const name = naming();
