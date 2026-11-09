@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 
 CHUNK_POINTS = 50_000
-FLOAT32 = {"IRH_DEPTH", "ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT", "IRH_FRAC_DEPTH"}
+FLOAT32 = {"IRH_DEPTH", "ICE_THK", "SURF_ELEV", "BED_ELEV", "BASAL_UNIT", "IRH_FRAC_DEPTH", "BEDMAP_DIST"}
 COMPRESSION = {"zlib": True, "complevel": 4, "shuffle": True}
 
 
