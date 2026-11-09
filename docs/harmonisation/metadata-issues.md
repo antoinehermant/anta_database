@@ -62,6 +62,33 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
   The firn correction is not the reason. They look like bad thickness or bad picks.
 - [ ] **Napoleoni_2026:** three files have up to 197 jumps (`2014-12-22-P2_COMB_INT_COH4P3`), the
       other 113 none. The citation says "(2026a,b)": which two?
+  Found in the raw files (2026-11-09), to report to the authors:
+  - `2014-12-22-P2_COMB_INT_COH4P3`: 98 rows are points of other profiles (`2014-12-21-P3_COMB_INT_COH4P2`,
+    `2014-12-22-P1_COMB_INT_COH4P4`, `2014-12-17-P1_COMB_INT_COH4`) inserted between its points, each with one
+    layer (94 IRH5, 5 IRH6), a depth a few m off, and the surface of the row next to it: all 197 jumps;
+  - all 79 positions of `2014-12-21-P3_COMB_INT_COH4P2` are those of points of other files, with other surfaces;
+  - single-point spikes: `2014-12-22-P1_COMB_INT_COH4P4` IRH6 rows 15 and 47 (730 m among 517 m, 678 m among
+    570 m), `2014-12-23-P2_COMB_INT_COH4P1` IRH5 last row (613 m among 854 m); the end of
+    `2014-12-21-P3_COMB_INT_COH4P1` drifts by about 50 m.
 - [ ] **Beem_2021:** the paper says 167 m/us, all others 168.5-169.5, and no firn correction. Right?
 - [ ] **Winter_2018:** the files of IRH 1 (`CEA_38ka`, 38.2 ka) and 5 (`DML_38ka`, 38.1 ka) are the two regions
       of the paper. Same layer? The harmonisation will test it, like IRH 4 and 10 of Yan_2025.
+
+## Known issues of v1, to fix in v2
+
+- [ ] **Layers listed without values** (found 2026-11-09): 21 of the 1,014 files of v1 list 69 layers that have
+      no value on their line: Leysinger_Vieli_2011, all 9 files (44 layers), and Winter_2018, 12 of 77 files
+      (25 layers; e.g. `099011ast10`, only in `CEA_161ka.tab`, also lists 38.2, 48.3 and 90.2 ka). No value is
+      lost or wrong. Cause: `build_v1.py` (`parts_of`) cuts a file into lines with `isel(point=...)`, which keeps
+      every layer of the file. The index takes the ages of a line from `IRH_AGE`, so a query by age returns
+      these lines, and `data_generator` yields all-NaN columns (warnings of `np.nanmean`). v1 stays as is; the
+      Quick Start skips these lines and says so. In v2: compile from the raw files (it drops empty layers,
+      and v2 does not cut lines), `netcdf.write` drops all-NaN layers, and the submission checks flag them.
+- [x] **Cavitte_2020, interpolated depths** (fixed for v2, 2026-11-09): the published files fill the gaps of the
+      HiCARS picks (the 30 lines `OIA_JKB2n_*`) with interpolated depths. Marie Cavitte's picks of these lines
+      (`~/data/isochrones/Cavitte_fixed_data/`, 2025-12-28, IRH 1-20; `HiCARS_Bed.txt` is IRH 1) have the same
+      points without the fills, and their depths are the published ones + 10 m (their firn correction) at every
+      point in both. `fix_cavitte.py` sets the depths with no pick at the same position (1 m) to nan: 108,942
+      depths, on 2 to 19 lines per IRH (most in the deep IRH 15-19). IRH 21-26 and the other
+      lines (MCoRDS, DELORES) are not in the picks and stay as published. The corrected files are in
+      `~/data/isochrones/AntADatabase-v2-source/Cavitte_2020/raw/`, the source of the v2 compile; v1 keeps them.

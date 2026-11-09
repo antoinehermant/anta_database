@@ -158,6 +158,16 @@ the fill with it; line IDs for Siegert_2004 and Leysinger_Vieli_2011.
 - **Bed confidence**: the bed greyed and darkened as the Bedmap3 `bed_uncertainty` grows, with a
   light hatching where `thickness_survey_count` is 0.
 
+**v2 decisions (2026-11-09, *Agreed*).**
+- No cutting of lines in v2: `split_into_lines` and `split_at_jump_km` are not used. They stay in
+  `compiling/lines.py` and `compile.py` in case they are needed again.
+- Siegert_2004 and Leysinger_Vieli_2011, the two datasets without line IDs, are reconnected to
+  Bedmap. Bedmap holds their SPRI surveys without line names (BEDMAP3 `STANFORD_1971_SPRI-NSF-TUD`
+  is one line, BEDMAP1 a cloud of points): the study says whether another Bedmap line with its own
+  name covers them.
+- The points of every isochrone line are ordered in compile (section 8). Bedmap lines are not
+  reordered: the fill takes the nearest point and does not use the order.
+
 ## 8. Open
 - Variable `Distance` to be renamed `DIST` in v2, with the isochrone files.
 - Reordering points (`compiling/lines.py`) takes 0.1 to 0.2 s per line, also on lines given in
