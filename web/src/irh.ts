@@ -323,9 +323,14 @@ export interface TrackPoint {
   irhNum: number;
 }
 
+// Over the ice surface (m), whose mesh is a coarser average, and over the Bedmap tracks
+// (BEDMAP_TRACK_LIFT, bedmap.ts), so these stay on top where both follow the same flight
+export const TRACK_LIFT = 60;
+
 /** Radar tracks at the ice surface, where IRHs are traced. */
 export class Tracks {
-  readonly lines = new LineLayer({ linewidth: 2, color: "#8b929b", transparent: true, dashed: true });
+  // The orange of the radar pulses of the aircraft, apart from the Bedmap lines and the bed
+  readonly lines = new LineLayer({ linewidth: 1.5, color: "#d1a10f", transparent: true });
   tracks: Track[] = [];
   // Ages (ka) of the IRHs of each dataset, youngest first, number of IRHs without age, and
   // whether it has a basal unit (not an IRH)
@@ -366,7 +371,11 @@ export class Tracks {
   /** Fetch the tracks of datasets, each once; done when they are all there. */
   load(names: string[]): Promise<void> {
     return loadParts(this.loading, names, this.index!, this.baseUrl, (files) => [files.tracks, files.track_runs], (loaded) => {
-      for (const { name, data: [vertices, runs] } of loaded) this.lines.add(name, new Float32Array(vertices), 5, new Uint32Array(runs));
+      for (const { name, data: [buffer, runs] } of loaded) {
+        const vertices = new Float32Array(buffer);
+        for (let z = 2; z < vertices.length; z += 5) vertices[z] += TRACK_LIFT;
+        this.lines.add(name, vertices, 5, new Uint32Array(runs));
+      }
       this.lines.finish();
     });
   }
@@ -379,6 +388,6 @@ export class Tracks {
   point(segment: number, end: 0 | 1): TrackPoint {
     const { part, vertex } = this.lines.vertexOf(segment, end);
     const v = part.vertices.subarray(vertex * 5, vertex * 5 + 5);
-    return { surface: v[2], irhNum: v[3] };
+    return { surface: v[2] - TRACK_LIFT, irhNum: v[3] };
   }
 }

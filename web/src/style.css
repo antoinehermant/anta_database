@@ -842,3 +842,94 @@ body:has(#sidebar:not(.closed)) #legends {
 .clean #back-view {
   display: none;
 }
+
+/* Counter of the hidden things found (src/eggcounter.ts), above the pad of buttons */
+#egg-counter {
+  position: fixed;
+  right: 10px;
+  bottom: 122px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 1px 6px var(--shadow);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  transform-origin: right center;
+}
+
+#egg-counter:hover,
+#egg-counter.named,
+#egg-counter.tutorial-target {
+  opacity: 1;
+}
+
+#egg-counter.complete {
+  color: #d9a520;
+}
+
+.egg-name {
+  display: none;
+  color: var(--text);
+}
+
+#egg-counter.named .egg-name {
+  display: inline;
+}
+
+.egg-icon {
+  display: inline-block;
+  width: 8px;
+  height: 11px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: #d9a520;
+}
+
+.egg-flying,
+.egg-spark,
+.egg-ring {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.egg-spark {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffd95e;
+}
+
+.egg-ring {
+  width: 60px;
+  height: 60px;
+  border: 2px solid #ffd95e;
+  border-radius: 50%;
+}
+
+/* Its window, above it: looks like the bubble of the tutorial */
+.egg-panel {
+  right: 10px;
+  bottom: 150px;
+  width: min(300px, calc(100vw - 24px));
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+}
+
+.egg-panel ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+
+body.clean #egg-counter,
+body.lesson-flying #egg-counter,
+body.lesson-flying .egg-panel {
+  display: none;
+}

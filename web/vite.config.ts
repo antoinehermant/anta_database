@@ -39,6 +39,7 @@ export default defineConfig({
       input: {
         home: page("index.html"),
         viewer: page("viewer/index.html"),
+        lesson: page("lesson/index.html"),
         download: page("download/index.html"),
         submit: page("submit/index.html"),
         contact: page("contact/index.html"),

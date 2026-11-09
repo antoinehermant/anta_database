@@ -207,11 +207,15 @@ function cromlech(): THREE.Group {
   return group;
 }
 
-interface Egg {
+export interface Egg {
+  /** Stable: what the browser remembers as found (eggcounter.ts) */
+  id: string;
   title: string;
   rows: [string, string][];
   note: string;
   objects: THREE.Object3D[];
+  /** Km from the camera: further away, it can't be hovered or collected. */
+  reach: number;
 }
 
 /** Uniforms of the bed: its height texture and grid, the mesh grid, and the exaggeration. */
@@ -350,6 +354,7 @@ export class EasterEggs {
     ];
     this.eggs = [
       {
+        id: "vessel",
         title: "Unidentified crashed vessel",
         rows: [
           ["Position", "84.4° S, 165.6° E, Mount Kirkpatrick"],
@@ -358,14 +363,18 @@ export class EasterEggs {
         ],
         note: "Not in Bedmap3. Lights still on.",
         objects: [this.vessel],
+        reach: 300,
       },
       {
+        id: "fossil",
         title: "Fossil of Charybdis",
         rows: this.fossilRows,
         note: "The sea monster of Greek myth (Homer, Odyssey XII), frozen in the basal ice. You found it before Johannes did.",
         objects: [this.fossil],
+        reach: 300,
       },
       {
+        id: "whirlpool",
         title: "Remnant whirlpool of Charybdis",
         rows: [
           ["Position", "64° S, 150° E, off the Wilkes Subglacial Basin"],
@@ -375,8 +384,10 @@ export class EasterEggs {
         ],
         note: "Left over from the activity of Charybdis, before she settled inland under the ice. Still spinning.",
         objects: [this.whirlpool],
+        reach: 1500,
       },
       {
+        id: "cromlech",
         title: "Ice core cromlech",
         rows: [
           ["Position", "75.3° S, 122.4° E, next to Little Dome C"],
@@ -388,6 +399,7 @@ export class EasterEggs {
         ],
         note: "The first stone circle of Antarctica, made of ice, where its builders danced and screamed in the middle. Not in Bedmap3.",
         objects: [this.cromlech],
+        reach: 100,
       },
     ];
     this.place();
@@ -437,11 +449,16 @@ export class EasterEggs {
     map.offset.y = (map.offset.y - 0.04 * dt) % 1;
   }
 
-  /** The thing under a point of the canvas (px), or null. */
+  get names(): { id: string; title: string }[] {
+    return this.eggs.map(({ id, title }) => ({ id, title }));
+  }
+
+  /** The thing under a point of the canvas (px), or null. Only close to it: not found by chance, from afar. */
   pick(camera: THREE.Camera, x: number, y: number, width: number, height: number): Egg | null {
     if (!this.group.visible) return null;
     this.raycaster.setFromCamera(new THREE.Vector2((x / width) * 2 - 1, 1 - (y / height) * 2), camera);
     for (const egg of this.eggs) {
+      if (camera.position.distanceTo(egg.objects[0].position) > egg.reach) continue;
       if (egg.objects[0] === this.fossil) {
         if (this.overFossil(camera, x, y, width, height)) return egg;
       } else if (this.raycaster.intersectObjects(egg.objects, true).length) return egg;

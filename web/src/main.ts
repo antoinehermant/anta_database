@@ -26,6 +26,7 @@ import { PivotField } from "./pivot";
 import { BED_STOPS, SPEED, ticks } from "./colormaps";
 import { Legend } from "./legend";
 import { KeyNavigation } from "./keys";
+import { EGGS_HINT, EggCounter } from "./eggcounter";
 import { EasterEggs } from "./eggs";
 import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
@@ -36,6 +37,7 @@ import { SUBMISSION, startPreview } from "./preview";
 import { Tutorial, askForTour, tutorialSeen } from "./tutorial";
 import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, type HeightAt, type Scenario } from "./outlines";
 import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
+import { BEDMAP_DATASETS, BedmapLines, type BedmapTrack } from "./bedmap";
 
 // Data exported by anta_database.web: served with the app in development
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
@@ -43,8 +45,13 @@ const DATA_ROOT = (import.meta.env.VITE_DATA_URL || `${import.meta.env.BASE_URL}
 const DATA_URL = `${DATA_ROOT}/terrain`;
 // The isochrones of the database, or of a submission in its private preview (?preview=<id>&key=<key>)
 const IRH_URL = SUBMISSION ? SUBMISSION.url : `${DATA_ROOT}/irh`;
+// The page for teaching (lesson.ts): the viewer, with its settings not remembered
+const LESSON = document.body.dataset.page === "lesson";
 const VELOCITY_URL = `${DATA_ROOT}/velocity`;
 const OUTLINES_URL = `${DATA_ROOT}/outlines`;
+const BEDMAP_URL = `${DATA_ROOT}/bedmap`;
+const BEDMAP_NO_PROFILE =
+  "Profile not displayed for this survey: it has no line IDs, so the whole survey is stored as one line, many profiles one after the other.";
 // Resolution of the quick preview, then of the shading texture
 const PREVIEW = "8km";
 const DETAIL = "2km";
@@ -415,7 +422,7 @@ window.addEventListener("resize", () => {
 const stats = new Stats();
 if (import.meta.env.DEV) {
   // Bottom right, above the move pad (the profile window opens top right)
-  Object.assign(stats.dom.style, { left: "auto", right: "10px", top: "auto", bottom: "130px" });
+  Object.assign(stats.dom.style, { left: "auto", right: "10px", top: "auto", bottom: "150px" });
   stats.dom.id = "stats";
   document.body.appendChild(stats.dom);
 }
@@ -489,8 +496,7 @@ renderer.setAnimationLoop((time: number) => {
   lastRender = time;
   needsRender = false;
   if (iceCores.group.visible) iceCores.update(camera, renderer.domElement.clientHeight);
-  // Dashes of the tracks: the same length on screen at any zoom
-  tracks.lines.setDashPixel(pixelAtTarget());
+  // Dashes of the grounding lines: the same length on screen at any zoom
   if (groundingLines.group.visible) groundingLines.setDashPixel(pixelAtTarget());
   // The lines in the way of the open profile fade: the depth of its curtain first
   inTheWay.render(renderer, camera);
@@ -525,7 +531,8 @@ surface.renderOrder = 1;
 // Isochrones, and their radar tracks at the surface (loaded when first shown)
 const isochrones = new Isochrones();
 const tracks = new Tracks();
-tracks.group.renderOrder = 3;
+// After the Bedmap tracks (order 3), on top of them
+tracks.group.renderOrder = 4;
 const lineLayers: LineLayer[] = [isochrones.lines, tracks.lines];
 for (const layer of lineLayers) {
   layer.setResolution(window.innerWidth, window.innerHeight);
@@ -544,6 +551,15 @@ for (const layer of [...groundingLines.lineLayers, iceDivides.lines]) {
 }
 iceDivides.setExaggeration(shared.exaggeration.value);
 scene.add(groundingLines.group, iceDivides.group);
+// Bedmap survey lines: tracks at the surface and the measured bed along them; off at start
+const bedmap = new BedmapLines();
+for (const layer of [bedmap.tracks, bedmap.bed]) {
+  layer.group.visible = false;
+  layer.setResolution(window.innerWidth, window.innerHeight);
+  layer.setExaggeration(shared.exaggeration.value);
+  lineLayers.push(layer);
+  scene.add(layer.group);
+}
 
 const irhIndex = SUBMISSION
   ? startPreview(document.getElementById("preview")!).then((status) => {
@@ -608,7 +624,7 @@ function loadTracks(): void {
     .then(() => (settings.tracks || settings.aircraft ? tracks.load(isochrones.datasetsNotHidden()) : undefined))
     .then(() => {
       legs = null;
-      tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 0.5));
+      tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 1));
       tracks.applyFilter(isochrones.hiddenDatasets);
       pointerMoved = true;
       requestRender();
@@ -641,6 +657,7 @@ const eggs = new EasterEggs(
 eggs.setExaggeration(shared.exaggeration.value);
 // Not in a private preview, for the submitted dataset only
 if (!SUBMISSION) scene.add(eggs.group);
+const eggCounter = SUBMISSION ? null : new EggCounter(eggs.names);
 
 // Ice velocity (loaded when first shown): the ice surface coloured by speed, and flow lines
 let velocity: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
@@ -913,7 +930,7 @@ function updateHover(): void {
   let best: { layer: LineLayer; hit: Hit } | null = null;
   if (pointer && !core && !egg) {
     for (const layer of lineLayers) {
-      if (layer === isochrones.lines && isochronesUnderIce()) continue;
+      if ((layer === isochrones.lines || layer === bedmap.bed) && isochronesUnderIce()) continue;
       const hit = layer.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight);
       if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
     }
@@ -922,7 +939,7 @@ function updateHover(): void {
     iceCoreTooltip(core);
     placeTooltip(pointer.x, pointer.y);
   } else if (egg && pointer) {
-    showTooltip(egg.title, egg.rows, egg.note);
+    showTooltip(egg.title, egg.rows, eggCounter?.has(egg.id) ? egg.note : `${egg.note} Click to collect it.`);
     placeTooltip(pointer.x, pointer.y);
   } else if (!best || !pointer) {
     tooltip.style.visibility = "hidden";
@@ -930,6 +947,7 @@ function updateHover(): void {
     if (best.layer === tracks.lines) trackTooltip(tracks.tracks[best.hit.feature], best.hit);
     else if (best.layer === isochrones.lines) isochroneTooltip(isochrones.features[best.hit.feature], best.hit);
     else if (best.layer === iceDivides.lines) showTip(iceDivides.describe(best.hit));
+    else if (best.layer === bedmap.tracks || best.layer === bedmap.bed) showTip(bedmap.describe(best.layer, best.hit));
     else showTip(groundingLines.describe(best.layer, best.hit));
     placeTooltip(pointer.x, pointer.y);
   }
@@ -973,6 +991,8 @@ const inTheWay = new InTheWay();
 inTheWay.setExaggeration(shared.exaggeration.value);
 isochrones.lines.setInTheWay(inTheWay.uniforms);
 tracks.lines.setInTheWay(inTheWay.uniforms);
+bedmap.tracks.setInTheWay(inTheWay.uniforms);
+bedmap.bed.setInTheWay(inTheWay.uniforms);
 
 const profile = new ProfilePanel({
   colorOf: (feature) => isochrones.ageColor(feature),
@@ -997,6 +1017,19 @@ const profile = new ProfilePanel({
     inTheWay.setCurtain(null);
   },
   describeLine: (line, layers) => {
+    if ("survey" in line) {
+      // A Bedmap survey line
+      const survey = bedmap.index?.surveys[(line as BedmapTrack).survey];
+      const rows: [string, string][] = [
+        ["Line ID", line.line_id],
+        ["Survey", `${(line as BedmapTrack).survey} (${line.dataset})`],
+      ];
+      if (survey?.institute) rows.push(["Institute", survey.institute]);
+      if (survey?.["acquisition year"]) rows.push(["Acquisition year", String(survey["acquisition year"])]);
+      if (survey?.["radar instrument"]) rows.push(["Radar", survey["radar instrument"]]);
+      if (survey?.["DOI dataset"]) rows.push(["Data", survey["DOI dataset"]]);
+      return rows;
+    }
     const rows: [string, string][] = [["Line ID", line.line_id]];
     const features = layers.map((f) => isochrones.features[f]);
     const dated = features.filter((f) => !isBasalUnit(f) && f.age_ka !== null).sort((a, b) => a.age_ka! - b.age_ka!);
@@ -1013,11 +1046,14 @@ const profile = new ProfilePanel({
  * Draw out the track and the isochrones of the line of the open profile (wider, with a glow,
  * through the ice), the other isochrones and tracks thinner and fainter; all as before with null.
  */
-function selectLine(line: Track | null): void {
+function selectLine(line: Track | BedmapTrack | null): void {
   const same = (f: { dataset: string; line_id: string }) => line !== null && f.dataset === line.dataset && f.line_id === line.line_id;
   const indices = <T extends { dataset: string; line_id: string }>(items: T[]) => items.flatMap((f, i) => (same(f) ? [i] : []));
   isochrones.lines.setSelection(indices(isochrones.features), true);
   tracks.lines.setSelection(indices(tracks.tracks), true);
+  // Bedmap lines by track: two surveys can have the same line ID
+  const bedmapTrack = line && "survey" in line ? (bedmap.index?.tracks.indexOf(line) ?? -1) : -1;
+  for (const layer of [bedmap.tracks, bedmap.bed]) layer.setSelection(bedmapTrack >= 0 ? [bedmapTrack] : [], true);
   requestRender();
 }
 
@@ -1027,32 +1063,68 @@ irhIndex.then((index) => {
   for (const t of index.tracks) linesById.set(`${t.dataset}\u0000${t.line_id}`, t);
 });
 
-/** Open the profile of the isochrone or track under a pixel of the canvas, if any. */
+/** Open the profile of the isochrone, track or Bedmap line under a pixel of the canvas, if any. */
 function openProfileAt(x: number, y: number): void {
   const canvas = renderer.domElement;
   let best: { layer: LineLayer; hit: Hit } | null = null;
-  for (const layer of [isochrones.lines, tracks.lines]) {
-    if (!layer.group.visible || (layer === isochrones.lines && isochronesUnderIce())) continue;
+  for (const layer of [isochrones.lines, tracks.lines, bedmap.tracks, bedmap.bed]) {
+    if (!layer.group.visible || ((layer === isochrones.lines || layer === bedmap.bed) && isochronesUnderIce())) continue;
     const hit = layer.pick(camera, x, y, canvas.clientWidth, canvas.clientHeight);
     if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
   }
   if (!best) return;
-  const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
-  const track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
+  let track: Track | BedmapTrack | undefined;
+  let baseUrl = IRH_URL;
+  if (best.layer === bedmap.tracks || best.layer === bedmap.bed) {
+    track = bedmap.index?.tracks[best.hit.feature];
+    // Only lines with their own line ID have a profile: a survey stored as one line is many
+    // profiles one after the other. Still selected, zoomed to, with its details
+    if (track && !track.profile) {
+      selectLine(track);
+      inTheWay.setCurtain(null);
+      profile.open(track, BEDMAP_URL, BEDMAP_NO_PROFILE).catch(showError);
+      const segments = bedmap.tracks.featureSegments(best.hit.feature);
+      if (settings.autoZoom && segments) {
+        const n = segments.length / 3;
+        const [x, y] = [new Float32Array(n), new Float32Array(n)];
+        for (let i = 0; i < n; i++) [x[i], y[i]] = [segments[3 * i], segments[3 * i + 1]];
+        zoomToLine(x, y);
+      }
+      return;
+    }
+    baseUrl = BEDMAP_URL;
+  } else {
+    const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
+    track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
+  }
   if (!track) return;
-  selectLine(track);
+  const opened = track;
+  selectLine(opened);
   inTheWay.setCurtain(null);
   profile
-    .open(track, IRH_URL)
+    .open(opened, baseUrl)
     .then(() => {
-      if (profile.line === track) inTheWay.setCurtain(profile.curtain());
+      if (profile.line === opened) inTheWay.setCurtain(profile.curtain());
       // Unless another line was clicked meanwhile
-      if (settings.autoZoom && profile.line === track) {
+      if (settings.autoZoom && profile.line === opened) {
         const { x, y } = profile.points();
         zoomToLine(x, y);
       }
     })
     .catch(showError);
+}
+
+/** Collect the egg under a click, if any is not collected yet; whether it did. */
+function collectEgg(event: PointerEvent): boolean {
+  if (!eggCounter) return false;
+  const canvas = renderer.domElement;
+  if (iceCores.pick(camera, event.offsetX, event.offsetY, canvas.clientWidth, canvas.clientHeight)) return false;
+  const egg = eggs.pick(camera, event.offsetX, event.offsetY, canvas.clientWidth, canvas.clientHeight);
+  if (!egg || eggCounter.has(egg.id)) return false;
+  eggCounter.collect(egg.id, egg.title, event.clientX, event.clientY);
+  pointerMoved = true;
+  requestRender();
+  return true;
 }
 
 // A click (not a drag) on a line opens its profile
@@ -1063,7 +1135,7 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
 renderer.domElement.addEventListener("pointerup", (event) => {
   const click = pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 5 && performance.now() - pressed.time < 500;
   pressed = null;
-  if (click) openProfileAt(event.offsetX, event.offsetY);
+  if (click && !collectEgg(event)) openProfileAt(event.offsetX, event.offsetY);
 });
 
 let maskTexture: THREE.DataTexture | null = null;
@@ -1172,6 +1244,10 @@ const settings = {
   isochrones: true,
   colorBy: "Age" as ColorBy,
   tracks: true,
+  bedmapTracks: false,
+  bedmapBed: false,
+  // Bedmap generations shown, by checkbox
+  bedmapDatasets: Object.fromEntries(BEDMAP_DATASETS.map((d) => [d, true])) as Record<string, boolean>,
   iceCores: false,
   groundingLines: false,
   groundingLineScenario: "A" as Scenario,
@@ -1215,6 +1291,7 @@ if (SCREENSHOT) {
 
 function updateBedRange(): void {
   bed.material.uniforms.colormapRange.value.set(-settings.bedRange, settings.bedRange);
+  bedmap.setBedRange(settings.bedRange);
   requestRender();
 }
 
@@ -1434,12 +1511,43 @@ function showIceDivides(): void {
   requestRender();
 }
 
+function showBedmap(): void {
+  bedmap.tracks.group.visible = settings.bedmapTracks;
+  bedmap.bed.group.visible = settings.bedmapBed;
+  const attribution = document.getElementById("bedmap-lines-attribution");
+  if (attribution) attribution.hidden = !(settings.bedmapTracks || settings.bedmapBed);
+  const shown = BEDMAP_DATASETS.filter((d) => settings.bedmapDatasets[d]);
+  if (settings.bedmapTracks || settings.bedmapBed) {
+    bedmap
+      .load(BEDMAP_URL, shown)
+      .then(() => {
+        bedmap.setBedRange(settings.bedRange);
+        bedmap.applyFilter(new Set(BEDMAP_DATASETS.filter((d) => !settings.bedmapDatasets[d])));
+        for (const layer of [bedmap.tracks, bedmap.bed]) layer.invalidate();
+        pointerMoved = true;
+        requestRender();
+      })
+      .catch(showError);
+  }
+  pointerMoved = true;
+  requestRender();
+}
+
 function showTracks(): void {
   tracks.group.visible = settings.tracks;
   loadTracks();
   pointerMoved = true;
   requestRender();
 }
+// Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
+if (!SUBMISSION) {
+  const bedmapFolder = gui.addFolder("Bedmap survey lines");
+  bedmapFolder.add(settings, "bedmapTracks").name("Tracks at the surface").onChange(showBedmap);
+  bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
+  for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
+  bedmapFolder.close();
+}
+
 const isochroneFolder = gui.addFolder("Isochrones");
 isochroneFolder
   .add(settings, "colorBy", COLOR_BY)
@@ -1458,7 +1566,7 @@ isochroneFolder
   .name("Line width")
   .onChange((v: number) => {
     isochrones.lines.setLineWidth(v);
-    tracks.lines.setLineWidth(Math.max(1, v - 0.5));
+    tracks.lines.setLineWidth(Math.max(1, v - 1));
     requestRender();
   });
 
@@ -1555,7 +1663,7 @@ performanceFolder.close();
 // opaque ice surface, the isochrones found by exploring. Not in a private preview, which has
 // its own, nor saved from it. The filters are restored once built, with the data
 const SETTINGS_KEY = "viewer-settings";
-const REMEMBER = !SUBMISSION && !SCREENSHOT;
+const REMEMBER = !SUBMISSION && !SCREENSHOT && !LESSON;
 interface SavedGui {
   controllers: Record<string, unknown>;
   folders: Record<string, SavedGui>;
@@ -1671,7 +1779,8 @@ const tutorial = new Tutorial([
     : [
         {
           title: "Find the eggs!",
-          text: "A few strange things are hidden somewhere in Antarctica: on the ice, on the bed and in the ocean. Zoom in close: they are tiny from afar.",
+          text: EGGS_HINT,
+          target: () => eggCounter?.el,
           prepare: () => resetView(),
         },
       ]),
@@ -1695,7 +1804,7 @@ restoreSettings(gui, lastSettings ?? undefined);
 if (!viewFromUrl()) resetView(true);
 terrainPreview
   .then(async () => {
-    if (!SUBMISSION && !tutorialSeen() && !document.body.classList.contains("clean")) tutorial.start();
+    if (!SUBMISSION && !LESSON && !tutorialSeen() && !document.body.classList.contains("clean")) tutorial.start();
     // A private preview asks instead, once its data is shown (often after its compilation)
     if (SUBMISSION) irhIndex.then(() => askForTour(() => tutorial.start())).catch(() => {});
     loading.textContent = "Loading detailed terrain…";
@@ -1708,7 +1817,38 @@ terrainPreview
   });
 
 showTracks();
+showBedmap();
 loadIsochrones();
 
 // Debugging from the browser console in development: window.viewer
-if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial } });
+if (LESSON) {
+  const settingsControl = (property: string) => gui.controllersRecursive().find((c) => c.property === property);
+  import("./lesson")
+    .then(({ setupLesson }) =>
+      setupLesson({
+        camera,
+        heightScale: () => shared.exaggeration.value / 1000,
+        index: irhIndex,
+        irhUrl: IRH_URL,
+        ageColor: (feature) => isochrones.ageColor(feature),
+        fly: (target, position, ms, orbit) => new Promise((resolve) => flyTo(target, position, ms, () => resolve(), orbit, true)),
+        select: selectLine,
+        alone: (track) => {
+          if (track) {
+            isochrones.lines.setHidden((f) => isochrones.features[f]?.line_id !== track.line_id);
+            tracks.lines.setHidden((t) => tracks.tracks[t]?.line_id !== track.line_id);
+          } else {
+            isochrones.applyFilter();
+            tracks.applyFilter(isochrones.hiddenDatasets);
+          }
+          requestRender();
+        },
+        setSidebar,
+        get: (property) => settingsControl(property)?.getValue(),
+        set: (property, value) => settingsControl(property)?.setValue(value),
+        home: () => resetView(),
+      }),
+    )
+    .catch(showError);
+}
+if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial, eggs, eggCounter } });

@@ -119,6 +119,8 @@ export class ProfilePanel {
   private rows = new Float32Array(0);
   private width = COLUMNS; // values per row
   private layers: number[] = [];
+  // Why the open line has no profile, or null
+  private missing: string | null = null;
   // Visible distances (km), and all of them
   private view: [number, number] = [0, 1];
   private full: [number, number] = [0, 1];
@@ -211,9 +213,13 @@ export class ProfilePanel {
     return !this.el.hidden;
   }
 
-  /** Show the profile of a line, fetched from baseUrl. */
-  async open(line: ProfileLine, baseUrl: string): Promise<void> {
-    if (!line.profile) throw new Error("No profile in this export: run anta_database.web.irh again");
+  /**
+   * Show the profile of a line, fetched from baseUrl. Without one, the window only gives the
+   * details of the line and why there is no profile (missing).
+   */
+  async open(line: ProfileLine, baseUrl: string, missing = "No profile in this export: run anta_database.web.irh again"): Promise<void> {
+    if (!line.profile) return this.openWithout(line, missing);
+    this.missing = null;
     const request = ++this.request;
     this.line = line;
     this.titleEl.textContent = `${line.citation ?? line.dataset}, line ${line.line_id}`;
@@ -242,6 +248,31 @@ export class ProfilePanel {
     this.redraw();
   }
 
+  /** The window of a line without a profile: its title, why, and its details. */
+  private openWithout(line: ProfileLine, why: string): void {
+    this.request++;
+    this.line = line;
+    this.missing = why;
+    this.titleEl.textContent = `${line.citation ?? line.dataset}, line ${line.line_id}`;
+    this.noteEl.textContent = why;
+    this.rows = new Float32Array(0);
+    this.layers = [];
+    this.el.hidden = false;
+    this.detailsText.replaceChildren(
+      ...this.options.describeLine(line, []).map(([key, text]) => {
+        const row = document.createElement("div");
+        const k = document.createElement("span");
+        k.className = "key";
+        k.textContent = `${key}: `;
+        row.append(k, text);
+        return row;
+      }),
+    );
+    this.detailsEl.hidden = false;
+    this.detailsEl.open = true;
+    this.redraw();
+  }
+
   /** The short description, and what the Details tell. */
   private describe(line: ProfileLine, profile: ProfileInfo, points: number): void {
     const count = (n: number) => n.toLocaleString("en");
@@ -262,16 +293,32 @@ export class ProfilePanel {
         `about 4 MB: ${count(points)} points from ${count(r.raw_points)}${spacing}. Each value is the mean of ` +
         "the points of its bin.";
     }
-    const surface = line.surface === "SURF_ELEV" ? "SURF_ELEV of the dataset" : `${line.surface} surface elevation (500 m grid)`;
-    const thickness = profile.thickness === "ICE_THK" ? "ICE_THK of the dataset, completed with Bedmap3 where missing" : `${profile.thickness} ice thickness (500 m grid)`;
-    const bed = profile.bed === "BED_ELEV" ? "BED_ELEV of the dataset" : "surface elevation minus ice thickness";
+    // Bedmap survey lines (anta_database.web.bedmap) say how in their own words
+    const surface =
+      line.surface === "SURF_ELEV"
+        ? "SURF_ELEV of the dataset"
+        : line.surface === "SURF_ELEV, else Bedmap3"
+          ? "SURF_ELEV of the line, else the Bedmap3 surface elevation (500 m grid)"
+          : `${line.surface} surface elevation (500 m grid)`;
+    const thickness =
+      profile.thickness === "ICE_THK"
+        ? "ICE_THK of the dataset, completed with Bedmap3 where missing"
+        : profile.thickness === "ICE_THK measured"
+          ? "ICE_THK of the line, where measured"
+          : `${profile.thickness} ice thickness (500 m grid)`;
+    const bed =
+      profile.bed === "BED_ELEV"
+        ? "BED_ELEV of the dataset"
+        : profile.bed === "BED_ELEV, else SURF_ELEV - ICE_THK"
+          ? "BED_ELEV of the line, else SURF_ELEV minus ICE_THK where both are measured"
+          : "surface elevation minus ice thickness";
     const items: [string, string][] = [
       ...this.options.describeLine(line, profile.layers),
       ["Resolution", resolution],
       ["Surface", surface],
       ["Ice thickness", thickness],
       ["Bed", bed],
-      ["Isochrones", "elevation = surface - IRH_DEPTH; depth = IRH_DEPTH"],
+      ...(profile.layers.length ? [["Isochrones", "elevation = surface - IRH_DEPTH; depth = IRH_DEPTH"] as [string, string]] : []),
       ["Plot", "scroll to zoom along the line, drag to pan, double-click to see it all; on a touch screen, tap a line for its details. Long profiles are drawn with about two points per pixel: zoom in to see every point."],
     ];
     this.detailsText.replaceChildren(
@@ -461,7 +508,7 @@ export class ProfilePanel {
     ctx.font = "12px system-ui, sans-serif";
     if (!this.count) {
       ctx.fillStyle = muted;
-      ctx.fillText(this.line ? "Loading the profile…" : "", MARGIN.left, height / 2);
+      ctx.fillText(this.line ? (this.missing ?? "Loading the profile…") : "", MARGIN.left, height / 2);
       return;
     }
     const { area, lo, hi, px, py, first, last } = this.frameOf(width, height);
