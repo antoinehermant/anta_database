@@ -1321,6 +1321,18 @@ function setSidebar(open: boolean): void {
 }
 sidebarToggle.addEventListener("click", () => setSidebar(sidebar.classList.contains("closed")));
 setSidebar(window.innerWidth > 700);
+gui
+  .add(
+    {
+      // The tour explains the viewer as it is by default
+      tutorial: () => {
+        resetSettings();
+        tutorial.start();
+      },
+    },
+    "tutorial",
+  )
+  .name("Tutorial (tour of the viewer)");
 const view = gui.addFolder("View");
 view
   .add(settings, "exaggeration", 1, 100, 1)
@@ -1351,18 +1363,6 @@ view.add(settings, "edgeMove").name("Move at the edges of the view").onChange((o
   if (!on) keyNavigation.setEdge(0, 0);
 });
 view.add(settings, "autoZoom").name("Fly to a clicked line");
-view
-  .add(
-    {
-      // The tour explains the viewer as it is by default
-      tutorial: () => {
-        resetSettings();
-        tutorial.start();
-      },
-    },
-    "tutorial",
-  )
-  .name("Tutorial (tour of the viewer)");
 const layers = gui.addFolder("Layers");
 layers
   .add(settings, "bed")
@@ -1415,20 +1415,6 @@ velocityOptions
     requestRender();
   });
 velocityOptions.hide();
-layers
-  .add(settings, "isochrones")
-  .name("Isochrones")
-  .onChange((v: boolean) => {
-    isochrones.group.visible = v;
-    loadIsochrones();
-    showIsochroneLegend();
-    pointerMoved = true;
-    requestRender();
-  });
-layers
-  .add(settings, "tracks")
-  .name("Surface tracks")
-  .onChange(showTracks);
 // Not in a private preview, which has no aircraft (above)
 if (!SUBMISSION)
   layers
@@ -1539,16 +1525,21 @@ function showTracks(): void {
   pointerMoved = true;
   requestRender();
 }
-// Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
-if (!SUBMISSION) {
-  const bedmapFolder = gui.addFolder("Bedmap survey lines");
-  bedmapFolder.add(settings, "bedmapTracks").name("Tracks at the surface").onChange(showBedmap);
-  bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
-  for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
-  bedmapFolder.close();
-}
-
 const isochroneFolder = gui.addFolder("Isochrones");
+isochroneFolder
+  .add(settings, "isochrones")
+  .name("Isochrones")
+  .onChange((v: boolean) => {
+    isochrones.group.visible = v;
+    loadIsochrones();
+    showIsochroneLegend();
+    pointerMoved = true;
+    requestRender();
+  });
+isochroneFolder
+  .add(settings, "tracks")
+  .name("Surface tracks")
+  .onChange(showTracks);
 isochroneFolder
   .add(settings, "colorBy", COLOR_BY)
   .name("Colour by")
@@ -1584,7 +1575,7 @@ function loadIsochrones(): void {
 }
 
 // Filters: datasets and ages shown, filled once the index is loaded
-const filters = gui.addFolder("Filter");
+const filters = isochroneFolder.addFolder("Filter");
 let filterQueued = false;
 /** Apply the filters once, after all the checkboxes changed in this frame. */
 function queueFilter(): void {
@@ -1644,6 +1635,15 @@ function buildFilters(index: IrhIndex): void {
   );
 }
 
+// Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
+if (!SUBMISSION) {
+  const bedmapFolder = gui.addFolder("Bedmap survey lines");
+  bedmapFolder.add(settings, "bedmapTracks").name("Tracks at the surface").onChange(showBedmap);
+  bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
+  for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
+  bedmapFolder.close();
+}
+
 const light = gui.addFolder("Light");
 light.add(settings, "lightAzimuth", 0, 360, 1).name("Azimuth").onChange(updateLight);
 light.add(settings, "lightElevation", 5, 90, 1).name("Elevation").onChange(updateLight);
@@ -1676,13 +1676,15 @@ function storedSettings(): SavedGui | null {
   }
 }
 const lastSettings = storedSettings();
+// The filters of the last visit: in the Isochrones folder, or at the top before (2026-11-09)
+const lastFilters = lastSettings?.folders.Isochrones?.folders.Filter ?? lastSettings?.folders.Filter;
 let filtersBuilt = false;
 function saveSettings(): void {
   if (!REMEMBER || restoringSettings) return;
   try {
     const saved = gui.save() as SavedGui;
     // The filters of the last visit, until they are in the menu
-    if (!filtersBuilt && lastSettings?.folders.Filter) saved.folders.Filter = lastSettings.folders.Filter;
+    if (!filtersBuilt && lastFilters) saved.folders.Isochrones.folders.Filter = lastFilters;
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(saved));
   } catch {
     // storage blocked, or two entries of the same name: nothing kept
@@ -1712,7 +1714,8 @@ gui.add({ reset: resetSettings }, "reset").name("Reset all settings");
 // Tour of the viewer, started by itself on the first visit (not in a private preview)
 const openInMenu = (folder: GUI) => () => {
   setSidebar(true);
-  folder.open();
+  // With the folders it is in
+  for (let f: GUI | undefined = folder; f; f = f.parent) f.open();
   folder.domElement.scrollIntoView({ block: "nearest" });
 };
 // The view the tour comes back to: the whole continent, or the dataset of a private preview
@@ -1737,6 +1740,13 @@ const tutorial = new Tutorial([
       "touch screen: one finger rotates, two fingers zoom and move. The keys W A S D (or the arrows), Q and E, " +
       "and Z and X do the same, and 0 brings back the whole continent; this pad too.",
     target: () => document.getElementById("move-pad"),
+  },
+  {
+    title: "View",
+    text: "Stretch the heights with the vertical exaggeration, or look from the top as on a map.",
+    tip: "Lost in the viewer? Reset view brings you back to the whole continent.",
+    target: () => view.domElement,
+    prepare: openInMenu(view),
   },
   {
     title: "Layers",
@@ -1793,7 +1803,7 @@ filtersReady = irhIndex.then((index) => {
   tracks.init(IRH_URL, index);
   buildFilters(index);
   filtersBuilt = true;
-  restoreSettings(filters, lastSettings?.folders.Filter);
+  restoreSettings(filters, lastFilters);
 });
 terrainPreview = loadMeta(DATA_URL).then(async (meta) => {
   document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
