@@ -27,6 +27,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 VIEWER_DATA_URL="https://s3.pub1.infomaniak.cloud/object/v1/AUTH_2030d6d085ec4b16a7c2320f0bb9427d/antadatabase/web"
+# The isochrones of the next version of the data, for the development viewer (/viewer-dev/)
+DEV_IRH_DATA_URL="${VIEWER_DATA_URL}-dev"
 SITE_DOMAIN="antadatabase.com"
 DOCS_DOMAIN="docs.antadatabase.com"
 OLD_VIEWER_DOMAIN="3d-antadatabase.com"
@@ -106,6 +108,19 @@ fi
 	touch dist/.nojekyll
 	# Front page of the site repository on GitHub (shows og-image.jpg)
 	cp site-README.md dist/README.md
+
+	# Development viewer at /viewer-dev/ (not linked, not indexed, with a banner): the isochrones
+	# of the next version of the data (web-dev/ in the bucket), the rest as published. Only once
+	# they are in the bucket
+	if curl -sfI "$DEV_IRH_DATA_URL/irh/irh.json" >/dev/null; then
+		rm -rf dist-dev
+		VITE_DATA_URL="$VIEWER_DATA_URL" VITE_IRH_DATA_URL="$DEV_IRH_DATA_URL" VITE_DEV_VIEWER=1 \
+			npx vite build --base /viewer-dev/ --outDir dist-dev
+		mkdir -p dist/viewer-dev
+		cp dist-dev/viewer/index.html dist/viewer-dev/index.html
+		cp -r dist-dev/assets dist-dev/*.png dist/viewer-dev/
+		rm -rf dist-dev
+	fi
 
 	# Old address of the viewer: every path (index.html and 404.html) redirects
 	rm -rf dist-redirect dist-site

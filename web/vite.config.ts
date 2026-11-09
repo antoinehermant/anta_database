@@ -28,8 +28,32 @@ const goatcounter: Plugin = {
   ],
 };
 
+// The development viewer (VITE_DEV_VIEWER, built by publish_site.sh): the next version of the
+// data, at an address not linked, not indexed, and saying what it is
+const devViewer: Plugin = {
+  name: "dev-viewer",
+  apply: "build",
+  transformIndexHtml: () =>
+    process.env.VITE_DEV_VIEWER
+      ? [
+          { tag: "meta", attrs: { name: "robots", content: "noindex, nofollow" }, injectTo: "head" },
+          {
+            tag: "div",
+            attrs: {
+              id: "dev-banner",
+              style:
+                "position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:50;padding:3px 12px;" +
+                "border-radius:0 0 8px 8px;background:#b5470b;color:#fff;font:600 0.8rem system-ui,sans-serif",
+            },
+            children: 'Development version: data v2, not published. <a href="/viewer/" style="color:#fff">Official viewer</a>',
+            injectTo: "body-prepend",
+          },
+        ]
+      : [],
+};
+
 export default defineConfig({
-  plugins: [goatcounter],
+  plugins: [goatcounter, devViewer],
   // The submission portal (portal/app.py) in development
   server: {
     proxy: { "/api": "http://localhost:8000" },

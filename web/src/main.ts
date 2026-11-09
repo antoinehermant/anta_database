@@ -43,8 +43,10 @@ import { BEDMAP_DATASETS, BedmapLines, type BedmapTrack } from "./bedmap";
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
 const DATA_ROOT = (import.meta.env.VITE_DATA_URL || `${import.meta.env.BASE_URL}data`).replace(/\/$/, "");
 const DATA_URL = `${DATA_ROOT}/terrain`;
-// The isochrones of the database, or of a submission in its private preview (?preview=<id>&key=<key>)
-const IRH_URL = SUBMISSION ? SUBMISSION.url : `${DATA_ROOT}/irh`;
+// The isochrones of the database, or of a submission in its private preview (?preview=<id>&key=<key>).
+// The development viewer reads those of the next version of the data (VITE_IRH_DATA_URL)
+const IRH_ROOT = (import.meta.env.VITE_IRH_DATA_URL || DATA_ROOT).replace(/\/$/, "");
+const IRH_URL = SUBMISSION ? SUBMISSION.url : `${IRH_ROOT}/irh`;
 // The page for teaching (lesson.ts): the viewer, with its settings not remembered
 const LESSON = document.body.dataset.page === "lesson";
 const VELOCITY_URL = `${DATA_ROOT}/velocity`;
@@ -1415,18 +1417,6 @@ velocityOptions
     requestRender();
   });
 velocityOptions.hide();
-// Not in a private preview, which has no aircraft (above)
-if (!SUBMISSION)
-  layers
-    .add(settings, "aircraft")
-    .name("Survey aircraft")
-    .onChange((v: boolean) => {
-      aircraft.group.visible = v;
-      // The tracks are their flight paths
-      if (v) loadTracks();
-      lastAircraftUpdate = performance.now();
-      requestRender();
-    });
 layers
   .add(settings, "iceCores")
   .name("Ice cores")
@@ -1540,6 +1530,18 @@ isochroneFolder
   .add(settings, "tracks")
   .name("Surface tracks")
   .onChange(showTracks);
+// Not in a private preview, which has no aircraft (above)
+if (!SUBMISSION)
+  isochroneFolder
+    .add(settings, "aircraft")
+    .name("Survey aircraft")
+    .onChange((v: boolean) => {
+      aircraft.group.visible = v;
+      // The tracks are their flight paths
+      if (v) loadTracks();
+      lastAircraftUpdate = performance.now();
+      requestRender();
+    });
 isochroneFolder
   .add(settings, "colorBy", COLOR_BY)
   .name("Colour by")
@@ -1638,7 +1640,7 @@ function buildFilters(index: IrhIndex): void {
 // Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
 if (!SUBMISSION) {
   const bedmapFolder = gui.addFolder("Bedmap survey lines");
-  bedmapFolder.add(settings, "bedmapTracks").name("Tracks at the surface").onChange(showBedmap);
+  bedmapFolder.add(settings, "bedmapTracks").name("Surface tracks").onChange(showBedmap);
   bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
   for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
   bedmapFolder.close();
@@ -1752,7 +1754,7 @@ const tutorial = new Tutorial([
     title: "Layers",
     text:
       "Show or hide the ice surface, the bed, the ice velocity, the grounding lines since the last ice age, the ice " +
-      `divides${SUBMISSION ? " and the deep ice cores." : ", the deep ice cores and the survey aircraft."}`,
+      "divides and the deep ice cores.",
     tip: "Decrease the surface opacity to discover the isochrones under the ice!",
     target: () => layers.domElement,
     prepare: () => {
