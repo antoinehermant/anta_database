@@ -16,7 +16,6 @@ from typing import Union, Optional
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from importlib.resources import files
-from scipy.spatial.distance import cdist
 
 from anta_database.compiling.lines import split_into_lines
 from anta_database.netcdf import write
@@ -421,12 +420,6 @@ class CompileDatabase:
 
         if os.path.isdir(dir_path):
             shutil.rmtree(dir_path)
-
-    def convert_col_to_Int32(self, df):
-        df = df.fillna(pd.NA)
-        df = df.round(0)
-        df = df.astype("Int32")
-        return df
 
     def convert_col_to_num(self, df):
         df = pd.to_numeric(df, errors="coerce")
@@ -916,37 +909,6 @@ class CompileDatabase:
 
         ds.to_netcdf(nc_file, engine="h5netcdf", encoding=encoding, mode="w")
 
-    def compute_fractional_depth(self, h5_file: str) -> None:
-        with h5py.File(h5_file, "a") as f:
-            with xr.open_dataset(f, engine="h5netcdf") as ds:
-
-                if "ICE_THK" in ds.variables and "IRH_DEPTH" in ds.variables:
-
-                    ds["IRH_FRAC_DEPTH"] = ds.IRH_DEPTH / ds.ICE_THK * 100
-
-                    point_shape = len(ds.point.values)
-                    if point_shape < 1e6:
-                        chunk_size_point = min(100, point_shape)
-                    elif point_shape < 1e7:
-                        chunk_size_point = 1000
-                    else:
-                        chunk_size_point = 10000
-                    ds["IRH_FRAC_DEPTH"] = ds["IRH_FRAC_DEPTH"].chunk(
-                        {"IRH_AGE": 1, "point": chunk_size_point}
-                    )
-                    encoding = {
-                        "IRH_FRAC_DEPTH": {
-                            "zlib": True,
-                            "complevel": 1,
-                            "chunksizes": (chunk_size_point, 1),
-                        }
-                    }
-
-                    ds = ds[list(ds.variables)]
-                    ds.to_netcdf(
-                        h5_file, engine="h5netcdf", mode="a", encoding=encoding
-                    )
-
     def compute_irh_density(self, h5_file: str) -> None:
         with h5py.File(h5_file, "a") as f:
             with xr.open_dataset(f, engine="h5netcdf") as ds:
@@ -984,36 +946,6 @@ class CompileDatabase:
                     ds.to_netcdf(
                         h5_file, engine="h5netcdf", mode="a", encoding=encoding
                     )
-
-    def order_points(self, h5_file: str) -> None:
-        with h5py.File(h5_file, "a") as f:
-            with xr.open_dataset(f, engine="h5netcdf") as ds:
-                x = ds["PSX"].values
-                y = ds["PSY"].values
-                coords = np.column_stack((x, y))
-
-                distances = cdist(coords, coords, metric="euclidean")
-
-                np.random.seed(0)
-                start_idx = 0
-                ordered_indices = [start_idx]
-
-                remaining_indices = set(range(len(coords)))
-                remaining_indices.remove(start_idx)
-
-                while remaining_indices:
-                    last_idx = ordered_indices[-1]
-                    nearest_idx = min(
-                        remaining_indices, key=lambda idx: distances[last_idx, idx]
-                    )
-                    ordered_indices.append(nearest_idx)
-                    remaining_indices.remove(nearest_idx)
-
-                ds = ds.isel(point=ordered_indices)
-                ds = ds.assign_coords(point=np.arange(len(ds.point)))
-
-                ds = ds[list(ds.variables)]
-                ds.to_netcdf(h5_file, engine="h5netcdf", mode="a")
 
     def compute_distances(self, h5_file: str) -> None:
         with h5py.File(h5_file, "a") as f:

@@ -146,11 +146,11 @@ def _average(points: np.ndarray, spacing: float, maximum=()) -> np.ndarray:
     return out
 
 
-def _profile(distance: np.ndarray, columns: np.ndarray, max_gap: float):
+def _profile(distance: np.ndarray, columns: np.ndarray, max_gap: float, max_bytes: int = PROFILE_MAX_BYTES):
     """
     Rows of (x, y, distance km, columns...) along distance (m), and how they were made.
 
-    At full resolution when they fit in PROFILE_MAX_BYTES, else the mean of the columns
+    At full resolution when they fit in max_bytes, else the mean of the columns
     (NaN-aware) in bins along distance, the smallest that fit. A row of NaN (but the
     distance) marks each gap of the line, longer than max_gap.
     """
@@ -163,7 +163,7 @@ def _profile(distance: np.ndarray, columns: np.ndarray, max_gap: float):
     distance, columns = distance[order], columns[order]
     steps = np.diff(distance)
     raw_spacing = float(np.median(steps[steps > 0])) if (steps > 0).any() else None
-    max_rows = PROFILE_MAX_BYTES // (4 * width)
+    max_rows = max_bytes // (4 * width)
     spacing = None
     if len(distance) <= max_rows:
         rows = np.column_stack([columns[:, :2], distance, columns[:, 2:]])
