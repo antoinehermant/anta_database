@@ -28,6 +28,7 @@ TRANSECT_GAP = 30000.0  # m
 TRANSECT_TURN = 15.0  # degrees
 HEADING_LENGTH = 1000.0  # m along a piece, to measure its heading at its ends
 NO_HEADING_GAP = 1000.0  # m: the furthest to join a piece too short to have a heading
+MAX_STARTS = 20  # pieces order_line starts its chains from
 
 
 class _Groups:
@@ -208,3 +209,41 @@ def split_into_lines(xy: np.ndarray, sequences: list[np.ndarray], max_jump: floa
                 points = points[np.argsort(_along(xy[points], xy[np.concatenate(path)]), kind="stable")]
             lines.append(points)
     return sorted(lines, key=lambda line: int(line.min()))
+
+
+def path_length(xy: np.ndarray) -> float:
+    """Length (m) of the path through the points xy (n, 2) in m, in their order."""
+    finite = np.isfinite(xy).all(axis=1)
+    return float(np.hypot(*np.diff(xy[finite], axis=0).T).sum())
+
+
+def order_line(xy: np.ndarray, sequences: list[np.ndarray], max_jump: float = PIECE_GAP) -> np.ndarray:
+    """The points xy (n, 2) in m of one line, in order, as indices: the lines of split_into_lines
+    joined end to end. Of the chains that start from each end of each piece and go to the closest
+    free end, the one with the shortest jumps in total: a line with its own ID is never cut.
+    sequences: for each file, the indices of its points in the order of the file."""
+    pieces = split_into_lines(xy, sequences, max_jump)
+    if len(pieces) == 1:
+        return pieces[0]
+    ends = np.array([[xy[p[0]], xy[p[-1]]] for p in pieces])  # (piece, start or end, x y)
+    best, best_length = None, np.inf
+    # Each start costs (number of pieces)^2: from the longest pieces only, when there are many
+    starts = sorted(range(len(pieces)), key=lambda k: -len(pieces[k]))[:MAX_STARTS]
+    for first in starts:
+        for reverse in (False, True):
+            chain, length = [(first, reverse)], 0.0
+            left = set(range(len(pieces))) - {first}
+            while left:
+                k, rev = chain[-1]
+                here = ends[k, 0 if rev else 1]
+                # The closest end of a piece left: entered by its start, or by its end (reversed)
+                k, rev, jump = min(
+                    ((j, side == 1, float(np.hypot(*(ends[j, side] - here)))) for j in left for side in (0, 1)),
+                    key=lambda c: c[2],
+                )
+                chain.append((k, rev))
+                length += jump
+                left.discard(k)
+            if length < best_length:
+                best, best_length = chain, length
+    return np.concatenate([pieces[k][::-1] if rev else pieces[k] for k, rev in best])

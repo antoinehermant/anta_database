@@ -17,7 +17,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from importlib.resources import files
 
-from anta_database.compiling.lines import split_into_lines
+from anta_database.compiling.lines import order_line, path_length, split_into_lines
 from anta_database.netcdf import write
 
 # Lines were called flights before ground-based radar joined the database: the old
@@ -36,6 +36,8 @@ OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
 #   split_at_jump_km       cut a file of the "line" structure where consecutive points are further
 #                          apart than this; with one file per layer, the points named by "line ID"
 #                          are put in order and cut into lines at larger gaps (lines.py)
+#   drop_vars              {raw file: [variables]}: values of these files left out (found wrong),
+#                          the reason in "note"
 #   note                   anything else to report
 SETTINGS_FILE = "compile_settings.json"
 DEPTH_VARS = ["IRH_DEPTH", "ICE_THK"]
@@ -514,6 +516,7 @@ class CompileDatabase:
 
         settings = self._settings(file_dict["dir_path"])
         settings["dataset"] = os.path.basename(os.path.normpath(file_dict["dir_path"]))
+        df = df.drop(columns=[v for v in settings.get("drop_vars", {}).get(file_dict["file"], []) if v in df.columns])
         # Elevations are not travel times: only the depths and the thickness are converted, before
         # the third of ice thickness, surface and bed is worked out from the other two
         if "ICE_THK" in df.columns:
@@ -794,6 +797,18 @@ class CompileDatabase:
             merged_df = df.rename(columns={"IRH_DEPTH": IRH})
 
         if not split_km:
+            sequences = [points.get_indexer(df.index) for df in dfs_prep]
+            # The points of the layer files, merged, follow each other in the order of the files:
+            # the points of one layer only come after all the others. Unless every file is in the
+            # merged order already (one table for all the layers), put them in order along the
+            # line (lines.py), which is never cut
+            if any((np.diff(seq) < 0).any() for seq in sequences):
+                xy = merged_df[["PSX", "PSY"]].to_numpy(dtype=float)
+                order = order_line(xy, sequences)
+                # The order that zigzags the least: a line along the same track several times
+                # (out and back) can be woven together by order_line
+                if path_length(xy[order]) < path_length(xy):
+                    merged_df = merged_df.iloc[order].reset_index(drop=True)
             self._write_line(merged_df, trace_dir, None)
             return
         lines = split_into_lines(
@@ -819,7 +834,9 @@ class CompileDatabase:
             "PSY": (["point"], y),
         }
 
-        IRHS = [col for col in merged_df.columns if str(col).isdigit()]
+        # Only the layers with values on this line: a layer of the dataset that the line does not
+        # have is left out, not written as a column of NaN
+        IRHS = [col for col in merged_df.columns if str(col).isdigit() and merged_df[col].notna().any()]
 
         for var in self._var_list:
             if var in merged_df.columns:
@@ -902,10 +919,10 @@ class CompileDatabase:
 
         nc_dir = os.path.join(dataset_dir, "nc")
         os.makedirs(nc_dir, exist_ok=True)
-        if not isinstance(institute, (list, tuple, set)) and institute != "nan":
-            nc_file = f"{nc_dir}/{institute}_{line_id}.nc"
-        else:
-            nc_file = f"{nc_dir}/{line_id}.nc"
+        # Named by line ID, as published: two lines of a dataset never have the same
+        nc_file = f"{nc_dir}/{line_id}.nc"
+        if os.path.exists(nc_file):
+            raise FileExistsError(f"{nc_file}: two lines named {line_id} in {dataset_dir}")
 
         ds.to_netcdf(nc_file, engine="h5netcdf", encoding=encoding, mode="w")
 
