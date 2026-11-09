@@ -33,4 +33,4 @@ fi
 	echo "PORTAL_REVIEW_BUCKET=antadatabase-review"
 	echo "PORTAL_ORIGINS=https://antadatabase.com"
 } | ssh "$HOST" "umask 077 && cat > $DIR/portal.env"
-ssh "$HOST" "cd $DIR && docker compose up -d --build --remove-orphans && docker compose ps"
+ssh "$HOST" "cd $DIR && docker compose build --pull && docker compose up -d --remove-orphans && docker compose ps"

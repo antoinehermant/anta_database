@@ -2,6 +2,8 @@
 # the submissions with anta_database: see docker-compose.yml and README.md
 FROM python:3.13-slim
 WORKDIR /app
+# The pip of the base image: it is updated with it (deploy.sh pulls the latest python:3.13-slim)
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 COPY requirements.txt requirements-worker.txt portal/
 RUN pip install --no-cache-dir -r portal/requirements.txt -r portal/requirements-worker.txt
 # The package, copied next to the portal by deploy.sh
