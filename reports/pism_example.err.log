@@ -1,0 +1,88 @@
+Traceback (most recent call last):
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/jupyter_core/utils/__init__.py", line 154, in wrapped
+    asyncio.get_running_loop()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+RuntimeError: no running event loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/jupyter_cache/executors/utils.py", line 58, in single_nb_execution
+    executenb(
+    ~~~~~~~~~^
+        nb,
+        ^^^
+    ...<4 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/nbclient/client.py", line 1319, in execute
+    return NotebookClient(nb=nb, resources=resources, km=km, **kwargs).execute()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/jupyter_core/utils/__init__.py", line 158, in wrapped
+    return loop.run_until_complete(inner)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/nbclient/client.py", line 709, in async_execute
+    await self.async_execute_cell(
+        cell, index, execution_count=self.code_cells_executed + 1
+    )
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/nbclient/client.py", line 1062, in async_execute_cell
+    await self._check_raise_for_error(cell, cell_index, exec_reply)
+  File "/home/anthe/software/miniconda3/envs/processing/lib/python3.13/site-packages/nbclient/client.py", line 918, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+from anta_database import Database
+
+# Initialize database (replace with your actual database path)
+db = Database('/home/anthe/data/isochrones/AntADatabase/')
+
+# Filter out unwanted radar lines
+db.filter_out(line_id=['%RAID%', '2H%', '2V%', 'HR%', 'BH%', 'H4%'])
+
+# Query specific dataset and age
+query = db.query(dataset='Cavitte_2020', age='38100')  # Compare with 38.1 ka layer
+
+# Get list of files matching the query
+irh_files = db.get_files()
+------------------
+
+
+[31m---------------------------------------------------------------------------[39m
+[31mRuntimeError[39m                              Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[2][39m[32m, line 4[39m
+[32m      1[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01manta_database[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m Database
+[32m      3[39m [38;5;66;03m# Initialize database (replace with your actual database path)[39;00m
+[32m----> [39m[32m4[39m db = [43mDatabase[49m[43m([49m[33;43m'[39;49m[33;43m/home/anthe/data/isochrones/AntADatabase/[39;49m[33;43m'[39;49m[43m)[49m
+[32m      6[39m [38;5;66;03m# Filter out unwanted radar lines[39;00m
+[32m      7[39m db.filter_out(line_id=[[33m'[39m[33m%[39m[33mRAID[39m[33m%[39m[33m'[39m, [33m'[39m[33m2H[39m[33m%[39m[33m'[39m, [33m'[39m[33m2V[39m[33m%[39m[33m'[39m, [33m'[39m[33mHR[39m[33m%[39m[33m'[39m, [33m'[39m[33mBH[39m[33m%[39m[33m'[39m, [33m'[39m[33mH4[39m[33m%[39m[33m'[39m])
+
+[36mFile [39m[32m~/projects/phd/python/anta_database/anta_database/database/database.py:132[39m, in [36mDatabase.__init__[39m[34m(self, database_dir, file_db, index_database, include_BEDMAP, max_displayed_line_ids, sync, check_updates, max_displayed_flight_ids)[39m
+[32m    130[39m manifest = read_manifest(os.path.join(database_dir, MANIFEST_NAME))
+[32m    131[39m [38;5;28;01mif[39;00m manifest:
+[32m--> [39m[32m132[39m     [43mcheck_schema[49m[43m([49m[43mmanifest[49m[43m,[49m[43m [49m[43mdatabase_dir[49m[43m)[49m
+[32m    133[39m     warning = package_update_warning(manifest)
+[32m    134[39m     [38;5;28;01mif[39;00m warning:
+
+[36mFile [39m[32m~/projects/phd/python/anta_database/anta_database/cloud/manifest.py:137[39m, in [36mcheck_schema[39m[34m(manifest, where)[39m
+[32m    135[39m schema = schema_version(manifest)
+[32m    136[39m [38;5;28;01mif[39;00m schema > SCHEMA_VERSION:
+[32m--> [39m[32m137[39m     [38;5;28;01mraise[39;00m [38;5;167;01mRuntimeError[39;00m(
+[32m    138[39m         [33mf[39m[33m"[39m[33mThe AntADatabase in [39m[38;5;132;01m{[39;00mwhere[38;5;132;01m}[39;00m[33m uses data schema [39m[38;5;132;01m{[39;00mschema[38;5;132;01m}[39;00m[33m, but this anta_database [39m[33m"[39m
+[32m    139[39m         [33mf[39m[33m"[39m[33m([39m[38;5;132;01m{[39;00mpackage_version()[38;5;250m [39m[38;5;129;01mor[39;00m[38;5;250m [39m[33m'[39m[33munknown version[39m[33m'[39m[38;5;132;01m}[39;00m[33m) only reads schema [39m[38;5;132;01m{[39;00mSCHEMA_VERSION[38;5;132;01m}[39;00m[33m. [39m[33m"[39m
+[32m    140[39m         [33m"[39m[33mUpgrade it with: pip install -U anta_database. If you have the latest package, [39m[33m"[39m
+[32m    141[39m         [33m"[39m[33mdownload the current data with sync().[39m[33m"[39m
+[32m    142[39m     )
+[32m    143[39m [38;5;28;01mif[39;00m schema < SCHEMA_VERSION:
+[32m    144[39m     [38;5;28;01mraise[39;00m [38;5;167;01mRuntimeError[39;00m(
+[32m    145[39m         [33mf[39m[33m"[39m[33mThe AntADatabase in [39m[38;5;132;01m{[39;00mwhere[38;5;132;01m}[39;00m[33m uses the old data schema [39m[38;5;132;01m{[39;00mschema[38;5;132;01m}[39;00m[33m, but this [39m[33m"[39m
+[32m    146[39m         [33mf[39m[33m"[39m[33manta_database reads schema [39m[38;5;132;01m{[39;00mSCHEMA_VERSION[38;5;132;01m}[39;00m[33m. Download the current data with [39m[33m"[39m
+[32m    147[39m         [33m"[39m[33msync(), into a new directory if you want to keep the old one.[39m[33m"[39m
+[32m    148[39m     )
+
+[31mRuntimeError[39m: The AntADatabase in /home/anthe/data/isochrones/AntADatabase/ uses data schema 2, but this anta_database (0.6.3.dev0+gfcd7b3378.d20261101) only reads schema 1. Upgrade it with: pip install -U anta_database. If you have the latest package, download the current data with sync().
+

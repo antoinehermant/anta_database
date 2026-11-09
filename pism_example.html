@@ -518,7 +518,7 @@ document.write(`
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
 
 <span class="c1"># Initialize database (replace with your actual database path)</span>
-<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/AntADatabase/&#39;</span><span class="p">,</span> <span class="n">include_BEDMAP</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/AntADatabase/&#39;</span><span class="p">)</span>
 
 <span class="c1"># Filter out unwanted radar lines</span>
 <span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">line_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
@@ -532,7 +532,39 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>AntADatabase successfully initiated
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">RuntimeError</span><span class="g g-Whitespace">                              </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">line</span> <span class="mi">4</span>
+<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="kn">from</span><span class="w"> </span><span class="nn">anta_database</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
+<span class="g g-Whitespace">      </span><span class="mi">3</span> <span class="c1"># Initialize database (replace with your actual database path)</span>
+<span class="ne">----&gt; </span><span class="mi">4</span> <span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s1">&#39;/home/anthe/data/isochrones/AntADatabase/&#39;</span><span class="p">)</span>
+<span class="g g-Whitespace">      </span><span class="mi">6</span> <span class="c1"># Filter out unwanted radar lines</span>
+<span class="g g-Whitespace">      </span><span class="mi">7</span> <span class="n">db</span><span class="o">.</span><span class="n">filter_out</span><span class="p">(</span><span class="n">line_id</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;%RAID%&#39;</span><span class="p">,</span> <span class="s1">&#39;2H%&#39;</span><span class="p">,</span> <span class="s1">&#39;2V%&#39;</span><span class="p">,</span> <span class="s1">&#39;HR%&#39;</span><span class="p">,</span> <span class="s1">&#39;BH%&#39;</span><span class="p">,</span> <span class="s1">&#39;H4%&#39;</span><span class="p">])</span>
+
+<span class="nn">File ~/projects/phd/python/anta_database/anta_database/database/database.py:132,</span> in <span class="ni">Database.__init__</span><span class="nt">(self, database_dir, file_db, index_database, include_BEDMAP, max_displayed_line_ids, sync, check_updates, max_displayed_flight_ids)</span>
+<span class="g g-Whitespace">    </span><span class="mi">130</span> <span class="n">manifest</span> <span class="o">=</span> <span class="n">read_manifest</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">database_dir</span><span class="p">,</span> <span class="n">MANIFEST_NAME</span><span class="p">))</span>
+<span class="g g-Whitespace">    </span><span class="mi">131</span> <span class="k">if</span> <span class="n">manifest</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">132</span>     <span class="n">check_schema</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">database_dir</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">133</span>     <span class="n">warning</span> <span class="o">=</span> <span class="n">package_update_warning</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">134</span>     <span class="k">if</span> <span class="n">warning</span><span class="p">:</span>
+
+<span class="nn">File ~/projects/phd/python/anta_database/anta_database/cloud/manifest.py:137,</span> in <span class="ni">check_schema</span><span class="nt">(manifest, where)</span>
+<span class="g g-Whitespace">    </span><span class="mi">135</span> <span class="n">schema</span> <span class="o">=</span> <span class="n">schema_version</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">136</span> <span class="k">if</span> <span class="n">schema</span> <span class="o">&gt;</span> <span class="n">SCHEMA_VERSION</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">137</span>     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">138</span>         <span class="sa">f</span><span class="s2">&quot;The AntADatabase in </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> uses data schema </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s2">, but this anta_database &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">139</span>         <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">package_version</span><span class="p">()</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">&#39;unknown version&#39;</span><span class="si">}</span><span class="s2">) only reads schema </span><span class="si">{</span><span class="n">SCHEMA_VERSION</span><span class="si">}</span><span class="s2">. &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">140</span>         <span class="s2">&quot;Upgrade it with: pip install -U anta_database. If you have the latest package, &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">141</span>         <span class="s2">&quot;download the current data with sync().&quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">142</span>     <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">143</span> <span class="k">if</span> <span class="n">schema</span> <span class="o">&lt;</span> <span class="n">SCHEMA_VERSION</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">144</span>     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">145</span>         <span class="sa">f</span><span class="s2">&quot;The AntADatabase in </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> uses the old data schema </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s2">, but this &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">146</span>         <span class="sa">f</span><span class="s2">&quot;anta_database reads schema </span><span class="si">{</span><span class="n">SCHEMA_VERSION</span><span class="si">}</span><span class="s2">. Download the current data with &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">147</span>         <span class="s2">&quot;sync(), into a new directory if you want to keep the old one.&quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">148</span>     <span class="p">)</span>
+
+<span class="ne">RuntimeError</span>: The AntADatabase in /home/anthe/data/isochrones/AntADatabase/ uses data schema 2, but this anta_database (0.6.3.dev0+gfcd7b3378.d20261101) only reads schema 1. Upgrade it with: pip install -U anta_database. If you have the latest package, download the current data with sync().
 </pre></div>
 </div>
 </div>
@@ -638,9 +670,6 @@ document.write(`
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-<img alt="_images/d11a569fc69a5c118492e0cff79e0b666fdba1a5f783c26d74f19e0bc06d7af5.png" src="_images/d11a569fc69a5c118492e0cff79e0b666fdba1a5f783c26d74f19e0bc06d7af5.png" />
-</div>
 </div>
 </section>
 </section>
@@ -712,9 +741,6 @@ document.write(`
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="cell_output docutils container">
-<img alt="_images/affa043b20a6ad6e31d293b5fd42837e00e33574601824b7cd6c824e9993aa76.png" src="_images/affa043b20a6ad6e31d293b5fd42837e00e33574601824b7cd6c824e9993aa76.png" />
 </div>
 </div>
 </section>
