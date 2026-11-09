@@ -92,3 +92,10 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
       depths, on 2 to 19 lines per IRH (most in the deep IRH 15-19). IRH 21-26 and the other
       lines (MCoRDS, DELORES) are not in the picks and stay as published. The corrected files are in
       `~/data/isochrones/AntADatabase-v2-source/Cavitte_2020/raw/`, the source of the v2 compile; v1 keeps them.
+- [ ] **Bodart_2021, ice thickness of flight OIB 20181022_01** (found 2026-11-09): in `R2_OIB_20181022_01.csv`
+      and `R3_OIB_20181022_01.csv`, `RadarIceThick` repeats the same value at 97-98 % of the steps and is 346 and
+      407 m below Bedmap3 (median), while `R1_OIB_20181022_01.csv` and the other 9 files agree with Bedmap3
+      (median 0 to 12 m). At a point in several files, v1 took the value of R3 and v2 that of the first file (R1),
+      so lines `20181022_01_001_025` and `20181022_01_026_046` change by up to 1,003 m; the points only in R2 or R3
+      keep the wrong values in both. Proposed for v2: leave out the thickness of these two files, and fill it
+      from Bedmap.

@@ -126,28 +126,36 @@ line `C08a` of BEDMAP3 IMAFI:
 - same spacing (about 9.7 m): the same traces;
 - the deepest IRH lies at 49 % of the ice thickness.
 
-**Method.**
-1. Candidate surveys: same institute (with aliases, e.g. NASA-CRESIS and CRESIS), acquisition year
-   within one year, and overlapping bounding boxes; otherwise every overlapping survey.
-2. Line: the same line ID (case-insensitive), else the closest line.
-3. Per point: the nearest point of that one Bedmap line within 50 m (*Agreed*). Values are never
-   mixed from two lines or generations; BEDMAP3 is preferred over BEDMAP2 over BEDMAP1.
+**Method** (`anta_database/bedmap/reconnect.py`, *Agreed*).
+1. Candidates: the Bedmap lines whose extent overlaps that of the isochrone line (an index of the
+   extents of the 11,168 lines, built once). Institute and year are not used: many datasets span
+   several institutes and decades, and the traces themselves are the evidence.
+2. Survey: the one whose lines have the most points within 50 m of the isochrone line. A flight is
+   often cut into many Bedmap lines (24 lines of NASA_2018_ICEBRIDGE_AIR_BM3 for one line of
+   Bodart_2021), so all the lines of the survey are used. Of surveys with almost as many points
+   (90 %), the newest generation: BEDMAP3 over BEDMAP2 over BEDMAP1.
+3. Per point: the nearest point of the lines of that survey within 50 m. Values are never mixed
+   from two surveys or generations, and never replace a published value.
 
-**Recording it (*Proposed*).**
-- `ICE_THK`, `BED_ELEV` and `SURF_ELEV` are filled directly where missing (*Agreed*). For each,
-  a flag variable `<VAR>_SOURCE` (int8, CF `flag_values` 0 1 2 3, `flag_meanings` "dataset bedmap1
-  bedmap2 bedmap3") says where each value comes from.
-- `BEDMAP_DIST` (float32, m) is the distance to the Bedmap point used, so values not taken at the
-  same point are documented.
-- A `reconnection` attribute names the source, e.g. "BEDMAP3, BAS_2010_IMAFI_AIR_BM3, line C08a,
-  99.8 % of points within 50 m, median 1.3 m", and `processing` gets a sentence.
-- A line ID taken from Bedmap sets `line ID flag` to `bedmap` (*Agreed*), and the earlier name is
-  kept in `line ID original`. The documentation states that these line IDs are not those of the
-  published isochrone dataset.
+**Recording it (*Agreed*).**
+- `ICE_THK`, `BED_ELEV` and `SURF_ELEV` are filled directly where missing.
+- `BEDMAP_FILL` (int8, per point): which variables come from Bedmap, the sum of 1 (`ICE_THK`),
+  2 (`BED_ELEV`) and 4 (`SURF_ELEV`) (CF `flag_masks`), 0 where none. One variable instead of one
+  per variable: a line can mix published and Bedmap values (Bodart_2021, Cavitte_2020), and a
+  point can take one variable and keep another (Leysinger_Vieli_2011 keeps its thickness and takes
+  its bed). Almost constant, it costs almost nothing compressed.
+- `BEDMAP_DIST` (float32, m, to 0.1 m): the distance to the Bedmap point the values come from,
+  NaN where none.
+- A `reconnection` attribute names the source, e.g. "BEDMAP3, survey BAS_2010_IMAFI_AIR_BM3, line
+  C08a: 99.8% of the points within 50 m (median 1.3 m). Taken where the dataset has no value:
+  ICE_THK at ... points", and `processing` gets a sentence.
+- Run by `docs/harmonisation/build_v2.py` after the compilation, with a table of what was filled
+  in `bedmap_fill.csv`.
+- A line ID taken from Bedmap would set `line ID flag` to `bedmap`, the earlier name kept in
+  `line ID original`. None for now (see the study).
 
-**Study before writing (*Open*).** Ashmore_2020, Winter_2018, Yan_2025 and Siegert_2004 (no
-thickness), and a control dataset with its own thickness (Cavitte_2020 or Muldoon_2023) to compare
-the fill with it; line IDs for Siegert_2004 and Leysinger_Vieli_2011.
+**Study before writing (done, below).** The study matched one Bedmap line per isochrone line; its
+coverages are lower than those of the survey rule above where a flight is cut into several lines.
 
 ## 7. Viewer (*Proposed*)
 - **Bedmap tracks** at the ice surface, one layer per generation, in another colour than the
@@ -157,6 +165,28 @@ the fill with it; line IDs for Siegert_2004 and Leysinger_Vieli_2011.
   tracks on the bed. To try once the tracks exist.
 - **Bed confidence**: the bed greyed and darkened as the Bedmap3 `bed_uncertainty` grows, with a
   light hatching where `thickness_survey_count` is 0.
+
+**Study (2026-11-09, `anta_database/bedmap/reconnect.py`, on the lines of v1).** The Bedmap line
+with the most points within 50 m of the isochrone line, the newest generation when several have
+almost as many (90 %):
+
+| Dataset | Lines matched | Generation | Coverage (median, p10) | Distance (median) | Fills ICE_THK | Own ICE_THK - Bedmap |
+|---|---|---|---|---|---|---|
+| Ashmore_2020 | 58 / 58, 56 same line ID | BEDMAP3 | 99 %, 95 % | 1.2 m | 784,734 of 807,349 | none |
+| Winter_2018 | 76 / 77 | BEDMAP2 (73), BEDMAP1 | 100 %, 17 % | 1.3 m | 662,027 of 816,240 | none |
+| Yan_2025 | 31 / 31 | BEDMAP3 | 100 %, 6 % | 0.1 m | 612,565 of 750,741 | none |
+| Siegert_2004 | 1 / 1 | BEDMAP1 | 20 % | 34 m | 71 of 348 | none |
+| Leysinger_Vieli_2011 | 9 / 9 | BEDMAP1 | 85-100 % on 7 lines | 0.0 m | (has its own) | 4 m median, p95 228 m |
+| Cavitte_2020 (control) | 77 / 77 | BEDMAP3 | 100 %, 8 % | 5.6 m | 959 of 12,871 | 0.0 m median, p95 31 m |
+| Muldoon_2023 (control) | 107 / 107 | BEDMAP2 | 97 %, 83 % | 3.2 m | (has its own) | -0.6 m median, p95 35 m |
+
+- Where a dataset has its own thickness, Bedmap agrees: median difference 0 to 0.6 m (Cavitte_2020,
+  Muldoon_2023). The fill can be trusted where the coverage is high.
+- **No line IDs from Bedmap for Siegert_2004 and Leysinger_Vieli_2011**: their traces are in
+  BEDMAP1 only (Leysinger_Vieli_2011 at 0.0 m: the same points), which has no line names. They stay
+  one line each, `line ID flag` `not_provided`.
+- Line names differ between the datasets and Bedmap but for Ashmore_2020 (`c08a` and `C08a`): the
+  match is by the traces, the names only confirm it.
 
 **v2 decisions (2026-11-09, *Agreed*).**
 - No cutting of lines in v2: `split_into_lines` and `split_at_jump_km` are not used. They stay in
