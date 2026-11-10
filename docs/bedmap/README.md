@@ -91,13 +91,34 @@ The lines are now converted from the CSV files directly (*Agreed*):
   |---|---|---|
   | NASA_2002_ICEBRIDGE_AIR_BM2 | +440 m | surface + thickness |
   | NASA_2004_ICEBRIDGE_AIR_BM2 | −403 m | surface + thickness |
-  | NASA_2010_ICEBRIDGE_AIR_BM2 | +4,306 m (+67 m once read as feet) | surface + thickness |
+  | NASA_2010_ICEBRIDGE_AIR_BM2 | +4,306 m | surface + thickness |
 
-  Their surface and bed elevation are left out, and the ice thickness kept; the attribute
-  `processing` says so. To report to the Bedmap team. Other flags are expected: over ice shelves,
-  the bed is the sea floor and not the base of the ice (the 1971 and 1975 seismic surveys of RNRF
-  over the Amery and Filchner-Ronne ice shelves, and parts of BAS Dufek 1998, CECS 2006 and
-  NPI MADICE 2016).
+  **Not feet (checked again 2026-11-10).** In pieces of 1,000 points, the published "surface" is
+  a − b × (Bedmap3 surface) with b ≈ 1 and a correlation of about −1: it falls where the real
+  surface rises. `a` is about 10,400 m in 2010 (DC-8 flights at high altitude) and 1,500 m in 2004.
+  The column holds the distance from the aircraft down to the ice surface, and the "bed" (surface
+  + thickness) the distance down to the bed. The aircraft altitude column is empty, so they cannot
+  be turned back into elevations. The ratio of 3.35 of 2010 that looked like feet is a coincidence
+  of the median: the ratio spans 0.5 to 50. Their surface and bed elevation are left out, and the
+  ice thickness kept; the attribute `processing` says so. To report to the Bedmap team.
+
+  Other flags are expected: over ice shelves, the bed is the sea floor and not the base of the ice
+  (the 1971 and 1975 seismic surveys of RNRF over the Amery and Filchner-Ronne ice shelves, and
+  parts of BAS Dufek 1998, CECS 2006 and NPI MADICE 2016).
+- **Parts of surveys found wrong** (`DROPPED_PARTS` in `convert.py`, 2026-11-10), left out with
+  all their values, the reason in `processing`:
+  - PRIC_2016_CHA2_AIR_BM3, one line of 113 profiles (cut at jumps of 5 km): 3 profiles, starting at
+    x, y = (1829, −151), (1056, 228) and (2197, 527) km, 735, 1,143 and 94 km long. Their surface is
+    2,672, 1,727 and 729 m below Bedmap3 (median), noisy (3–4 m from one point to the next, 0.3 m
+    elsewhere), and their thickness 700 to 1,200 m off. The other 110 profiles are within 30 m of
+    the grid. About 30 single points near the South Pole also have thicknesses 300 to 1,700 m off
+    the grid; kept for now.
+- **Known issues, kept as published** (2026-11-10): BAS_2007_AGAP_AIR_BM2, line 69, after about 445 km: its last
+  240 km lie on the Ross Ice Shelf (Bedmap3 surface 50 to 600 m) with the values of the plateau (surface 3,400 m,
+  thickness 2,200 to 2,900 m), so its positions look wrong. Kept, to look at in the viewer and report to the Bedmap
+  team; no isochrone line is near it.
+- **NASA BM2 2002, 2004, 2010 in the viewer:** with their surface left out, the viewer draws their tracks at the
+  Bedmap3 surface, as for every point without a measured surface.
 - **Metadata.** `raw_md.json` has one row per survey with the current keys and
   `"file structure": "survey"`. The radar instrument, wave speed and firn correction come from
   the header of the CSV: the instrument is known for every survey of BEDMAP2 and BEDMAP3, where the
@@ -127,30 +148,47 @@ line `C08a` of BEDMAP3 IMAFI:
 - the deepest IRH lies at 49 % of the ice thickness.
 
 **Method** (`anta_database/bedmap/reconnect.py`, *Agreed*).
-1. Candidates: the Bedmap lines whose extent overlaps that of the isochrone line (an index of the
-   extents of the 11,168 lines, built once). Institute and year are not used: many datasets span
-   several institutes and decades, and the traces themselves are the evidence.
+1. Candidates: the Bedmap lines of the same platform whose extent overlaps that of the isochrone
+   line (an index of the extents of the 11,168 lines, built once). The platform of a line is the
+   `platform` of its raw_md.json (airborne, ground-based, or both); that of a Bedmap survey is in
+   its name: `_AIR_` airborne, `_GRN_` and `_SEI_` (seismic) ground-based. Bedmap holds the ground
+   surveys of Jacobel_2005 and Napoleoni_2026, but none of the DELORES surveys (Mulvaney_2023,
+   Chung_2023): those must not take the airborne lines flown over them. Institute and year are not
+   used: many datasets span several institutes and decades, Bedmap dates some surveys by their
+   campaign and not their flights (Napoleoni_2026 flown in 2014, in `CECS_2006`), and the traces
+   themselves are the evidence.
 2. Survey: the one whose lines have the most points within 50 m of the isochrone line. A flight is
    often cut into many Bedmap lines (24 lines of NASA_2018_ICEBRIDGE_AIR_BM3 for one line of
    Bodart_2021), so all the lines of the survey are used. Of surveys with almost as many points
    (90 %), the newest generation: BEDMAP3 over BEDMAP2 over BEDMAP1.
 3. Per point: the nearest point of the lines of that survey within 50 m. Values are never mixed
    from two surveys or generations, and never replace a published value.
+4. The survey is taken only if its points are within 10 m of those of the line on median
+   (`MAX_MEDIAN`, *Agreed* 2026-11-10). The same traces are 0 to 7 m apart; other flights over the
+   same place 25 to 42 m (BEDMAP1 against Franke_2025, Winter_2018, Mulvaney_2023). One exception,
+   Siegert_2004 (50 m, in `build_v2.py`): BEDMAP1 has its SPRI flights of the 1970s in short pieces,
+   34 m away on median, so its fill has gaps.
 
 **Recording it (*Agreed*).**
-- `ICE_THK`, `BED_ELEV` and `SURF_ELEV` are filled directly where missing.
-- `BEDMAP_FILL` (int8, per point): which variables come from Bedmap, the sum of 1 (`ICE_THK`),
-  2 (`BED_ELEV`) and 4 (`SURF_ELEV`) (CF `flag_masks`), 0 where none. One variable instead of one
-  per variable: a line can mix published and Bedmap values (Bodart_2021, Cavitte_2020), and a
-  point can take one variable and keep another (Leysinger_Vieli_2011 keeps its thickness and takes
-  its bed). Almost constant, it costs almost nothing compressed.
-- `BEDMAP_DIST` (float32, m, to 0.1 m): the distance to the Bedmap point the values come from,
-  NaN where none.
+- `ICE_THK`, `BED_ELEV` and `SURF_ELEV` are filled directly where missing, with the values of the
+  Bedmap survey points, never those of the gridded Bedmap products.
+- `ICE_THK_SOURCE`, `BED_ELEV_SOURCE`, `SURF_ELEV_SOURCE` (int8, per point, CF `flag_values`,
+  2026-11-10): where each value comes from, `0` the published dataset, `1`, `2`, `3` the Bedmap1, 2
+  or 3 survey point, `4` computed from the two other published variables (S = B + T); missing
+  (`_FillValue` -1) where the variable has no value. One per variable: a line can mix published and
+  Bedmap values (Bodart_2021, Cavitte_2020), and a point can take one variable and keep another
+  (Leysinger_Vieli_2011 keeps its thickness and takes its bed). The compilation writes 0 and 4, the
+  fill 1 to 3. Almost constant, they cost almost nothing compressed.
+- `BEDMAP_POINT_DIST` (float32, m, to 0.1 m): the distance to the Bedmap point the values come
+  from, NaN where none.
 - A `reconnection` attribute names the source, e.g. "BEDMAP3, survey BAS_2010_IMAFI_AIR_BM3, line
-  C08a: 99.8% of the points within 50 m (median 1.3 m). Taken where the dataset has no value:
-  ICE_THK at ... points", and `processing` gets a sentence.
-- Run by `docs/harmonisation/build_v2.py` after the compilation, with a table of what was filled
-  in `bedmap_fill.csv`.
+  C08a: 99.8% of the points within 50 m (median 1.3 m). Taken from its survey points where the
+  dataset has no value, never from the gridded Bedmap products: ICE_THK at ... points", and
+  `processing` gets a sentence. Only on the lines filled: a line with nothing missing, or whose
+  match is refused, is not changed.
+- Run by `docs/harmonisation/build_v2.py` after the compilation, with a table in
+  `bedmap_fill.csv`: one row per line with values missing, what was done (`status`: filled, or why
+  not) and how many points of each variable were filled.
 - A line ID taken from Bedmap would set `line ID flag` to `bedmap`, the earlier name kept in
   `line ID original`. None for now (see the study).
 

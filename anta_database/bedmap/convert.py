@@ -57,12 +57,26 @@ SPLIT_AT_JUMP_KM: Optional[float] = None
 FIXES = {"Fru00e9mand": "Frémand"}
 # Values of the published files found wrong (docs/bedmap/README.md, section 4): left out, the
 # reason recorded in the attribute "processing". In these three surveys of BEDMAP2, the ice
-# thickness agrees with the Bedmap3 grid, but the bed is the surface plus the thickness, and the
-# surface is far from the Bedmap3 surface (in feet in 2010)
+# thickness agrees with the Bedmap3 grid, but the "surface" falls as the real surface rises: it is
+# the distance from the aircraft down to the surface (and the "bed", surface plus thickness, down to
+# the bed), and the aircraft altitude is not in the files to convert it back
 DROPPED = {
-    survey: (["SURF_ELEV", "BED_ELEV"], "Surface and bed elevation of the published file left out: "
-             "the bed is the surface plus the ice thickness, and the surface disagrees with Bedmap3.")
+    survey: (["SURF_ELEV", "BED_ELEV"], "Surface and bed elevation of the published file left out: they "
+             "are the distances from the aircraft down to the surface and the bed (the surface falls where the "
+             "Bedmap3 surface rises), not elevations; the ice thickness agrees with Bedmap3.")
     for survey in ["NASA_2002_ICEBRIDGE_AIR_BM2", "NASA_2004_ICEBRIDGE_AIR_BM2", "NASA_2010_ICEBRIDGE_AIR_BM2"]
+}
+# Parts of surveys left out, all their values: a profile (the points between two jumps of more than
+# PROFILE_GAP_KM) by its first point, in km (EPSG:3031), or the end of a line from a distance along
+# it, in km; with the reason (docs/bedmap/README.md, section 4)
+PROFILE_GAP_KM = 5.0
+DROPPED_PARTS = {
+    "PRIC_2016_CHA2_AIR_BM3": {
+        "profiles": [(1829, -151), (1056, 228), (2197, 527)],
+        "reason": "Three of its profiles left out (starting at x, y = 1829, -151; 1056, 228; 2197, 527 km): "
+        "their surface is 700 to 2700 m below Bedmap3 and noisy from point to point, their thickness 700 to "
+        "1200 m off, unlike the other 110 profiles (within 30 m).",
+    },
 }
 VAR_ATTRS = {
     "PSX": ("m", "Polar Stereographic X", "Polar Stereographic X coordinates (metres; EPSG: 3031)"),
@@ -176,6 +190,30 @@ def lines(df: pd.DataFrame, name: str, km: Optional[float]):
         yield (f"{name}_{n}" if len(parts) > 1 else name), "not_provided", df.iloc[part]
 
 
+def drop_parts(df: pd.DataFrame, survey: str) -> pd.DataFrame:
+    """The points of a survey without its parts of DROPPED_PARTS (PSX, PSY in m)."""
+    rule = DROPPED_PARTS.get(survey)
+    if not rule:
+        return df
+    keep = np.ones(len(df), bool)
+    if "profiles" in rule:
+        x, y = df["PSX"].values, df["PSY"].values
+        starts = np.r_[0, np.flatnonzero(np.hypot(np.diff(x), np.diff(y)) > PROFILE_GAP_KM * 1000) + 1]
+        bounds = np.r_[starts, len(df)]
+        for a, b in zip(bounds[:-1], bounds[1:]):
+            if (round(x[a] / 1000), round(y[a] / 1000)) in rule["profiles"]:
+                keep[a:b] = False
+    if "line" in rule:
+        line = (df["Line_ID"] == rule["line"]).values
+        idx = np.flatnonzero(line)
+        steps = np.hypot(np.diff(df["PSX"].values[idx]), np.diff(df["PSY"].values[idx]))
+        along = np.r_[0.0, np.cumsum(steps)]
+        keep[idx[along > rule["after_km"] * 1000]] = False
+    if keep.all():
+        raise ValueError(f"{survey}: the parts of DROPPED_PARTS were not found")
+    return df[keep].reset_index(drop=True)
+
+
 def _file_name(survey: str, line_id: str) -> str:
     return f"{survey}__{re.sub(r'[^A-Za-z0-9._()-]+', '_', line_id)}.nc"
 
@@ -203,6 +241,9 @@ def convert_survey(task: tuple) -> dict:
     df[dropped] = np.nan
     df = df.dropna(subset=VALUES, how="all").reset_index(drop=True)
     df["PSX"], df["PSY"] = TO_POLAR.transform(df["lon"].values, df["lat"].values)
+    df = drop_parts(df, md["survey"])
+    if md["survey"] in DROPPED_PARTS:
+        reason = f"{reason} {DROPPED_PARTS[md['survey']]['reason']}".strip()
     name = md["line ID"] or f"{md['project']}_{md['acquisition year']}"
     summary = {"survey": md["survey"], "points": len(df), "line IDs": has_line_ids(df["Line_ID"]),
                "lines": 0, "back and forth": 0, "files": []}
