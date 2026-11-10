@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite";
 
 // The pages of antadatabase.com: front page, 3D viewer (/viewer/), download (/download/),
 // submission (/submit/), contact (/contact/), privacy (/privacy/), and where closed
@@ -57,6 +57,8 @@ export default defineConfig({
   // The submission portal (portal/app.py) in development
   server: {
     proxy: { "/api": "http://localhost:8000" },
+    // The data of the package (radars, chronologies), shared with the checks of the portal
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(import.meta.dirname, "../anta_database/data")] },
   },
   build: {
     rollupOptions: {

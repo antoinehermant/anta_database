@@ -313,6 +313,30 @@ td {
   width: 56px;
 }
 
+/* Under the dating method: the core and chronology, or the model */
+.layers .dating {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.layers .dating input {
+  width: 190px;
+}
+
+/* Under the radar instruments: the platform of each */
+#radar-platforms {
+  margin-top: 10px;
+}
+
+#radar-platforms .platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 18px 6px 0;
+}
+
 /* Problems found */
 .issues {
   margin: 8px 0;

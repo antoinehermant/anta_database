@@ -1,0 +1,16 @@
+{
+  "description": "Platform of each radar instrument of the database: airborne or ground-based. Used to suggest the platform in the submission form and to check it; the platform of a dataset is the field \"platform\" of its raw_md.json. Names are compared without case.",
+  "platforms": {
+    "AWI-UWB": "airborne",
+    "EMR": "airborne",
+    "HICARS": "airborne",
+    "MCORDS": "airborne",
+    "PASIN": "airborne",
+    "SPRI-NSF-TUD-radar": "airborne",
+    "DELORES": "ground-based",
+    "LDC-VHF": "ground-based",
+    "NG-CORDS": "ground-based",
+    "St-Olaf-Impulse-Radar": "ground-based",
+    "ULUR": "ground-based"
+  }
+}

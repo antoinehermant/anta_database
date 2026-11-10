@@ -77,6 +77,8 @@ class Survey(BaseModel):
     institutes: list[str] = Field(default=[], max_length=20)
     projects: list[str] = Field(default=[], max_length=20)
     radar_instruments: list[str] = Field(default=[], max_length=20)
+    # Airborne or ground-based, for each radar instrument by its name
+    platforms: dict[str, Literal["airborne", "ground-based"]] = Field(default={}, max_length=20)
     acquisition_year: str = Field(default="", pattern=r"^(\d{4}(-\d{4})?)?$")  # YEARS, or none
 
 
@@ -113,6 +115,11 @@ class Layer(BaseModel):
     irh: int = Field(ge=1)
     age: Optional[float] = Field(default=None, gt=0)
     age_unc: Optional[float] = Field(default=None, ge=0)
+    # How the age was found: at an ice core (tied to its chronology), or by a model
+    dating_method: Optional[Literal["ice-core", "modelled"]] = None
+    # The ice core and its chronology, or the model and its reference (modelled): optional
+    ice_core: Optional[str] = Field(default=None, max_length=100)
+    chronology: Optional[str] = Field(default=None, max_length=300)
 
 
 class Submission(BaseModel):
@@ -176,6 +183,10 @@ def raw_metadata(s: Submission) -> list[dict]:
         "institute": one_or_list(s.survey.institutes),
         "project": one_or_list(s.survey.projects),
         "radar instrument": one_or_list(s.survey.radar_instruments),
+        # Of the radars, in the order of the database
+        "platform": one_or_list(
+            [p for p in ("airborne", "ground-based") if p in {s.survey.platforms.get(r) for r in s.survey.radar_instruments}]
+        ),
         "acquisition year": years(s.survey.acquisition_year),
         "citation": s.citation,
         "DOI dataset": s.publication.doi_dataset,
@@ -192,6 +203,9 @@ def raw_metadata(s: Submission) -> list[dict]:
                 "IRH": f.irh if f.kind == "irh" else f.variable,
                 "age": layer.age if layer else None,
                 "age uncertainty": layer.age_unc if layer else None,
+                "dating method": layer.dating_method if layer else None,
+                "ice core": layer.ice_core if layer else None,
+                "chronology": layer.chronology if layer else None,
                 **{k: v for k, v in common.items() if k != "dataset"},
             }
             if not has_line_ids(f):
@@ -210,6 +224,9 @@ def raw_metadata(s: Submission) -> list[dict]:
                 "IRH": irh,
                 "age": layer.age if layer else None,
                 "age uncertainty": layer.age_unc if layer else None,
+                "dating method": layer.dating_method if layer else None,
+                "ice core": layer.ice_core if layer else None,
+                "chronology": layer.chronology if layer else None,
                 **{k: v for k, v in common.items() if k != "dataset"},
             })
     return entries
@@ -262,8 +279,9 @@ def write_submission(directory: Path, s: Submission, record: dict) -> None:
 
 def submission_summary(s: Submission, submission_id: str, total: int) -> str:
     layers = ", ".join(
-        f"IRH {l.irh}: {l.age:g} ± {l.age_unc:g} a" if l.age and l.age_unc is not None
-        else f"IRH {l.irh}: {f'{l.age:g} a' if l.age else 'undated'}"
+        (f"IRH {l.irh}: {l.age:g} ± {l.age_unc:g} a" if l.age and l.age_unc is not None
+         else f"IRH {l.irh}: {f'{l.age:g} a' if l.age else 'undated'}")
+        + (f" ({l.dating_method})" if l.dating_method else "")
         for l in s.layers
     )
     structure = "one file per layer" if s.structure == "layer" else "one file per line"

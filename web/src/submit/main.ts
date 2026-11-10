@@ -8,6 +8,7 @@
 import { type Catalog, MAP_EXTENT_KM, loadCatalog, loadMask, DATA_ROOT, fetchData } from "../sitedata";
 import { onThemeChange, themeButton } from "../theme";
 import { setupVerification, token, verified } from "../verify";
+import { PLATFORMS, chronologiesOf, chronologyMismatch, coresOf, platformOf, type Platform } from "./vocabulary";
 import {
   MAX_LINE_JUMP_KM,
   type FileInfo,
@@ -38,16 +39,33 @@ let open = false;
 const DRAFT_KEY = DEV_PAGE ? "submit-draft-dev" : "submit-draft-public";
 localStorage.removeItem("submit-draft");
 
+/** How the age of a layer was found: at an ice core (tied to its chronology), or by a model */
+type DatingMethod = "ice-core" | "modelled";
+const DATING_METHODS: [DatingMethod, string][] = [
+  ["ice-core", "Ice core"],
+  ["modelled", "Model"],
+];
+
 interface Draft {
   structure: Structure | null;
   publication: { first_author: string; et_al: boolean; year: string; doi_article: string; doi_dataset: string };
-  survey: { institutes: string[]; projects: string[]; radar_instruments: string[]; acquisition_year: string };
+  survey: {
+    institutes: string[];
+    projects: string[];
+    radar_instruments: string[];
+    /** Platform of each radar instrument, by its name */
+    platforms: Record<string, Platform | "">;
+    acquisition_year: string;
+  };
   contributor: { name: string; email: string; affiliation: string; orcid: string };
   notes: string;
   /** Redistribution: "yes", "review" (checked, kept private), "no", or "" until chosen */
   licence: "" | "yes" | "review" | "no";
-  /** Age and uncertainty by IRH number */
-  ages: Record<string, { age: string; age_unc: string }>;
+  /**
+   * Age, uncertainty and dating by IRH number: the method, and the ice core and chronology (ice
+   * core) or the model and its reference (modelled, in chronology)
+   */
+  ages: Record<string, { age: string; age_unc: string; dating_method?: DatingMethod | ""; ice_core?: string; chronology?: string }>;
   /** IRH number of each layer file (one file per layer) */
   fileIrh: Record<string, string>;
   /** The line of the layer files without a LINE_ID column */
@@ -59,7 +77,7 @@ interface Draft {
 const emptyDraft = (): Draft => ({
   structure: null,
   publication: { first_author: "", et_al: true, year: "", doi_article: "", doi_dataset: "" },
-  survey: { institutes: [], projects: [], radar_instruments: [], acquisition_year: "" },
+  survey: { institutes: [], projects: [], radar_instruments: [], platforms: {}, acquisition_year: "" },
   contributor: { name: "", email: "", affiliation: "", orcid: "" },
   notes: "",
   licence: "",
@@ -167,6 +185,37 @@ function showTags(box: HTMLElement) {
     });
     box.insertBefore(element("span", { className: "tag" }, value, remove), input);
   }
+  if (box.dataset.tags === "survey.radar_instruments") showPlatforms();
+}
+
+/** Airborne or ground-based, for each radar instrument: known radars are filled in. */
+function showPlatforms() {
+  const root = $("radar-platforms");
+  const radars = draft.survey.radar_instruments;
+  const chosen = (draft.survey.platforms ??= {});
+  root.hidden = !radars.length;
+  root.replaceChildren(
+    element("p", { className: "muted" }, "Platform of each radar: airborne or ground-based."),
+    ...radars.map((radar) => {
+      if (!chosen[radar] && platformOf(radar)) chosen[radar] = platformOf(radar)!;
+      const select = element(
+        "select",
+        {},
+        element("option", { value: "" }, "choose"),
+        ...PLATFORMS.map(([v, label]) => element("option", { value: v }, label)),
+      );
+      select.value = chosen[radar] ?? "";
+      select.setAttribute("aria-label", `Platform of ${radar}`);
+      select.addEventListener("change", () => {
+        chosen[radar] = select.value as Platform | "";
+        save();
+        update();
+      });
+      return element("label", { className: "platform" }, element("span", {}, radar), select);
+    }),
+  );
+  // Only the radars still listed
+  for (const radar of Object.keys(chosen)) if (!radars.includes(radar)) delete chosen[radar];
 }
 
 function bindTags() {
@@ -527,9 +576,79 @@ function irhNumbers(): number[] {
   return [...numbers].sort((a, b) => a - b);
 }
 
+let datingRows = 0;
+
 function ageInputs(irh: number): HTMLElement[] {
   const value = (draft.ages[irh] ??= { age: "", age_unc: "" });
-  return (["age", "age_unc"] as const).map((key) => {
+  const method = element(
+    "select",
+    { className: `irh-${irh}-dating_method` },
+    element("option", { value: "" }, "choose"),
+    ...DATING_METHODS.map(([v, label]) => element("option", { value: v }, label)),
+  );
+  method.value = value.dating_method ?? "";
+  method.setAttribute("aria-label", `Dating method of IRH ${irh}`);
+  // Optional details of the dating, under the method
+  const text = (key: "ice_core" | "chronology", placeholder: string, label: string, list?: string) => {
+    const input = element("input", { value: value[key] ?? "", placeholder, className: `irh-${irh}-${key}` });
+    input.setAttribute("aria-label", `${label} of IRH ${irh}`);
+    if (list) input.setAttribute("list", list);
+    input.addEventListener("input", () => {
+      value[key] = input.value.trim();
+      document.querySelectorAll<HTMLInputElement>(`.irh-${irh}-${key}`).forEach((i) => i !== input && (i.value = input.value));
+      fillLists();
+      save();
+      update();
+    });
+    return input;
+  };
+  // Each suggests what goes with the other: the chronologies dating the core, the cores of the
+  // chronology. Other names can be typed in
+  // Ids of their own: a layer can be in several rows (files)
+  const id = ++datingRows;
+  const chronologyList = `suggest-chronologies-${id}`;
+  const coreList = `suggest-cores-${id}`;
+  const chronologies = element("datalist", { id: chronologyList });
+  const cores = element("datalist", { id: coreList });
+  const fillLists = () => {
+    chronologies.replaceChildren(
+      ...chronologiesOf(value.ice_core ?? "").map(([name, reference]) => element("option", { value: name, label: reference })),
+    );
+    cores.replaceChildren(...coresOf(value.chronology ?? "").map(([name, site]) => element("option", { value: name, label: site })));
+  };
+  fillLists();
+  const details = element("div", { className: "dating" });
+  const showDetails = () => {
+    details.replaceChildren(
+      ...(value.dating_method === "ice-core"
+        ? [
+            text("chronology", "chronology, e.g. AICC2023", "Chronology", chronologyList),
+            text("ice_core", "core, e.g. EDC", "Ice core", coreList),
+            chronologies,
+            cores,
+          ]
+        : value.dating_method === "modelled"
+          ? [text("chronology", "model and reference, e.g. 1D ice-flow model (Author et al., 2026)", "Model")]
+          : []),
+    );
+  };
+  showDetails();
+  method.addEventListener("change", () => {
+    value.dating_method = method.value as DatingMethod | "";
+    document.querySelectorAll<HTMLSelectElement>(`.irh-${irh}-dating_method`).forEach((i) => {
+      if (i !== method) {
+        i.value = method.value;
+        i.dispatchEvent(new Event("change"));
+      }
+    });
+    // The details of one method are not those of the other
+    value.ice_core = "";
+    value.chronology = "";
+    showDetails();
+    save();
+    update();
+  });
+  const cells = (["age", "age_unc"] as const).map((key) => {
     const input = element("input", {
       value: value[key],
       inputMode: "numeric",
@@ -546,6 +665,7 @@ function ageInputs(irh: number): HTMLElement[] {
     });
     return element("td", {}, input);
   });
+  return [...cells, element("td", {}, method, details)];
 }
 
 function showLayers() {
@@ -562,10 +682,11 @@ function showLayers() {
         const irh = element("input", { value: draft.fileIrh[f.name] ?? "", inputMode: "numeric", className: "irh-number" });
         irh.setAttribute("aria-label", `IRH number of ${f.name}`);
         // The age fields follow the IRH number: files of the same layer share them
-        let ages: HTMLElement[] = [element("td"), element("td")];
+        const empty = () => [element("td"), element("td"), element("td")];
+        let ages: HTMLElement[] = empty();
         const showAges = () => {
           const n = Number(irh.value);
-          const cells = Number.isInteger(n) && n > 0 ? ageInputs(n) : [element("td"), element("td")];
+          const cells = Number.isInteger(n) && n > 0 ? ageInputs(n) : empty();
           ages.forEach((c, i) => c.replaceWith(cells[i]));
           ages = cells;
         };
@@ -599,7 +720,7 @@ function showLayers() {
       element(
         "table",
         { className: "layers" },
-        head("File", "IRH", "Age (years)", "± (years)", "Acquisition year*", "Project*"),
+        head("File", "IRH", "Age (years)", "± (years)", "Dating", "Acquisition year*", "Project*"),
         element("tbody", {}, ...rows),
       ),
       element("p", { className: "muted" }, "* Only if different from the survey above."),
@@ -620,7 +741,7 @@ function showLayers() {
       ),
     );
     root.replaceChildren(
-      element("table", { className: "layers" }, head("Layer", "Age (years)", "± (years)", ""), element("tbody", {}, ...rows)),
+      element("table", { className: "layers" }, head("Layer", "Age (years)", "± (years)", "Dating", ""), element("tbody", {}, ...rows)),
     );
   }
 }
@@ -679,8 +800,13 @@ function layerIssues(): Issue[] {
   let previous: { irh: number; age: number } | undefined;
   const younger: string[] = [];
   for (const irh of irhNumbers()) {
-    const { age = "", age_unc = "" } = draft.ages[irh] ?? {};
+    const { age = "", age_unc = "", dating_method = "" } = draft.ages[irh] ?? {};
     if (!age) undated.push(irh);
+    if (age && !dating_method) issues.push({ level: "error", text: `IRH ${irh}: choose how it was dated (ice core or model).` });
+    const { ice_core = "", chronology = "" } = draft.ages[irh] ?? {};
+    const mismatch = dating_method === "ice-core" && ice_core && chronology ? chronologyMismatch(ice_core, chronology) : null;
+    if (mismatch)
+      issues.push({ level: "warning", text: `IRH ${irh}: ${mismatch}, as far as we know. Are you sure of the chronology and the core?` });
     if (Number(age) > 0) {
       if (previous && Number(age) < previous.age) younger.push(`IRH ${irh} (${age} years) is younger than IRH ${previous.irh} (${previous.age} years)`);
       previous = { irh, age: Number(age) };
@@ -765,6 +891,15 @@ function otherIssues(): Issue[] {
   if (year) issues.push({ level: "error", text: year[0].toUpperCase() + year.slice(1) });
   if (!acquisition_year) issues.push({ level: "warning", text: "No acquisition year." });
   if (!institutes.length) issues.push({ level: "warning", text: "No institute." });
+  for (const radar of draft.survey.radar_instruments) {
+    const platform = draft.survey.platforms?.[radar];
+    if (!platform) issues.push({ level: "error", text: `Radar ${radar}: say if it is airborne or ground-based.` });
+    else if (platformOf(radar) && platform !== platformOf(radar))
+      issues.push({
+        level: "warning",
+        text: `Radar ${radar}: are you sure it is ${platform} and not ${platformOf(radar)}? It is ${platformOf(radar)} in the database.`,
+      });
+  }
   return issues;
 }
 
@@ -918,6 +1053,9 @@ function payload() {
       irh,
       age: draft.ages[irh]?.age ? Number(draft.ages[irh].age) : null,
       age_unc: draft.ages[irh]?.age_unc ? Number(draft.ages[irh].age_unc) : null,
+      dating_method: draft.ages[irh]?.dating_method || null,
+      ice_core: (draft.ages[irh]?.dating_method === "ice-core" && draft.ages[irh]?.ice_core) || null,
+      chronology: draft.ages[irh]?.chronology || null,
     })),
     test: DEV_PAGE || import.meta.env.DEV,
     warnings: allIssues().flatMap((g) =>
@@ -1055,7 +1193,8 @@ async function devFill() {
   draft.contributor = { ...draft.contributor, ...fake.contributor };
   draft.licence = fake.licence === true || fake.licence === "yes" ? "yes" : "";
   draft.notes = fake.notes;
-  for (const l of fake.layers) draft.ages[l.irh] = { age: String(l.age ?? ""), age_unc: String(l.age_unc ?? "") };
+  for (const l of fake.layers)
+    draft.ages[l.irh] = { age: String(l.age ?? ""), age_unc: String(l.age_unc ?? ""), dating_method: l.dating_method ?? "ice-core" };
   save();
   showFields();
   showLayers();
@@ -1130,6 +1269,7 @@ function init() {
 
   showFiles();
   showLayers();
+  fillSuggestions();
   update();
   loadCatalog()
     .then((c) => {

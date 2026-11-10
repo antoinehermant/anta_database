@@ -1,0 +1,17 @@
+{
+  "description": "Ice-core chronologies and the Antarctic cores they date, for the dating of the layers (fields \"ice core\" and \"chronology\" of raw_md.json): suggestions in the submission form, and a check that the chronology dates the core. Core names are those of the 3D viewer (web/src/icecores.ts), listed in \"cores\": a known core with a chronology that does not date it is refused. A chronology not listed here is accepted.",
+  "cores": ["EDC", "BELDC", "Dome Fuji", "Vostok", "EDML", "TALDICE", "Taylor Dome", "Law Dome", "SPICEcore", "WDC", "Byrd", "Siple Dome", "Skytrain", "ABN", "RICE", "Fletcher", "Berkner", "JRI"],
+  "chronologies": {
+    "AICC2012": {"cores": ["EDC", "EDML", "TALDICE", "Vostok"], "reference": "Bazin et al. (2013); Veres et al. (2013), Climate of the Past"},
+    "AICC2023": {"cores": ["EDC", "EDML", "TALDICE", "Vostok"], "reference": "Bouchet et al. (2023), Climate of the Past"},
+    "EDC3": {"cores": ["EDC"], "reference": "Parrenin et al. (2007), Climate of the Past"},
+    "EDML1": {"cores": ["EDML"], "reference": "Ruth et al. (2007), Climate of the Past"},
+    "TALDICE-1": {"cores": ["TALDICE"], "reference": "Buiron et al. (2011), Climate of the Past"},
+    "WD2014": {"cores": ["WDC"], "reference": "Buizert et al. (2015); Sigl et al. (2016), Climate of the Past"},
+    "SP19": {"cores": ["SPICEcore"], "reference": "Winski et al. (2019), Climate of the Past"},
+    "DFO2006": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature"},
+    "DF2021": {"cores": ["Dome Fuji"], "reference": "Oyabu et al. (2022), Quaternary Science Reviews"},
+    "ST22": {"cores": ["Skytrain"], "reference": "Mulvaney et al. (2023), Climate of the Past"},
+    "RICE17": {"cores": ["RICE"], "reference": "Lee et al. (2020), Climate of the Past"}
+  }
+}

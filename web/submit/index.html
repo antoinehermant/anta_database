@@ -194,6 +194,7 @@
                 <input data-bind="survey.acquisition_year" maxlength="9" placeholder="2019, or 2010-2011" />
               </label>
             </div>
+            <div id="radar-platforms" hidden></div>
             <datalist id="suggest-institutes"></datalist>
             <datalist id="suggest-projects"></datalist>
             <datalist id="suggest-radar_instruments"></datalist>
@@ -226,7 +227,9 @@
           <section class="step" id="step-layers">
             <h3><span class="number">5</span> Ages of the layers</h3>
             <p class="muted">
-              Age and uncertainty of each isochrone in years, as published (e.g. 38100 ± 900). Every layer needs an age.
+              Age and uncertainty of each isochrone in years, as published (e.g. 38100 ± 900), and how it was dated: at
+              an ice core (traced to the core and given the age of its chronology), or by a model. Every layer needs an
+              age. The core and chronology, or the model, are optional but help compare the ages across datasets.
             </p>
             <div id="layers"><p class="muted">Add your files first.</p></div>
           </section>

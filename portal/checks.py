@@ -15,8 +15,10 @@ Each check gives a Report: errors, warnings, and a summary of the dataset.
 """
 
 import glob
+import json
 import os
 import re
+from importlib.resources import files
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -225,6 +227,33 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     undated = sorted(n for n in points if not ages.get(n))
     if undated:
         report.errors.append(f"No age for {', '.join(f'IRH {n}' for n in undated)}: every layer needs an age")
+    for radar in (record.get("survey") or {}).get("radar_instruments") or []:
+        if not ((record.get("survey") or {}).get("platforms") or {}).get(radar):
+            report.errors.append(f"Radar {radar}: no platform, airborne or ground-based")
+    known = json.loads(files("anta_database.data").joinpath("chronologies.json").read_text())
+    for layer in record.get("layers") or []:
+        core, chronology = (layer.get("ice_core") or "").strip(), (layer.get("chronology") or "").strip()
+        if layer.get("dating_method") != "ice-core" or not (core and chronology):
+            continue
+        dates = next((c["cores"] for n, c in known["chronologies"].items() if n.lower() == chronology.lower()), None)
+        name = next((n for n in known["cores"] if n.lower() == core.lower()), None)
+        # Not a pair we know, when one of the two is known. Our table may be incomplete: a warning
+        # for the review, not a refusal
+        if dates is not None and name not in dates:
+            report.warnings.append(f"IRH {layer['irh']}: {chronology} dates {', '.join(dates)}, not {core}, as far as we know")
+        elif dates is None and name:
+            dating = [n for n, c in known["chronologies"].items() if name in c["cores"]]
+            report.warnings.append(
+                f"IRH {layer['irh']}: we know {name} dated by {', '.join(dating)}, not by {chronology}"
+                if dating
+                else f"IRH {layer['irh']}: we know no chronology of {name}, so not {chronology}"
+            )
+    methods = {layer["irh"]: layer.get("dating_method") for layer in record.get("layers") or []}
+    no_method = sorted(n for n in points if ages.get(n) and not methods.get(n))
+    if no_method:
+        report.errors.append(
+            f"No dating method for {', '.join(f'IRH {n}' for n in no_method)}: say if it was dated at an ice core or by a model"
+        )
     report.summary["raw points"] = points
     return report
 
