@@ -1,0 +1,34 @@
+@import "./privacy.css";
+
+main ol li,
+main ul li {
+  margin: 6px 0;
+}
+
+.draft {
+  padding: 6px 12px;
+  border-left: 4px solid #b5470b;
+  background: var(--widget);
+}
+
+.table {
+  overflow-x: auto;
+  margin: 10px 0 18px;
+}
+
+.table table {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border, #8884);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table td:last-child {
+  min-width: 22em;
+}

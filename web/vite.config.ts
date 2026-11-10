@@ -3,7 +3,7 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite";
 
 // The pages of antadatabase.com: front page, 3D viewer (/viewer/), download (/download/),
 // submission (/submit/), contact (/contact/), privacy (/privacy/), and where closed
-// previews of submissions go (/preview-ended/)
+// previews of submissions go (/preview-ended/); the processing of the data (/processing/, hidden)
 const page = (path: string) => resolve(import.meta.dirname, path);
 
 // Visitor counts (GoatCounter: no cookies, no personal data kept), on the published site only.
@@ -71,6 +71,8 @@ export default defineConfig({
         contact: page("contact/index.html"),
         "preview-ended": page("preview-ended/index.html"),
         privacy: page("privacy/index.html"),
+        // How the data is processed (docs/harmonisation/processing_page.py): not linked, not indexed for now
+        processing: page("processing/index.html"),
       },
     },
   },

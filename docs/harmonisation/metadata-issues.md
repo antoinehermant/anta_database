@@ -74,6 +74,16 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
 - [ ] **Winter_2018:** the files of IRH 1 (`CEA_38ka`, 38.2 ka) and 5 (`DML_38ka`, 38.1 ka) are the two regions
       of the paper. Same layer? The harmonisation will test it, like IRH 4 and 10 of Yan_2025.
 
+- [x] **Chung_2023, ages (Julien, 2026-11-10):** the 19 ages of anta_json are 0.1 to 3.4 ka younger than Table 3 of
+      Chung et al. (2023) (LDC-VHF), with larger uncertainties (e.g. IRH 1: 73.3 ± 2.42 ka against 73.7 ± 2.2 ka). They
+      are those of the age file of the PANGAEA collection (957176), which the database follows: kept (decided
+      2026-11-10). Mulvaney_2023 (DELORES, Table 2) matches the paper.
+- [x] **Wang_2023, EH8 (232.7 ka; Julien, 2026-11-10):** not in the published files (PANGAEA 958462 has H1-H7 only;
+      13 of the 23 profiles have no H3). The paper traced it only where visible, for the model runs (RUN II). Left out;
+      maybe ask Z. Wang one day.
+- [ ] **Cavitte_2020, firn correction:** none added in v2 for now (decided 2026-11-10); v1 added 14.6 m. To settle
+      with the harmonisation, with one consistent firn correction for all datasets.
+
 ## Known issues of v1, to fix in v2
 
 - [ ] **Layers listed without values** (found 2026-11-09): 21 of the 1,014 files of v1 list 69 layers that have
@@ -97,5 +107,9 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
       407 m below Bedmap3 (median), while `R1_OIB_20181022_01.csv` and the other 9 files agree with Bedmap3
       (median 0 to 12 m). At a point in several files, v1 took the value of R3 and v2 that of the first file (R1),
       so lines `20181022_01_001_025` and `20181022_01_026_046` change by up to 1,003 m; the points only in R2 or R3
-      keep the wrong values in both. Proposed for v2: leave out the thickness of these two files, and fill it
-      from Bedmap.
+      keep the wrong values in both. **Decided for v2 (Julien, 2026-11-10):** leave out the thickness of these two
+      files (their only variable besides the depths), and fill it from Bedmap. Checked on a compile of Bodart_2021 alone:
+      the 52,046 points left without thickness on the two lines all match NASA_2018_ICEBRIDGE_AIR_BM3 within 7.3 m
+      (median 2 m); where R1 keeps its thickness, Bedmap is identical (0.0 m), so the same traces. The lines cross
+      themselves and each other at 213 points with a second Bedmap line within 50 m, but 29 m away against 2 m for
+      the match, with 3-4 m of thickness difference: no wrong line taken, no need for a smaller distance.
