@@ -247,3 +247,69 @@ def order_line(xy: np.ndarray, sequences: list[np.ndarray], max_jump: float = PI
             if length < best_length:
                 best, best_length = chain, length
     return np.concatenate([pieces[k][::-1] if rev else pieces[k] for k, rev in best])
+
+
+def out_of_order(xy: np.ndarray) -> bool:
+    """Whether the points xy (n, 2) in m of a line go back to where they were: more than 2 jumps
+    (over 2 km) that land within 1 km of a point passed before. A gap in the picks is not."""
+    xy = xy[np.isfinite(xy).all(axis=1)]
+    steps = np.hypot(*np.diff(xy, axis=0).T)
+    jumps = np.flatnonzero(steps > 2000)
+    if not len(jumps):
+        return False
+    tree = cKDTree(xy)
+    back = sum(any(k < j - 10 for k in tree.query_ball_point(xy[j + 1], 1000)) for j in jumps)
+    return back > 2
+
+
+def order_by_files(xy: np.ndarray, sequences: list[np.ndarray], max_jump: float = PIECE_GAP) -> Optional[np.ndarray]:
+    """The points xy (n, 2) in m of one line in an order that keeps the order of the files, as
+    indices; None if they disagree. For a flight passing again near its own track (out and back,
+    loops at the turns), which order_line can weave together where it joins pieces by their
+    closest ends: the files, in the order of the flight, keep the passes apart.
+    sequences: for each file, the indices of its points in the order of the file. A file is in
+    the order of the flight only between its gaps (over max_jump: a file may list the parts of
+    a line in another order), so its pieces are turned to the way of the longest piece (by the
+    points they share). The points are then taken one after the other: of those whose
+    predecessors in every piece are taken, the closest."""
+    n = len(xy)
+    pieces = []
+    for seq in sequences:
+        seq = np.asarray(seq)
+        cut = np.flatnonzero(np.hypot(*np.diff(xy[seq], axis=0).T) > max_jump) + 1
+        pieces += [p for p in np.split(seq, cut) if len(p)]
+    pieces.sort(key=len, reverse=True)
+    # Where along the longest piece each point is, carried over to the pieces turned to its way
+    rank = np.full(n, np.nan)
+    oriented = []
+    for seq in pieces:
+        known = np.isfinite(rank[seq])
+        shared = rank[seq][known]
+        if known.sum() >= 2 and shared.std() > 0 and np.corrcoef(np.flatnonzero(known), shared)[0, 1] < 0:
+            seq, known = seq[::-1], known[::-1]
+        oriented.append(seq)
+        steps = np.arange(len(seq), dtype=float)
+        if known.sum() >= 2:
+            rank[seq[~known]] = np.interp(steps[~known], steps[known], rank[seq][known])
+        elif not oriented[:-1]:
+            rank[seq] = steps
+    successors = [[] for _ in range(n)]
+    waiting = np.zeros(n, dtype=int)
+    for seq in oriented:
+        for a, b in zip(seq[:-1], seq[1:]):
+            successors[a].append(b)
+            waiting[b] += 1
+    ready = set(np.flatnonzero(waiting == 0).tolist())
+    order, here = [], xy[oriented[0][0]]
+    while ready:
+        candidates = np.fromiter(ready, dtype=int)
+        k = int(candidates[np.argmin(np.nan_to_num(np.hypot(*(xy[candidates] - here).T), nan=np.inf))])
+        ready.discard(k)
+        order.append(k)
+        here = xy[k]
+        for b in successors[k]:
+            waiting[b] -= 1
+            if waiting[b] == 0:
+                ready.add(b)
+    # A point left out waits for itself through the files: they disagree on the order
+    return np.array(order) if len(order) == n else None

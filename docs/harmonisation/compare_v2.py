@@ -17,29 +17,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.spatial import cKDTree
+
+from anta_database.compiling.lines import out_of_order
 
 HOME = Path.home() / "data" / "isochrones"
 V1 = HOME / "AntADatabase-v1-build"
 V2 = HOME / "AntADatabase-v2-build"
 VARS = ["ICE_THK", "BED_ELEV", "SURF_ELEV", "BASAL_UNIT"]
-
-
-def out_of_order(x: np.ndarray, y: np.ndarray) -> bool:
-    """Whether a line goes back to where it was: more than 2 jumps (over 2 km) that land within
-    1 km of a point passed before. A gap in the picks is not out of order."""
-    finite = np.isfinite(x) & np.isfinite(y)
-    x, y = x[finite], y[finite]
-    steps = np.hypot(np.diff(x), np.diff(y))
-    jumps = np.flatnonzero(steps > 2000)
-    if not len(jumps):
-        return False
-    tree = cKDTree(np.c_[x, y])
-    back = 0
-    for j in jumps:
-        near = tree.query_ball_point([x[j + 1], y[j + 1]], 1000)
-        back += any(k < j - 10 for k in near)
-    return back > 2
 
 
 def lines(root: Path, name: str) -> dict:
@@ -65,7 +49,7 @@ def compare_line(job) -> dict:
     p1, p2 = job
     with xr.open_dataset(p1) as a, xr.open_dataset(p2) as b:
         t1, t2 = table(a), table(b)
-        order = (out_of_order(a.PSX.values, a.PSY.values), out_of_order(b.PSX.values, b.PSY.values))
+        order = (out_of_order(np.c_[a.PSX.values, a.PSY.values]), out_of_order(np.c_[b.PSX.values, b.PSY.values]))
         layers = (set(int(i) for i in a.IRH.values) if "IRH" in a.dims else set(),
                   set(int(i) for i in b.IRH.values) if "IRH" in b.dims else set())
     both = t1.index.intersection(t2.index)

@@ -18,7 +18,7 @@ from tqdm import tqdm
 from importlib.resources import files
 from scipy.spatial import cKDTree
 
-from anta_database.compiling.lines import order_line, path_length, split_into_lines
+from anta_database.compiling.lines import order_by_files, order_line, out_of_order, path_length, split_into_lines
 from anta_database.netcdf import SOURCE_VARIABLES, SOURCES, source_attrs, write
 
 # Lines were called flights before ground-based radar joined the database: the old
@@ -884,8 +884,16 @@ class CompileDatabase:
                 order = order_line(xy, sequences)
                 # The order that zigzags the least: a line along the same track several times
                 # (out and back) can be woven together by order_line
-                if path_length(xy[order]) < path_length(xy):
-                    merged_df = merged_df.iloc[order].reset_index(drop=True)
+                if path_length(xy[order]) >= path_length(xy):
+                    order = np.arange(len(xy))
+                # A flight passing again near its own track: the order of the files keeps the
+                # passes apart, where the pieces joined by their closest ends go back and forth.
+                # Only for a line out of order, and if it zigzags less
+                if out_of_order(xy[order]):
+                    by_files = order_by_files(xy, sequences)
+                    if by_files is not None and path_length(xy[by_files]) < path_length(xy[order]):
+                        order = by_files
+                merged_df = merged_df.iloc[order].reset_index(drop=True)
             self._write_line(merged_df, trace_dir, None)
             return
         lines = split_into_lines(
