@@ -18,7 +18,7 @@ from tqdm import tqdm
 from importlib.resources import files
 
 from anta_database.compiling.lines import order_line, path_length, split_into_lines
-from anta_database.netcdf import write
+from anta_database.netcdf import SOURCE_VARIABLES, SOURCES, source_attrs, write
 
 # Lines were called flights before ground-based radar joined the database: the old
 # names of raw files and raw_md.json are still read as the new ones.
@@ -74,7 +74,7 @@ class CompileDatabase:
             "ANT_Basins_IMBIE2_v1.6.parquet"
         )
         self._basins = gpd.read_parquet(imbie_path)
-        self._var_list = ["ICE_THK", "BED_ELEV", "SURF_ELEV", "BASAL_UNIT"]
+        self._var_list = ["ICE_THK", "BED_ELEV", "SURF_ELEV", "BASAL_UNIT", *(f"{v}_SOURCE" for v in SOURCE_VARIABLES)]
         self._var_attrs_json = var_attrs_json
 
     def _settings(self, dir_path: str) -> dict:
@@ -104,7 +104,9 @@ class CompileDatabase:
                 f"Firn correction of {settings['firn_correction']:+g} m added "
                 f"({', '.join(settings.get('firn_correction_vars', DEPTH_VARS))})."
             )
-        if settings.get("line_ids") == "dataset":
+        if settings.get("line_ids") == "dataset" and settings.get("line_names"):
+            pass  # named elsewhere: said by the note
+        elif settings.get("line_ids") == "dataset":
             split = settings.get("split_at_jump_km")
             done.append(
                 "The raw files have no line IDs: lines named after the dataset"
@@ -136,7 +138,9 @@ class CompileDatabase:
         parts = [part for _, part in df.groupby(jumps.cumsum().values)]
         if len(parts) == 1:
             return [(line_id, df)]
-        return [(f"{line_id}_{n}", part) for n, part in enumerate(parts, start=1)]
+        # The names of the parts given elsewhere than in the raw files (e.g. a table of the article)
+        names = settings.get("line_names", {})
+        return [(names.get(f"{line_id}_{n}", f"{line_id}_{n}"), part) for n, part in enumerate(parts, start=1)]
 
     def _split_km(self, trace_dir: str) -> Optional[float]:
         """The jump to cut this line at: only the line of layer files without line IDs."""
@@ -522,6 +526,7 @@ class CompileDatabase:
         if "ICE_THK" in df.columns:
             df["ICE_THK"] = self._to_depth(df["ICE_THK"], "ICE_THK", settings)
 
+        published = [v for v in SOURCE_VARIABLES if v in df.columns]
         if (
             "ICE_THK" in df.columns
             and "SURF_ELEV" in df.columns
@@ -540,6 +545,11 @@ class CompileDatabase:
             and not "ICE_THK" in df.columns
         ):
             df["ICE_THK"] = df["SURF_ELEV"] - df["BED_ELEV"]
+        # Per point, with the values: they are merged with them, file by file (combine_dfs)
+        for var in SOURCE_VARIABLES:
+            if var in df.columns:
+                code = SOURCES["published_dataset" if var in published else "computed_from_published"]
+                df[f"{var}_SOURCE"] = np.where(df[var].notna(), code, np.nan)
 
         if "PSX" not in df.columns and "PSY" not in df.columns:
             if "lon" in df.columns and "lat" in df.columns:
@@ -616,6 +626,8 @@ class CompileDatabase:
                 radar_inst = raw_md["radar instrument"]
             else:
                 radar_inst = "nan"
+            platform = self._platform(raw_md)
+            firn = self._firn(raw_md, settings)
 
             line_ids = np.unique(df.index)
             if one_line:
@@ -671,6 +683,8 @@ class CompileDatabase:
                             "project": [project, project_flag],
                             "acq_year": [acq_year, acq_year_flag],
                             "radar_instrument": [radar_inst, None],
+                            "platform": [platform, None],
+                            "firn_correction": [firn, None],
                             "doi_data": [doi_data, None],
                             "doi_article": [doi_article, None],
                         }
@@ -717,12 +731,16 @@ class CompileDatabase:
                         acq_year = row["acquisition year"]
                         acq_year_flag = "original"
                         line_id_flag = "not_provided" if settings.get("line_ids") == "dataset" else "original"
+                        if line_id in settings.get("line_names", {}).values():
+                            line_id_flag = "article"  # named after the article, not the raw files
                         doi_data = row["DOI dataset"]
                         doi_article = row.get("DOI article", row.get("DOI publication"))
                         if "radar instrument" in row.index:
                             radar_inst = row["radar instrument"]
                         else:
                             radar_inst = "nan"
+                        platform = self._platform(row)
+                        firn = self._firn(row, settings)
 
                         # NOTE: This will not work for BEDMAP. We assign a IRH_ID to the data.
                         ds_trace_file = f"{file_dict['dir_path']}/pkl/{line_id}/{IRH}.pkl"
@@ -742,12 +760,43 @@ class CompileDatabase:
                                     "project": [project, project_flag],
                                     "acq_year": [acq_year, acq_year_flag],
                                     "radar_instrument": [radar_inst, None],
+                                    "platform": [platform, None],
+                                    "firn_correction": [firn, None],
                                     "doi_data": [doi_data, None],
                                     "doi_article": [doi_article, None],
                                 }
                             )
                             trace_md.set_index("line_id", inplace=True)
                             trace_md.to_csv(trace_metadata)
+
+    @staticmethod
+    def _platform(raw_md: pd.Series) -> list:
+        """Airborne and/or ground-based ("platform" of raw_md.json, one or a list); [] if not given."""
+        value = raw_md.get("platform")
+        if isinstance(value, (list, np.ndarray)):
+            return [str(v) for v in value]
+        return [] if value is None or pd.isna(value) else [str(value)]
+
+    @staticmethod
+    def _firn(raw_md: pd.Series, settings: dict) -> str:
+        """The firn correction in the depths of the database: added by the compilation (the published
+        depths have none), or by the authors ("firn correction applied" and "firn correction" of
+        raw_md.json)."""
+        if settings.get("firn_correction"):
+            return f"{settings['firn_correction']:g} m, added by the compilation"
+        applied, value = raw_md.get("firn correction applied"), raw_md.get("firn correction")
+        if applied is None or (not isinstance(applied, bool) and pd.isna(applied)):
+            return "not known"
+        if not applied:
+            return "none"
+        return f"{value:g} m, by the authors" if value is not None and not pd.isna(value) else "by the authors, value not known"
+
+    @staticmethod
+    def _platform_attr(trace_md: pd.DataFrame) -> list:
+        """The platforms of a line from its metadata.csv (written by _platform), as a list."""
+        if "platform" not in trace_md.columns or pd.isna(trace_md.iloc[0]["platform"]):
+            return []
+        return list(ast.literal_eval(str(trace_md.iloc[0]["platform"])))
 
     def combine_dfs(self, trace_dir: str) -> None:
         # Sorted: the order of the points must not change from one compilation to the next
@@ -772,8 +821,9 @@ class CompileDatabase:
             merged_df.columns = merged_df.columns.astype(str)
 
             for col in self._var_list:
+                # The same name only: ICE_THK is not ICE_THK_SOURCE
                 matching_cols = [
-                    c for c in merged_df.columns if col.lower() in c.lower()
+                    c for c in merged_df.columns if col.lower() == c.lower()
                 ]
                 if matching_cols:
                     temp_col = f"temp_{col}"
@@ -869,6 +919,10 @@ class CompileDatabase:
                 "institute": institute,
                 "project": str(trace_md.iloc[0]["project"]),
                 "radar instrument": str(trace_md.iloc[0]["radar_instrument"]),
+                "platform": self._platform_attr(trace_md),
+                "firn correction": (
+                    str(trace_md.iloc[0]["firn_correction"]) if "firn_correction" in trace_md.columns else "not known"
+                ),
                 "acquisition year": str(trace_md.iloc[0]["acq_year"]),
                 "line ID": line_id,
                 "line ID flag": str(trace_md.iloc[1]["line_id"]),
@@ -877,6 +931,8 @@ class CompileDatabase:
                 "processing": self._processing(dataset_dir),
             },
         )
+        if not ds.attrs["platform"]:  # not in the metadata of the dataset
+            del ds.attrs["platform"]
         point_shape = len(merged_df)
         if point_shape < 1e6:
             chunk_size_point = min(100, point_shape)
@@ -1043,6 +1099,10 @@ class CompileDatabase:
                             ds[var].attrs["units"] = row["units"]
                             ds[var].attrs["long_name"] = row["long_name"]
                             ds[var].attrs["description"] = row["description"]
+
+                for var in SOURCE_VARIABLES:
+                    if f"{var}_SOURCE" in ds.variables:
+                        ds[f"{var}_SOURCE"].attrs.update(source_attrs(var))
 
                 ds = ds[list(ds.variables)]
                 ds.to_netcdf(h5_file, engine="h5netcdf", mode="a")

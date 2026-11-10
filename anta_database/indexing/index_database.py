@@ -19,6 +19,19 @@ AGE_ATTRS = {
     "IRH_AGE": {"units": "years", "long_name": "IRH age", "description": "Age of the IRH in years before present, as published"},
     "IRH_AGE_UNC": {"units": "years", "long_name": "IRH age uncertainty", "description": "Uncertainty on the age of the IRH, as published"},
 }
+# How each IRH was dated: fields of raw_md.json, written as attributes of IRH_AGE of the same names,
+# one value per IRH in the order of IRH ("" where not given)
+DATING = ["dating method", "ice core", "chronology"]
+DATING_NOTE = (
+    "How each IRH was dated, in the attributes 'dating method' (ice-core: from an ice-core chronology, at the "
+    "core or carried along IRHs; or modelled), 'ice core' and 'chronology' (or the age model): one value per IRH, "
+    "in the order of IRH, empty where not given"
+)
+
+
+def _texts(values) -> list:
+    """Strings of a file (h5py gives bytes), "" where missing."""
+    return [v.decode() if isinstance(v, bytes) else ("" if v is None else str(v)) for v in values]
 
 
 def _year_string(value) -> str:
@@ -94,6 +107,23 @@ class IndexDatabase:
         return ids, ages, uncs
 
     @staticmethod
+    def _target_dating(f_irh: np.ndarray, md_raw: pd.DataFrame) -> dict:
+        """How the IRHs of a file (in the order of f_irh) were dated: field -> strings, from
+        raw_md.json; {} when the metadata has none of the DATING fields (v1)."""
+        fields = [f for f in DATING if f in md_raw.columns]
+        if not fields:
+            return {}
+        dataset = md_raw["dataset"].iloc[0]
+        md_raw = md_raw.astype({f: object for f in fields})
+        for f in fields:
+            md_raw[f] = md_raw[f].where(md_raw[f].notna(), "").astype(str)
+        inconsistent = md_raw.groupby("IRH")[fields].nunique().gt(1).any(axis=1)
+        if inconsistent.any():
+            raise ValueError(f"Inconsistent dating for IRHs in {dataset}: {inconsistent[inconsistent].index.tolist()}")
+        md_raw = md_raw.drop_duplicates(subset="IRH", keep="first").set_index("IRH").reindex(f_irh)
+        return {f: md_raw[f].fillna("").astype(str).tolist() if f in fields else [""] * len(f_irh) for f in DATING}
+
+    @staticmethod
     def _same_values(old, new) -> bool:
         """Equal numbers, whatever the dtype (1000 == 1000.0), and NaN equal to NaN."""
         old = np.asarray(old, dtype=float)
@@ -128,8 +158,11 @@ class IndexDatabase:
             old_ages = ds["IRH_AGE"].values if "IRH_AGE" in ds.variables else None
             old_uncs = ds["IRH_AGE_UNC"].values if "IRH_AGE_UNC" in ds.variables else None
             old_ids = ds["IRH_ID"].values if "IRH_ID" in ds.variables else None
+            age_attrs = ds["IRH_AGE"].attrs if "IRH_AGE" in ds.variables else {}
+            old_dating = {f: _texts(np.atleast_1d(age_attrs[f])) for f in DATING if f in age_attrs}
 
         ids, ages, uncs = self._target_ages(f_irh, md_dict[dataset], assign_age_df)
+        dating = self._target_dating(f_irh, md_dict[dataset])
         result = {"file": h5_file, "dataset": dataset, "changes": []}
 
         assigned = old_ages is not None and old_uncs is not None
@@ -141,6 +174,7 @@ class IndexDatabase:
                 same_ids
                 and self._same_values(old_ages, ages)
                 and self._same_values(old_uncs, uncs)
+                and old_dating == dating
             ):
                 result["status"] = "unchanged"
                 return result
@@ -168,7 +202,11 @@ class IndexDatabase:
         with xr.open_dataset(h5_file, engine="h5netcdf") as ds:
             ds = ds.load()
 
-        ds["IRH_AGE"] = ("IRH", self._stored(ages), AGE_ATTRS["IRH_AGE"])
+        age_attrs = dict(AGE_ATTRS["IRH_AGE"])
+        if dating:
+            age_attrs["description"] += f". {DATING_NOTE}"
+            age_attrs.update(dating)
+        ds["IRH_AGE"] = ("IRH", self._stored(ages), age_attrs)
         ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs), AGE_ATTRS["IRH_AGE_UNC"])
         if ids is not None:
             ds = ds.assign_coords(IRH_ID=("IRH", ids))
@@ -364,6 +402,7 @@ class IndexDatabase:
                 radar_instrument TEXT,
                 acq_year TEXT,
                 line_id TEXT,
+                platform TEXT,
                 FOREIGN KEY (dataset) REFERENCES sources (id)
                 )
             """)
@@ -426,6 +465,9 @@ class IndexDatabase:
             CREATE TABLE IF NOT EXISTS dataset_ages (
                 dataset_id INTEGER,
                 age_id INTEGER,
+                dating_method TEXT,
+                ice_core TEXT,
+                chronology TEXT,
                 FOREIGN KEY (dataset_id) REFERENCES datasets (id),
                 FOREIGN KEY (age_id) REFERENCES ages (id),
                 PRIMARY KEY (dataset_id, age_id)
@@ -540,9 +582,20 @@ class IndexDatabase:
 
                 ds_vars = list(ds.keys())
 
+                # Airborne and/or ground-based, a list in the file ("platform" of raw_md.json)
+                platforms = ds.attrs.get("platform", [])
+                platforms = [platforms] if isinstance(platforms, (str, bytes)) else list(platforms)
+                platform = ", ".join(sorted(_texts(platforms))) or None
+
                 if "IRH_AGE" in ds_vars:
                     ages = ds["IRH_AGE"][:]
                     age_uncs = ds["IRH_AGE_UNC"][:]
+                    # None where not given, per IRH
+                    dating = [
+                        [t or None for t in _texts(np.atleast_1d(ds["IRH_AGE"].attrs[f]))]
+                        if f in ds["IRH_AGE"].attrs else [None] * len(ages)
+                        for f in DATING
+                    ]
                 else:
                     ages = None
                     age_uncs = None
@@ -561,10 +614,10 @@ class IndexDatabase:
             # Insert into datasets and get the new row id
             cursor.execute(
                 """
-                INSERT INTO datasets (file_path, dataset, acq_year, line_id)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO datasets (file_path, dataset, acq_year, line_id, platform)
+                VALUES (?, ?, ?, ?, ?)
             """,
-                (relative_file_path, dataset_id, str(acq_year), line_id),
+                (relative_file_path, dataset_id, str(acq_year), line_id, platform),
             )
             dataset_row_id = cursor.lastrowid
 
@@ -645,7 +698,7 @@ class IndexDatabase:
 
             # Insert ages and regions
             if ages is not None:
-                for age, age_unc in zip(ages, age_uncs):
+                for age, age_unc, *how in zip(ages, age_uncs, *dating):
                     cursor.execute(
                         "INSERT OR IGNORE INTO ages (age, age_unc) VALUES (?, ?)",
                         (_year_string(age), _year_string(age_unc)),
@@ -656,10 +709,10 @@ class IndexDatabase:
                     ).fetchone()[0]
                     cursor.execute(
                         """
-                        INSERT OR IGNORE INTO dataset_ages (dataset_id, age_id)
-                        VALUES (?, ?)
+                        INSERT OR IGNORE INTO dataset_ages (dataset_id, age_id, dating_method, ice_core, chronology)
+                        VALUES (?, ?, ?, ?, ?)
                     """,
-                        (dataset_row_id, age_id),
+                        (dataset_row_id, age_id, *how),
                     )
 
             for basin, region in basin_mapping.items():

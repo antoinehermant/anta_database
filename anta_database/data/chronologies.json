@@ -12,6 +12,10 @@
     "DFO2006": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature"},
     "DF2021": {"cores": ["Dome Fuji"], "reference": "Oyabu et al. (2022), Quaternary Science Reviews"},
     "ST22": {"cores": ["Skytrain"], "reference": "Mulvaney et al. (2023), Climate of the Past"},
-    "RICE17": {"cores": ["RICE"], "reference": "Lee et al. (2020), Climate of the Past"}
+    "RICE17": {"cores": ["RICE"], "reference": "Lee et al. (2020), Climate of the Past"},
+    "DFO2006+AICC2012": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature; Bazin et al. (2013), Climate of the Past (as combined in Wang et al., 2023)"},
+    "Byrd-BB2001": {"cores": ["Byrd"], "reference": "Blunier and Brook (2001), Science"},
+    "Byrd-H1994": {"cores": ["Byrd"], "reference": "Hammer et al. (1994), Annals of Glaciology"},
+    "Vostok-RR2003": {"cores": ["Vostok"], "reference": "Ruddiman and Raymo (2003), Quaternary Science Reviews"}
   }
 }

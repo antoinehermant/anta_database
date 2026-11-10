@@ -4,24 +4,29 @@ Bedmap line that has the same radar traces as an isochrone line, its ice thickne
 surface elevation, and its line ID (docs/bedmap/README.md, section 6).
 
 For an isochrone line:
-1. candidates: the Bedmap lines whose extent overlaps that of the line (index(), built once);
+1. candidates: the Bedmap lines of the same platform (airborne or ground-based, "platform" of the
+   line; _AIR_, or _GRN_ and _SEI_ in the name of the Bedmap survey) whose extent overlaps that of
+   the line (index(), built once);
 2. each point gets the nearest point of each candidate within max_dist;
 3. the matched Bedmap survey is the one whose lines have the most points within max_dist (its
    coverage): a flight is often cut into several Bedmap lines. Of surveys with almost the same
    coverage (MATCH_SHARE of the best), the newest generation, as a survey is often in several:
    BEDMAP3 over BEDMAP2 over BEDMAP1;
 4. values are only taken from that one survey, each from the nearest point of its lines: never
-   mixed from two surveys or generations.
+   mixed from two surveys or generations;
+5. the survey is only taken if its points are within MAX_MEDIAN of those of the line, on median:
+   the same radar traces are 0-7 m apart, other flights over the same place 25-42 m.
 
 Each point also keeps the Bedmap line nearest to it ("segments"), for the lines without an ID,
 whose points may be several Bedmap lines one after the other.
 
-fill() writes the values of the matched line where a line has none (the values published stay):
-- BEDMAP_FILL (int8, per point): which variables come from Bedmap, a sum of FILL_FLAGS
-  (1 ICE_THK, 2 BED_ELEV, 4 SURF_ELEV), 0 where none;
-- BEDMAP_DIST (float32, m, per point): distance to the Bedmap point the values come from, NaN
+fill() writes the values of the matched survey where a line has none (the values published stay),
+only on the lines it fills:
+- <VAR>_SOURCE (int8, per point, anta_database.netcdf.SOURCES): 1, 2 or 3 where the value comes from
+  Bedmap1, 2 or 3; the compilation wrote 0 (published) and 4 (computed from the published values);
+- BEDMAP_POINT_DIST (float32, m, per point): distance to the Bedmap point the values come from, NaN
   where none;
-- the attribute "reconnection": the Bedmap line, how many points it matches and fills.
+- the attribute "reconnection": the Bedmap survey and lines, how many points they match and fill.
 
     python -m anta_database.bedmap.reconnect BEDMAP_BUILD ISOCHRONE_BUILD --datasets A B -o report.csv
     python -m anta_database.bedmap.reconnect BEDMAP_BUILD ISOCHRONE_BUILD --datasets A B --fill
@@ -38,26 +43,20 @@ import pandas as pd
 import xarray as xr
 from scipy.spatial import cKDTree
 
+from anta_database.netcdf import SOURCE_VARIABLES as VARIABLES, SOURCES, source_attrs
+
 GENERATIONS = {"BEDMAP3": 3, "BEDMAP2": 2, "BEDMAP1": 1}
-VARIABLES = ["ICE_THK", "BED_ELEV", "SURF_ELEV"]
-DEFAULT_MAX_DIST = 50.0  # m
+DEFAULT_MAX_DIST = 50.0  # m, per point
+MAX_MEDIAN = 10.0  # m, of the points of a line: the same traces
 MATCH_SHARE = 0.9
 INDEX_FILE = "lines_index.parquet"
-FILL_FLAGS = {"ICE_THK": 1, "BED_ELEV": 2, "SURF_ELEV": 4}
-FILL_ATTRS = {
-    "BEDMAP_FILL": {
-        "long_name": "variables taken from Bedmap",
-        "flag_masks": np.array(list(FILL_FLAGS.values()), dtype=np.int8),
-        "flag_meanings": " ".join(f"{v}_from_bedmap" for v in FILL_FLAGS),
-        "description": "Sum of the flags of the variables taken from the Bedmap survey line of the attribute "
-        "reconnection, where the dataset has no value; 0: none",
-    },
-    "BEDMAP_DIST": {
-        "units": "m",
-        "long_name": "distance to the Bedmap point",
-        "description": "Distance to the point of the Bedmap survey line the values of BEDMAP_FILL come from; "
-        "NaN where none",
-    },
+# Platform of a Bedmap survey, from its name (seismic soundings are on the ground)
+SURVEY_PLATFORMS = {"AIR": "airborne", "GRN": "ground-based", "SEI": "ground-based"}
+DIST_ATTRS = {
+    "units": "m",
+    "long_name": "distance to the Bedmap survey point",
+    "description": "Distance to the point of the Bedmap survey line (attribute reconnection) the values of "
+    "source 1, 2 or 3 (<VAR>_SOURCE) come from, never the gridded Bedmap products; NaN where none",
 }
 
 
@@ -89,6 +88,17 @@ def index(bedmap_build: str, cpus: int = 4, rebuild: bool = False) -> pd.DataFra
     df = pd.DataFrame(rows)
     df.to_parquet(cache)
     return df
+
+
+def _with_platform(lines: pd.DataFrame) -> pd.DataFrame:
+    platform = lines.survey.str.extract(r"_(AIR|GRN|SEI)_", expand=False).map(SURVEY_PLATFORMS)
+    return lines.assign(platform=platform)
+
+
+def _platforms(attrs: dict) -> List[str]:
+    """The platforms of an isochrone line (attribute platform: a string, or a list for both)."""
+    value = attrs.get("platform", [])
+    return [value] if isinstance(value, str) else [str(v) for v in value]
 
 
 def _values(path: str) -> Dict[str, np.ndarray]:
@@ -151,9 +161,10 @@ def _study_line(job) -> Optional[dict]:
         xy = np.c_[ds.PSX.values, ds.PSY.values]
         own = {var: ds[var].values.astype(np.float64) if var in ds else np.full(len(xy), np.nan) for var in VARIABLES}
         attrs = dict(ds.attrs)
-    m = match(xy, lines, max_dist)
+    m = match(xy, lines[lines.platform.isin(_platforms(attrs))], max_dist)
     row = {"dataset": attrs.get("dataset"), "line_id": str(attrs.get("line ID")), "points": len(xy),
-           "candidates": m["candidates"], "lines_matched": m.get("lines_matched", 0)}
+           "platform": ", ".join(_platforms(attrs)), "candidates": m["candidates"],
+           "lines_matched": m.get("lines_matched", 0)}
     if m["line"] is None:
         return row
     b = lines.loc[m["line"]]
@@ -179,51 +190,68 @@ def _study_line(job) -> Optional[dict]:
 
 
 def _fill_line(job) -> Optional[dict]:
-    path, lines, max_dist = job
+    path, lines, max_dist, max_median = job
     from anta_database.netcdf import write
 
     with xr.open_dataset(path) as ds:
         ds = ds.load()
-    m = match(np.c_[ds.PSX.values, ds.PSY.values], lines, max_dist)
-    if m["line"] is None:
-        return None
     n = ds.sizes["point"]
-    flags = np.zeros(n, np.int8)
+    row = {"dataset": ds.attrs.get("dataset"), "line_id": str(ds.attrs.get("line ID")), "points": n,
+           "platform": ", ".join(_platforms(ds.attrs))}
+    if not any(np.isnan(ds[var].values).any() if var in ds else True for var in VARIABLES):
+        return None  # nothing missing
+    m = match(np.c_[ds.PSX.values, ds.PSY.values], lines[lines.platform.isin(_platforms(ds.attrs))], max_dist)
+    if m["line"] is None:
+        return {**row, "status": "no Bedmap survey of the same platform within the distance"}
+    b = lines.loc[m["line"]]
+    median = float(np.nanmedian(m["distance"]))
+    row.update({"generation": b.generation, "survey": b.survey, "coverage": round(m["coverage"], 4),
+                "median_dist": round(median, 2)})
+    if median > max_median:
+        return {**row, "status": f"not the same traces: more than {max_median:g} m apart on median"}
+    code = SOURCES[f"{b.generation.lower()}_survey_point"]
+    taken = np.zeros(n, bool)
     filled = {}
-    for var, flag in FILL_FLAGS.items():
+    for var in VARIABLES:
         own = ds[var].values.astype(np.float64) if var in ds else np.full(n, np.nan)
         take = ~np.isfinite(own) & np.isfinite(m["values"][var])
         if not take.any():
             continue
+        source = (ds[f"{var}_SOURCE"].values.astype(np.float64) if f"{var}_SOURCE" in ds
+                  else np.where(np.isfinite(own), SOURCES["published_dataset"], np.nan))
         own[take] = m["values"][var][take]
+        source[take] = code
         ds[var] = ("point", own, ds[var].attrs if var in ds else {})
-        flags[take] += flag
+        ds[f"{var}_SOURCE"] = ("point", source, source_attrs(var))
+        taken |= take
         filled[var] = int(take.sum())
     if not filled:
-        return None
-    b = lines.loc[m["line"]]
-    ds["BEDMAP_FILL"] = ("point", flags, FILL_ATTRS["BEDMAP_FILL"])
-    ds["BEDMAP_DIST"] = ("point", np.where(flags > 0, np.round(m["distance"], 1), np.nan), FILL_ATTRS["BEDMAP_DIST"])
+        return {**row, "status": "nothing to take: Bedmap has no value where the line has none"}
+    ds["BEDMAP_POINT_DIST"] = ("point", np.where(taken, np.round(m["distance"], 1), np.nan), DIST_ATTRS)
     ds.attrs["reconnection"] = (
         f"{b.generation}, survey {b.survey}, "
         + (f"line {b.line_id}" if len(m["lines"]) == 1 else f"{len(m['lines'])} lines ({', '.join(lines.loc[m['lines'], 'line_id'][:5])}"
            + (", ..." if len(m["lines"]) > 5 else "") + ")")
         + f": {m['coverage']:.1%} of the points within "
-        f"{max_dist:g} m (median {np.nanmedian(m['distance']):.1f} m). Taken where the dataset has no value: "
+        f"{max_dist:g} m (median {median:.1f} m). Taken from its survey points where the dataset has no value, "
+        "never from the gridded Bedmap products: "
         + ", ".join(f"{var} at {k} points" for var, k in filled.items())
     )
-    sentence = "Missing values taken from Bedmap (BEDMAP_FILL, BEDMAP_DIST, attribute reconnection)."
+    sentence = "Missing values taken from the Bedmap survey points of the same traces (<VAR>_SOURCE, BEDMAP_POINT_DIST, attribute reconnection)."
     if sentence not in str(ds.attrs.get("processing", "")):
         ds.attrs["processing"] = f"{ds.attrs.get('processing', '')} {sentence}".strip()
     write(ds, path)
-    return {"dataset": ds.attrs.get("dataset"), "line_id": str(ds.attrs.get("line ID")), "points": n, **filled}
+    return {**row, "status": "filled", **filled}
 
 
 def fill(bedmap_build: str, isochrone_build: str, datasets: List[str], max_dist: float = DEFAULT_MAX_DIST,
-         cpus: int = 4) -> pd.DataFrame:
-    """Write the Bedmap values where the lines of datasets have none; one row per line filled."""
-    lines = index(bedmap_build, cpus)
-    jobs = [(p, lines, max_dist) for d in datasets for p in sorted(glob.glob(os.path.join(isochrone_build, d, "nc", "*.nc")))]
+         cpus: int = 4, max_median: Optional[Dict[str, float]] = None) -> pd.DataFrame:
+    """Write the Bedmap values where the lines of datasets have none; one row per line with values
+    missing, with what was done (status). max_median: limits other than MAX_MEDIAN, by dataset."""
+    lines = _with_platform(index(bedmap_build, cpus))
+    limits = {d: (max_median or {}).get(d, MAX_MEDIAN) for d in datasets}
+    jobs = [(p, lines, max_dist, limits[d]) for d in datasets
+            for p in sorted(glob.glob(os.path.join(isochrone_build, d, "nc", "*.nc")))]
     with Pool(cpus) as pool:
         rows = [r for r in pool.imap(_fill_line, jobs, chunksize=4) if r]
     return pd.DataFrame(rows)
@@ -232,7 +260,7 @@ def fill(bedmap_build: str, isochrone_build: str, datasets: List[str], max_dist:
 def study(bedmap_build: str, isochrone_build: str, datasets: List[str], max_dist: float = DEFAULT_MAX_DIST,
           cpus: int = 4) -> pd.DataFrame:
     """One row per isochrone line of datasets: the Bedmap line matched, and what it would fill."""
-    lines = index(bedmap_build, cpus)
+    lines = _with_platform(index(bedmap_build, cpus))
     jobs = [(p, lines, max_dist) for d in datasets for p in sorted(glob.glob(os.path.join(isochrone_build, d, "nc", "*.nc")))]
     with Pool(cpus) as pool:
         rows = [r for r in pool.imap(_study_line, jobs, chunksize=4) if r]

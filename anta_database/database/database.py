@@ -10,7 +10,7 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
-from anta_database.indexing.index_database import IndexDatabase
+from anta_database.indexing.index_database import IndexDatabase, _texts
 from anta_database.cloud.manifest import (
     MANIFEST_NAME,
     check_schema,
@@ -36,6 +36,12 @@ def _line_id(line_id, flight_id):
         "flight_id is deprecated, use line_id instead", FutureWarning, stacklevel=3
     )
     return flight_id if line_id is None else line_id
+
+
+# Filters of v2 indexes (IndexDatabase): column, and its table in the index
+PLATFORM = ("datasets", "platform")
+# Query argument -> attribute of IRH_AGE in the files (one value per IRH)
+DATING_FIELDS = {"dating_method": "dating method", "ice_core": "ice core", "chronology": "chronology"}
 
 
 class Metadata(dict):
@@ -103,7 +109,12 @@ class Database:
             "region": [],
             "IMBIE_basin": [],
             "radar_instrument": [],
+            "platform": [],
+            "dating_method": [],
+            "ice_core": [],
+            "chronology": [],
         }
+        self._columns = None
 
         if sync:
             try:
@@ -171,6 +182,39 @@ class Database:
         uri = Path(self._file_db_path).resolve().as_uri() + "?mode=ro"
         return sqlite3.connect(uri, uri=True)
 
+    def _has_column(self, table: str, column: str) -> bool:
+        """Whether the index has this column: the platform and the dating are not in v1."""
+        if self._columns is None:
+            conn = self._connect()
+            try:
+                self._columns = {
+                    (t, row[1])
+                    for t in ("datasets", "dataset_ages")
+                    for row in conn.execute(f"PRAGMA table_info({t})")
+                }
+            finally:
+                conn.close()
+        return (table, column) in self._columns
+
+    def _extra_select(self) -> str:
+        """The platform and the dating of the select clauses, NULL in a v1 index."""
+        platform = "d.platform" if self._has_column(*PLATFORM) else "NULL"
+        dating = [
+            f"CASE WHEN v.name = 'IRH_DEPTH' THEN da.{c} ELSE NULL END"
+            if self._has_column("dataset_ages", c)
+            else "NULL"
+            for c in DATING_FIELDS
+        ]
+        return ", ".join([f"{platform} AS platform", *(f"{d} AS {c}" for d, c in zip(dating, DATING_FIELDS))])
+
+    def _check_filters(self, **filters) -> None:
+        for name, value in filters.items():
+            table = PLATFORM[0] if name == "platform" else "dataset_ages"
+            if value and not self._has_column(table, name):
+                raise ValueError(
+                    f"This database has no {name} (v1): update it with db.sync() to filter by {name}"
+                )
+
     def sync(self, url: Optional[str] = None, dry_run: bool = False, stats: bool = True) -> Dict:
         """
         Download the published AntADatabase into this database directory, or update it.
@@ -193,6 +237,10 @@ class Database:
         IMBIE_basin: Optional[Union[str, List[str]]] = None,
         radar_instrument: Optional[Union[str, List[str]]] = None,
         select_clause="",
+        platform: Optional[Union[str, List[str]]] = None,
+        dating_method: Optional[Union[str, List[str]]] = None,
+        ice_core: Optional[Union[str, List[str]]] = None,
+        chronology: Optional[Union[str, List[str]]] = None,
     ) -> Tuple[str, List[Union[str, int]]]:
         """
         Helper method to build the SQL query and parameters for filtering.
@@ -277,6 +325,14 @@ class Database:
                 conditions.append("radar_instruments_list.radar_instruments LIKE ?")
                 params.append(f"%{radar_instrument}%")
 
+        # A line can be both (a list in the files): "airborne, ground-based"
+        if platform:
+            like_conditions = []
+            for plat in platform if isinstance(platform, list) else [platform]:
+                like_conditions.append("d.platform LIKE ?")
+                params.append(f"%{plat}%")
+            conditions.append("(" + " OR ".join(like_conditions) + ")")
+
         if project:
             if isinstance(project, list):
                 like_conditions = []
@@ -296,6 +352,9 @@ class Database:
             (line, "d.line_id"),
             (region, "r.region"),
             (IMBIE_basin, "r.IMBIE_basin"),
+            (dating_method, "da.dating_method"),
+            (ice_core, "da.ice_core"),
+            (chronology, "da.chronology"),
         ]:
             if field is not None:
                 if isinstance(field, list):
@@ -392,6 +451,9 @@ class Database:
             ("line_id", "d.line_id"),
             ("region", "r.region"),
             ("IMBIE_basin", "r.IMBIE_basin"),
+            ("dating_method", "da.dating_method"),
+            ("ice_core", "da.ice_core"),
+            ("chronology", "da.chronology"),
         ]:
             if self._excluded[field]:
                 not_like_conditions = []
@@ -494,6 +556,10 @@ class Database:
                 conditions.append("radar_instruments_list.radar_instruments NOT LIKE ?")
                 params.append(f'%{self._excluded["radar_instrument"]}%')
 
+        for plat in self._excluded["platform"]:
+            conditions.append("(d.platform IS NULL OR d.platform NOT LIKE ?)")
+            params.append(f"%{plat}%")
+
         if not self._include_BM:
             conditions.append("s.name NOT LIKE ?")
             params.append("%BEDMAP%")
@@ -563,13 +629,19 @@ class Database:
         IMBIE_basin: Optional[Union[str, List[str]]] = None,
         radar_instrument: Optional[Union[str, List[str]]] = None,
         flight_id: Optional[Union[str, List[str]]] = None,
+        platform: Optional[Union[str, List[str]]] = None,
+        dating_method: Optional[Union[str, List[str]]] = None,
+        ice_core: Optional[Union[str, List[str]]] = None,
+        chronology: Optional[Union[str, List[str]]] = None,
     ) -> None:
         """
         Add values to exclude from the query results.
         Example: filter_out(dataset='Cavitte', project='OldProject')
+        platform: "airborne" or "ground-based". dating_method: "ice-core" or "modelled".
         flight_id is deprecated, use line_id.
         """
         line_id = _line_id(line_id, flight_id)
+        self._check_filters(platform=platform, dating_method=dating_method, ice_core=ice_core, chronology=chronology)
         # Map arguments to their corresponding fields
         field_mapping = {
             "age": age,
@@ -582,6 +654,10 @@ class Database:
             "region": region,
             "IMBIE_basin": IMBIE_basin,
             "radar_instrument": radar_instrument,
+            "platform": platform,
+            "dating_method": dating_method,
+            "ice_core": ice_core,
+            "chronology": chronology,
         }
 
         for field, value in field_mapping.items():
@@ -611,8 +687,8 @@ class Database:
                         d.line_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        radar_instruments_list.radar_instruments \
-        "
+                        radar_instruments_list.radar_instruments, \
+        " + self._extra_select()
         query = f"""
             SELECT {select_clause}
             FROM
@@ -700,6 +776,12 @@ class Database:
             "region": results[0][11],
             "IMBIE_basin": results[0][12],
             "radar_instrument": results[0][13],
+            "platform": results[0][14].split(", ") if results[0][14] else [],
+            # Of the layers of the file
+            **{
+                field: sorted({row[15 + i] for row in results if row[15 + i]})
+                for i, field in enumerate(DATING_FIELDS)
+            },
             "reference": results[0][1],
             "file_path": file_path,
             "database_path": self._db_dir,
@@ -721,9 +803,19 @@ class Database:
         radar_instrument: Optional[Union[str, List[str]]] = None,
         retain_query: Optional[bool] = True,
         flight_id: Optional[Union[str, List[str]]] = None,
+        platform: Optional[Union[str, List[str]]] = None,
+        dating_method: Optional[Union[str, List[str]]] = None,
+        ice_core: Optional[Union[str, List[str]]] = None,
+        chronology: Optional[Union[str, List[str]]] = None,
     ) -> "MetadataResult":
-        """flight_id is deprecated, use line_id."""
+        """
+        platform: "airborne" or "ground-based" (radar on an aircraft, or on the ground).
+        dating_method: how the layers were dated, "ice-core" or "modelled"; ice_core and
+        chronology: the core and the chronology that date them (e.g. "EDC", "AICC2012").
+        flight_id is deprecated, use line_id.
+        """
         line_id = _line_id(line_id, flight_id)
+        self._check_filters(platform=platform, dating_method=dating_method, ice_core=ice_core, chronology=chronology)
 
         select_clause = "s.name AS dataset, \
                         s.citation, \
@@ -738,8 +830,8 @@ class Database:
                         d.line_id, \
                         r.region, \
                         r.IMBIE_basin, \
-                        radar_instruments_list.radar_instruments \
-        "
+                        radar_instruments_list.radar_instruments, \
+        " + self._extra_select()
 
         if age is not None:
             if isinstance(age, (list, tuple)):
@@ -759,6 +851,10 @@ class Database:
             IMBIE_basin,
             radar_instrument,
             select_clause,
+            platform=platform,
+            dating_method=dating_method,
+            ice_core=ice_core,
+            chronology=chronology,
         )
 
         conn = self._connect()
@@ -793,6 +889,10 @@ class Database:
                 "region": region,
                 "IMBIE_basin": IMBIE_basin,
                 "radar_instrument": radar_instrument,
+                "platform": platform,
+                "dating_method": dating_method,
+                "ice_core": ice_core,
+                "chronology": chronology,
             },
             "_filter_params": {
                 "dataset": self._excluded["dataset"],
@@ -805,6 +905,10 @@ class Database:
                 "region": self._excluded["region"],
                 "IMBIE_basin": self._excluded["IMBIE_basin"],
                 "radar_instrument": self._excluded["radar_instrument"],
+                "platform": self._excluded["platform"],
+                "dating_method": self._excluded["dating_method"],
+                "ice_core": self._excluded["ice_core"],
+                "chronology": self._excluded["chronology"],
             },
             "database_path": self._db_dir,
             "file_db": self._file_db,
@@ -818,6 +922,8 @@ class Database:
         radar_instruments_list = []
         region_list = []
         basin_list = []
+        platform_set = set()
+        dating_sets = {field: set() for field in DATING_FIELDS}
         for (
             dataset_name,
             citations,
@@ -833,7 +939,14 @@ class Database:
             regions,
             basins,
             radar_instruments,
+            platforms,
+            *dating,
         ) in results:
+            if platforms:
+                platform_set.update(platforms.split(", "))
+            for field, value in zip(DATING_FIELDS, dating):
+                if value:
+                    dating_sets[field].add(value)
             metadata["dataset"].append(dataset_name)
             metadata["reference"].append(citations)
             metadata["DOI_dataset"].append(DOI_dataset)
@@ -928,6 +1041,9 @@ class Database:
         metadata["radar_instrument"] = sorted(set(unique_radar_instruments))
         metadata["region"] = sorted(set(region_list))
         metadata["IMBIE_basin"] = sorted(set(unique_basins))
+        metadata["platform"] = sorted(platform_set)
+        for field, values in dating_sets.items():
+            metadata[field] = sorted(values)
         # What was done to the raw data: shown for a query of a single dataset
         metadata["processing"] = (
             self._processing(metadata["dataset"][0]) if len(metadata["dataset"]) == 1 else ""
@@ -960,6 +1076,7 @@ class Database:
         region = query_params.get("region")
         basin = query_params.get("IMBIE_basin")
         radar = query_params.get("radar_instrument")
+        new_filters = {f: query_params.get(f) for f in ("platform", *DATING_FIELDS)}
 
         select_clause = "d.file_path"
         query, params = self._build_query_and_params(
@@ -974,6 +1091,7 @@ class Database:
             basin,
             radar,
             select_clause,
+            **new_filters,
         )
 
         conn = self._connect()
@@ -1069,6 +1187,14 @@ class Database:
             if "Distance" in ds.keys():
                 df["Distance"] = ds["Distance"][::downsampling_factor]
 
+            # The layers dated as asked: ages are not unique to one dating, across datasets
+            asked = md["_query_params"]
+            dating_asked = {
+                DATING_FIELDS[f]: asked[f] if isinstance(asked[f], list) else [asked[f]]
+                for f in DATING_FIELDS
+                if asked.get(f)
+            }
+
             var_impl = []
             age_impl = []
             for var in md["var"]:
@@ -1080,6 +1206,12 @@ class Database:
                         if len(irh_index) == 0:
                             continue
                         irh_index = irh_index[0]
+                        age_attrs = ds["IRH_AGE"].attrs
+                        if any(
+                            name not in age_attrs or _texts(np.atleast_1d(age_attrs[name]))[irh_index] not in values
+                            for name, values in dating_asked.items()
+                        ):
+                            continue
                         age_impl.append(age)
 
                         df[age] = ds[var][::downsampling_factor, irh_index]
@@ -1123,6 +1255,8 @@ class Database:
                 "region": file_md["region"],
                 "IMBIE_basin": file_md["IMBIE_basin"],
                 "radar_instrument": file_md["radar_instrument"],
+                "platform": file_md["platform"],
+                **{field: file_md[field] for field in DATING_FIELDS},
             })
 
             yield df, metadata
@@ -1196,6 +1330,11 @@ class MetadataResult:
             output.append(
                 f"\n  - radar_instrument: {', '.join(md['radar_instrument'])}"
             )
+            if md.get("platform"):
+                output.append(f"\n  - platform: {', '.join(md['platform'])}")
+            for field in DATING_FIELDS:
+                if md.get(field):
+                    output.append(f"\n  - {field}: {', '.join(md[field])}")
             output.append(f"\n  - line_id: {line_id_str}")
             if md.get("processing"):
                 output.append(f"\n  - processing: {md['processing']}")
