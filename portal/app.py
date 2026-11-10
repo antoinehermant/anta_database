@@ -122,6 +122,21 @@ class Layer(BaseModel):
     chronology: Optional[str] = Field(default=None, max_length=300)
 
 
+class FirnCorrection(BaseModel):
+    """Whether the depths of the files include a firn correction, and the one added (m)."""
+
+    applied: bool
+    value: Optional[float] = Field(default=None, gt=0, le=100)
+
+    @model_validator(mode="after")
+    def value_if_applied(self) -> "FirnCorrection":
+        if self.applied and self.value is None:
+            raise ValueError("give the firn correction added to the depths, in metres")
+        if not self.applied:
+            self.value = None
+        return self
+
+
 class Submission(BaseModel):
     structure: Literal["layer", "line"]
     dataset: str = Field(pattern=DATASET_NAME.pattern)
@@ -136,6 +151,8 @@ class Submission(BaseModel):
     layers: list[Layer] = Field(default=[], max_length=1000)
     # The line of the layer files without a LINE_ID column; without it, named after the dataset
     line_id: str = Field(default="", pattern=r"^([A-Za-z0-9._-]+)?$", max_length=200)
+    # None: from a form before the question (checks.py refuses it)
+    firn_correction: Optional[FirnCorrection] = None
     warnings: list[str] = Field(default=[], max_length=10000)
 
     @model_validator(mode="after")
@@ -187,6 +204,9 @@ def raw_metadata(s: Submission) -> list[dict]:
         "platform": one_or_list(
             [p for p in ("airborne", "ground-based") if p in {s.survey.platforms.get(r) for r in s.survey.radar_instruments}]
         ),
+        # In the depths of the files as sent: the compilation does not add one (compile_settings.json)
+        "firn correction applied": s.firn_correction.applied if s.firn_correction else None,
+        "firn correction": s.firn_correction.value if s.firn_correction else None,
         "acquisition year": years(s.survey.acquisition_year),
         "citation": s.citation,
         "DOI dataset": s.publication.doi_dataset,
@@ -295,6 +315,9 @@ def submission_summary(s: Submission, submission_id: str, total: int) -> str:
         f"Data: {s.publication.doi_dataset or '(no DOI)'}",
         f"Files: {len(s.files)} ({structure}, {total / 1e6:.1f} MB)",
         f"Layers: {layers or 'none'}",
+        "Firn correction: "
+        + ("not asked (older form)" if not s.firn_correction
+           else f"{s.firn_correction.value:g} m, in the depths" if s.firn_correction.applied else "none in the depths"),
         *(
             [f"Line ID: {s.line_id or f'{s.dataset} (none given)'}, for {len(no_ids)} file(s) without LINE_ID"]
             if no_ids else []

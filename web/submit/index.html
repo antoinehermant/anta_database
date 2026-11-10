@@ -203,6 +203,19 @@
           <section class="step" id="step-files">
             <h3><span class="number">4</span> Files</h3>
             <div id="columns-help"></div>
+            <fieldset id="firn" class="consent">
+              <legend>Do the depths of your files include a firn correction?</legend>
+              <label class="check">
+                <input type="radio" name="firn" value="yes" data-bind="firn.applied" />
+                <span><strong>Yes:</strong> a firn correction was added to the depths.</span>
+              </label>
+              <label class="check">
+                <input type="radio" name="firn" value="no" data-bind="firn.applied" />
+                <span><strong>No:</strong> the depths are the travel times converted with the wave speed in ice only.</span>
+              </label>
+              <label id="firn-value" hidden>Firn correction added (m)
+                <input data-bind="firn.value" inputmode="decimal" maxlength="6" placeholder="10" /></label>
+            </fieldset>
             <label id="dropzone">
               <input type="file" id="file-input" multiple accept=".csv,.tab" />
               <strong>Drop your files here</strong> or click to choose them
@@ -256,7 +269,7 @@
               </label>
             </div>
             <p id="verify-status" class="muted">We send you a code to verify your email address before you can submit.</p>
-            <label class="wide">Notes <span class="muted">(optional: wave speed and firn correction used, processing, what the non-standard columns
+            <label class="wide">Notes <span class="muted">(optional: wave speed used, processing, what the non-standard columns
               hold, anything we should know; kept with your raw files, and published with them)</span>
               <textarea data-bind="notes" rows="3"></textarea>
             </label>

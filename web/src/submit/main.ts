@@ -72,6 +72,8 @@ interface Draft {
   line_id: string;
   /** Acquisition year and project of a file, when different from the survey */
   fileSurvey: Record<string, { acquisition_year: string; project: string }>;
+  /** Whether the depths include a firn correction ("yes", "no", "" until chosen), and its value in m */
+  firn: { applied: "" | "yes" | "no"; value: string };
 }
 
 const emptyDraft = (): Draft => ({
@@ -85,6 +87,7 @@ const emptyDraft = (): Draft => ({
   fileIrh: {},
   line_id: "",
   fileSurvey: {},
+  firn: { applied: "", value: "" },
 });
 
 function loadDraft(): Draft {
@@ -423,9 +426,9 @@ function columnsHelp(structure: Structure): HTMLElement {
          <p>The name of each file is its line ID.</p>${reference}${optional}`;
   help.insertAdjacentHTML(
     "beforeend",
-    `<p><strong>Depths are in metres below the ice surface, with the firn correction applied.</strong> Convert the
-     two-way travel times first, with your wave speed in ice and your firn correction, and say which ones in the
-     notes (step 6). The travel times themselves may come as optional columns (below). Missing values are empty, <code>NaN</code>, <code>-9999</code> or <code>9999</code>.</p>
+    `<p><strong>Depths are in metres below the ice surface.</strong> Convert the two-way travel times first, with
+     your wave speed in ice (say which in the notes, step 6), and tell us below whether you added a firn correction.
+     The travel times themselves may come as optional columns (below). Missing values are empty, <code>NaN</code>, <code>-9999</code> or <code>9999</code>.</p>
      <p>A description may come at the top of the file, above the header, with every line starting with
      <code>#</code>: these lines are ignored. Do not use <code>#</code> anywhere else.</p>`,
   );
@@ -795,6 +798,15 @@ function layerIssues(): Issue[] {
   }
   const missing = missingReference();
   if (missing) issues.push({ level: "warning", text: missing });
+  const { applied, value } = draft.firn;
+  if (!applied) issues.push({ level: "error", text: "Say whether the depths include a firn correction (step 4)." });
+  else if (applied === "yes") {
+    const m = Number(value.replace(",", "."));
+    if (!value.trim()) issues.push({ level: "error", text: "Give the firn correction added to the depths, in metres (step 4)." });
+    else if (!(m > 0 && m <= 100)) issues.push({ level: "error", text: "The firn correction must be a number of metres, above 0 (step 4)." });
+    else if (m < 2 || m > 30)
+      issues.push({ level: "warning", text: `Firn correction of ${m} m: corrections are usually 5 to 20 m. Is it in metres?` });
+  }
   const undated: number[] = [];
   // Layers usually get older with their number, but need not to: not an error
   let previous: { irh: number; age: number } | undefined;
@@ -959,6 +971,7 @@ function update() {
     ...(issues.length ? issues : [element("li", { className: "ok" }, "Everything looks good.")]),
   );
   $("summary").textContent = summary();
+  $("firn-value").hidden = draft.firn.applied !== "yes";
   const noIds = filesWithoutLineIds();
   $("no-line-ids").hidden = !noIds.length;
   $("no-line-ids-text").replaceChildren(
@@ -1036,6 +1049,10 @@ function payload() {
     notes: draft.notes,
     licence: draft.licence === "yes" ? "redistribute" : draft.licence === "review" ? "review" : "",
     line_id: filesWithoutLineIds().length ? draft.line_id.trim() : "",
+    firn_correction: {
+      applied: draft.firn.applied === "yes",
+      value: draft.firn.applied === "yes" ? Number(draft.firn.value.replace(",", ".")) : null,
+    },
     files: files.map((f) => ({
       name: f.name,
       kind: f.kind,
@@ -1193,6 +1210,7 @@ async function devFill() {
   draft.contributor = { ...draft.contributor, ...fake.contributor };
   draft.licence = fake.licence === true || fake.licence === "yes" ? "yes" : "";
   draft.notes = fake.notes;
+  if (fake.firn) draft.firn = { ...draft.firn, ...fake.firn };
   for (const l of fake.layers)
     draft.ages[l.irh] = { age: String(l.age ?? ""), age_unc: String(l.age_unc ?? ""), dating_method: l.dating_method ?? "ice-core" };
   save();

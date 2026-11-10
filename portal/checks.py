@@ -230,6 +230,8 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     for radar in (record.get("survey") or {}).get("radar_instruments") or []:
         if not ((record.get("survey") or {}).get("platforms") or {}).get(radar):
             report.errors.append(f"Radar {radar}: no platform, airborne or ground-based")
+    if not record.get("firn_correction"):
+        report.errors.append("Not said whether the depths include a firn correction")
     known = json.loads(files("anta_database.data").joinpath("chronologies.json").read_text())
     for layer in record.get("layers") or []:
         core, chronology = (layer.get("ice_core") or "").strip(), (layer.get("chronology") or "").strip()

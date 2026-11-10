@@ -195,6 +195,7 @@ def form_data(path: str, lines: list[xr.Dataset]) -> dict:
                    "radar_instruments": listed(md.get("radar instrument")),
                    "acquisition_year": str(md.get("acquisition year") or "")},
         "layers": [{"irh": irh, "age": age, "age_unc": unc, "dating_method": "ice-core"} for irh, (age, unc) in all_irhs(lines).items()],
+        "firn": {"applied": "yes", "value": "10"},
         "nodata": str(NODATA),
         "notes": "Fake submission made from Chung_2023 by portal/dev/make_fake_data.py",
     }
