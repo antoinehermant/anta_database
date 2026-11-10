@@ -110,6 +110,7 @@ For depths without the firn correction, as Cavitte_2020 (only the IRH depths: it
 | `firn_correction_vars` | `["IRH_DEPTH", "ICE_THK"]` by default. Elevations are never changed |
 | `line_ids` | `"dataset"`: the raw files have no line IDs, so the lines are named after the dataset |
 | `split_at_jump_km` | Cut each file of the line structure where two consecutive points are further apart than this. The lines are then named `Dataset_1`, `Dataset_2`... |
+| `same_trace_within_m` | With one file per layer: a point of a file this close to a point of another file (each the nearest of the other) is the same trace, given with other coordinates, and takes theirs |
 | `note` | Anything else to report |
 
 The arguments `wave_speed` and `firn_correction` of `CompileDatabase` still exist, and take over the settings.

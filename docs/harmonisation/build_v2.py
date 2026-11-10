@@ -65,8 +65,12 @@ SETTINGS = {
     },
     "Bodart_2021": {
         "drop_vars": {"R2_OIB_20181022_01.csv": ["ICE_THK"], "R3_OIB_20181022_01.csv": ["ICE_THK"]},
+        # R3 and R4 of flight 20161109_03 give some traces of R2 with X/Y 1 mm to 1 m off (traces 15 m apart)
+        "same_trace_within_m": 1.0,
         "note": "Ice thickness of R2_OIB_20181022_01.csv and R3_OIB_20181022_01.csv left out: it repeats the same "
-        "value at almost every point and is about 400 m below Bedmap3 (median), unlike the other files.",
+        "value at almost every point and is about 400 m below Bedmap3 (median), unlike the other files. "
+        "Points of the layer files less than 1 m apart taken as the same trace: in flight 20161109_03 the files "
+        "give some traces with coordinates 1 mm to 1 m apart.",
     },
     # One raw file of 9 lines without IDs, cut at the jumps as in v1, and named after Table 1 of the
     # article: the lines match it one to one by length and point spacing

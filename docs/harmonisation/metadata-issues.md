@@ -113,3 +113,9 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
       (median 2 m); where R1 keeps its thickness, Bedmap is identical (0.0 m), so the same traces. The lines cross
       themselves and each other at 213 points with a second Bedmap line within 50 m, but 29 m away against 2 m for
       the match, with 3-4 m of thickness difference: no wrong line taken, no need for a smaller distance.
+- [x] **Bodart_2021, the same traces with other coordinates** (found 2026-11-10, anta_json #5): in flight
+      20161109_03, `R3_` and `R4_OIB_20161109_03.csv` give some traces of `R2_` with X/Y 1 mm (rounding) to
+      1 m off (traces 15 m apart), so they became two points with some of the layers each (493 pairs on line
+      `20161109_03_026_049`). **Fixed for v2:** compile setting `same_trace_within_m` = 1 for Bodart_2021: 491
+      points fewer, every layer with the same values. No other dataset has such pairs. `R4_OIB_20161109_03.csv`
+      also has `Lon` and `Lat` swapped (not used: the positions come from X/Y).

@@ -16,6 +16,7 @@ from typing import Union, Optional
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from importlib.resources import files
+from scipy.spatial import cKDTree
 
 from anta_database.compiling.lines import order_line, path_length, split_into_lines
 from anta_database.netcdf import SOURCE_VARIABLES, SOURCES, source_attrs, write
@@ -38,6 +39,9 @@ OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
 #                          are put in order and cut into lines at larger gaps (lines.py)
 #   drop_vars              {raw file: [variables]}: values of these files left out (found wrong),
 #                          the reason in "note"
+#   same_trace_within_m    m: with one file per layer, a point of a file this close to a point of
+#                          the files before (each the nearest of the other) is the same trace,
+#                          given in another file with other coordinates: it takes theirs
 #   note                   anything else to report
 SETTINGS_FILE = "compile_settings.json"
 DEPTH_VARS = ["IRH_DEPTH", "ICE_THK"]
@@ -798,6 +802,25 @@ class CompileDatabase:
             return []
         return list(ast.literal_eval(str(trace_md.iloc[0]["platform"])))
 
+    @staticmethod
+    def _same_trace(df: pd.DataFrame, known: np.ndarray, within: float) -> tuple[pd.DataFrame, np.ndarray]:
+        """The points of df within `within` m of a point of known (the points of the files before),
+        each the nearest of the other, moved onto it; and known with the points of df."""
+        xy = df[["PSX", "PSY"]].to_numpy(dtype=float, copy=True)
+        finite = np.flatnonzero(np.isfinite(xy).all(axis=1))
+        if len(known) and len(finite):
+            dist, near = cKDTree(known).query(xy[finite], distance_upper_bound=within)
+            close = (dist > 0) & np.isfinite(dist)
+            # Not onto a point that df has already, nor two points of df onto one
+            back = cKDTree(xy[finite]).query(known[near[close]])[1]
+            mine = finite[close][back == np.flatnonzero(close)]
+            target = known[near[close][back == np.flatnonzero(close)]]
+            df = df.copy()
+            df.loc[df.index[mine], "PSX"], df.loc[df.index[mine], "PSY"] = target[:, 0], target[:, 1]
+            xy[mine] = target
+        known = np.unique(np.vstack([known, xy[finite]]), axis=0)
+        return df, known
+
     def combine_dfs(self, trace_dir: str) -> None:
         # Sorted: the order of the points must not change from one compilation to the next
         files = sorted(glob.glob(f"{trace_dir}/*.pkl"))
@@ -805,10 +828,14 @@ class CompileDatabase:
             return
 
         split_km = self._split_km(trace_dir)
+        same_trace = self._settings(os.path.dirname(os.path.dirname(trace_dir))).get("same_trace_within_m")
         dfs_prep = []
         if len(files) > 1:
+            known = np.empty((0, 2))
             for f in files:
                 df = pd.read_pickle(f)
+                if same_trace:
+                    df, known = self._same_trace(df, known, same_trace)
                 df = df.set_index(["PSX", "PSY"])
                 df = df[~df.index.duplicated(keep="first")]
                 _, f_name = os.path.split(f)
