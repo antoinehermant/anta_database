@@ -26,7 +26,7 @@ import { PivotField } from "./pivot";
 import { BED_STOPS, SPEED, ticks } from "./colormaps";
 import { Legend } from "./legend";
 import { KeyNavigation } from "./keys";
-import { EGGS_HINT, EggCounter } from "./eggcounter";
+import { EggCounter } from "./eggcounter";
 import { EasterEggs } from "./eggs";
 import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
@@ -1638,8 +1638,8 @@ function buildFilters(index: IrhIndex): void {
 }
 
 // Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
-if (!SUBMISSION) {
-  const bedmapFolder = gui.addFolder("Bedmap survey lines");
+const bedmapFolder = SUBMISSION ? null : gui.addFolder("Bedmap survey lines");
+if (bedmapFolder) {
   bedmapFolder.add(settings, "bedmapTracks").name("Surface tracks").onChange(showBedmap);
   bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
   for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
@@ -1785,17 +1785,31 @@ const tutorial = new Tutorial([
       openInMenu(filters)();
     },
   },
-  // Not in a private preview, which has no eggs
-  ...(SUBMISSION
-    ? []
-    : [
+  // Not in a private preview, which only shows its dataset
+  ...(bedmapFolder
+    ? [
         {
-          title: "Find the eggs!",
-          text: EGGS_HINT,
-          target: () => eggCounter?.el,
-          prepare: () => resetView(),
+          title: "Bedmap survey lines",
+          text:
+            "The radar data of Antarctica go far beyond the isochrones traced so far. Show the **Bedmap survey " +
+            "lines** to see where radar surveys flew, and the bed they measured along their way: the lines with no " +
+            "isochrone yet are radar data still waiting to be traced.",
+          target: () => bedmapFolder.domElement,
+          prepare: () => {
+            tourView();
+            openInMenu(bedmapFolder)();
+          },
         },
-      ]),
+      ]
+    : []),
+  {
+    title: "Let's go!",
+    text: SUBMISSION
+      ? "That's all. Explore your isochrones, and see how they fit with the bed and the other layers."
+      : "That's all. Now fly over Antarctica, dive under the ice and explore its layers: there is a lot to discover.",
+    tip: "The tour can be found again in the menu, under Tutorial.",
+    prepare: tourView,
+  },
 ]);
 
 // Start: quick preview, then the detailed terrain of the layers shown
