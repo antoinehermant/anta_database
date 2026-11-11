@@ -564,36 +564,73 @@ N2 and N3 don't depend on the metadata, so they can start while Julien reviews.
 
 ### Other v2 items
 
-- **IMBIE basins with common names.** The files, the index and `query(IMBIE_basin=...)` use the IMBIE codes
-  (`Jpp-K`, `Cp-D`...), which few users know. Show and accept common names instead (keeping the codes as
-  aliases). A first draft from the position of each basin, **to check against the literature** (Rignot et al.,
-  2019; Mouginot et al., 2017) before use:
+- **Regions: one `region` argument for ice sheets, IMBIE basins and regions of interest** (*Agreed*
+  2026-11-11, details to settle; anta_database issue #1). Today `query(region=...)` only knows
+  EAIS/WAIS/APIS, and `query(IMBIE_basin=...)` the IMBIE codes (`Jpp-K`, `Cp-D`...), which few users know.
 
-  | Code | Region | Draft name |
+  **What the user does:**
+  ```python
+  db.query(region="DC")             # Dome C, by its short name
+  db.query(region="Dome C")         # the same, by its name (case-insensitive)
+  db.query(region=["WSB", "EAST"])  # several, of any kind: lines in any of them
+  db.regions()                      # the table of valid names: short name, name, kind, aliases
+  ```
+  An unknown name raises an error that lists the valid regions (short and full names).
+
+  **The list, in the package** (`anta_database/data/regions.json`, one entry per region): a short name
+  (the key), the full name, the kind, aliases (accepted in queries), and how it is defined. Three kinds:
+
+  | Kind | Examples (short name: name) | Defined by |
   |---|---|---|
-  | K-A | EAIS | Coats Land (Brunt, Stancomb-Wills) |
-  | A-Ap | EAIS | Dronning Maud Land |
-  | Ap-B | EAIS | Enderby Land |
-  | B-C | EAIS | Lambert Glacier - Amery Ice Shelf |
-  | C-Cp | EAIS | Queen Mary Land, Wilhelm II Land (Denman, Shackleton) |
-  | Cp-D | EAIS | Wilkes Land, Aurora Subglacial Basin (Totten) |
-  | D-Dp | EAIS | George V Land, Wilkes Subglacial Basin |
-  | Dp-E | EAIS | Victoria Land |
-  | E-Ep | EAIS | Ross Ice Shelf, East Antarctic side (Transantarctic outlets) |
-  | Jpp-K | EAIS | Filchner Ice Shelf (Recovery, Support Force, Foundation) |
-  | Ep-F | WAIS | Siple Coast (Ross ice streams) |
-  | F-G | WAIS | Marie Byrd Land (Getz) |
-  | G-H | WAIS | Amundsen Sea Embayment (Pine Island, Thwaites) |
-  | H-Hp | WAIS | Bellingshausen Sea (Abbot, Venable) |
-  | J-Jpp | WAIS | Ronne Ice Shelf (Rutford, Institute, Evans) |
-  | Hp-I | APIS | Palmer Land, George VI Ice Shelf |
-  | I-Ipp | APIS | northern Antarctic Peninsula |
-  | Ipp-J | APIS | eastern Palmer Land, Larsen C and D |
-  | Islands | | Ice rises and islands |
+  | Ice sheet | `EAST`: East Antarctica (EAIS), `WEST`: West Antarctica (WAIS), `AP`: Antarctic Peninsula (APIS) | The IMBIE regions |
+  | Basin | the 18 IMBIE basins, each with a short name (draft below), the code as an alias | The IMBIE polygons |
+  | Region of interest | `DC`: Dome C, `DA`: Dome A, `DF`: Dome Fuji, `RB`: Ridge B, `VK`: Vostok, `EDML`: Kohnen/EDML, `TD`: Talos Dome, `SP`: South Pole, `WD`: WAIS Divide, `ASB`: Aurora Subglacial Basin, `WSB`: Wilkes Subglacial Basin, `GSM`: Gamburtsev Subglacial Mountains, `SIR`: Skytrain Ice Rise... | Polygons in the package (below) |
 
-  Names of places inside a basin (Dome C, Dome Fuji, ASB, WSB) are better a separate list of regions of
-  interest than basin names, since they don't follow the basin limits. The viewer, the download page and the
-  docs show the same names.
+  Draft short names of the IMBIE basins, **to check against the literature** (Rignot et al., 2019;
+  Mouginot et al., 2017):
+
+  | Code | Short | Name |
+  |---|---|---|
+  | K-A | CL | Coats Land (Brunt, Stancomb-Wills) |
+  | A-Ap | DML | Dronning Maud Land |
+  | Ap-B | EL | Enderby Land |
+  | B-C | LAS | Lambert Glacier - Amery Ice Shelf |
+  | C-Cp | QML | Queen Mary Land, Wilhelm II Land (Denman, Shackleton) |
+  | Cp-D | WL | Wilkes Land (Totten, Moscow University) |
+  | D-Dp | GVL | George V Land (Cook, Ninnis, Mertz) |
+  | Dp-E | VL | Victoria Land |
+  | E-Ep | TAM | Transantarctic Mountains outlets to the Ross Ice Shelf (Byrd, Beardmore) |
+  | Jpp-K | FIS | Filchner Ice Shelf (Recovery, Support Force, Foundation) |
+  | Ep-F | SC | Siple Coast (Ross ice streams) |
+  | F-G | MBL | Marie Byrd Land (Getz) |
+  | G-H | ASE | Amundsen Sea Embayment (Pine Island, Thwaites) |
+  | H-Hp | BS | Bellingshausen Sea (Abbot, Venable) |
+  | J-Jpp | RIS | Ronne Ice Shelf (Rutford, Institute, Evans) |
+  | Hp-I | PL | Palmer Land, George VI Ice Shelf |
+  | I-Ipp | NAP | northern Antarctic Peninsula |
+  | Ipp-J | LIS | Larsen Ice Shelf side of the Peninsula |
+
+  Wilkes Land (`WL`, Cp-D) and the Wilkes Subglacial Basin (`WSB`, mostly in D-Dp) are different places:
+  the docs should say so.
+
+  **In the files:** an attribute `regions`, the list of every region the line enters, of all kinds, e.g.
+  `["EAST", "WL", "ASB", "DC"]`, assigned like the IMBIE basins today (a line is in a region when one of its
+  points is). The current `IMBIE_basins` attribute (`{"Cp-D": "EAIS"}`) is replaced, or kept for v1 only.
+  The index gets one regions table (short name, name, kind) and one link table, so that a query by any
+  name, of any kind, finds the line.
+
+  **Assigning without recompiling:** a function `assign_regions(nc_files)` (a step of compile, like
+  `compute_imbie_basins`, and callable on its own) writes the attribute in place, then the index is
+  rebuilt. It runs on the v2 build, and again whenever a region is added to the list.
+
+  **To decide:**
+  - How each region of interest is drawn: an outline from the literature where one exists (subglacial
+    basins, e.g. from the bed topography), else a circle around the site (which radius: 100 km? per site?),
+    or a polygon drawn by hand. The polygons go in the package as GeoParquet, next to the IMBIE basins, with
+    their source.
+  - The final list of regions of interest, and their short names.
+  - Whether `IMBIE_basin=` stays as a deprecated alias of `region=` in the package, for old scripts.
+  - The viewer's filters, the download page and the docs use the same short names.
 
 **The order, and why:** the harmonisation decides what the files must hold, so the format is changed once, after it
 (section 9). Original layers and ages are never touched, so **a layer that can't be matched with confidence stays its own
@@ -742,7 +779,7 @@ parameters don't explain the offsets between datasets, so level 1 is only built 
 | 2026-11-11 | D3: submissions wait for v2, nothing more is published to `v1/` (accept on hold in `anta-review`) | Agreed |
 | 2026-11-11 | D4: `BASAL_UNIT` stays an undated variable | Agreed |
 | 2026-11-11 | D5: the common depth reference is chosen only after the test of 2.4 | Agreed |
-| 2026-11-11 | IMBIE basins shown and queried with common names (section 8, other v2 items) | Agreed, names to settle |
+| 2026-11-11 | One `region` query argument for ice sheets, IMBIE basins (short names) and regions of interest (DC, WSB...); `regions` attribute in the files (section 8, other v2 items) | Agreed, list and outlines to settle |
 
 ## 10. Chronology files (2026-11-01)
 
