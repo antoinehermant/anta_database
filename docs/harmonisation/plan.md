@@ -565,7 +565,7 @@ N2 and N3 don't depend on the metadata, so they can start while Julien reviews.
 ### Other v2 items
 
 - **Regions: one `region` argument for ice sheets, IMBIE basins and regions of interest** (*Agreed*
-  2026-11-11, details to settle; anta_database issue #1). Today `query(region=...)` only knows
+  2026-11-11, details to settle; anta_json issue #8). Today `query(region=...)` only knows
   EAIS/WAIS/APIS, and `query(IMBIE_basin=...)` the IMBIE codes (`Jpp-K`, `Cp-D`...), which few users know.
 
   **What the user does:**
