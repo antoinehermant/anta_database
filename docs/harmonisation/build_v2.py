@@ -80,7 +80,7 @@ SETTINGS = {
         "line_names": {
             "Leysinger_Vieli_2011_1": "108", "Leysinger_Vieli_2011_2": "110", "Leysinger_Vieli_2011_3": "136a",
             "Leysinger_Vieli_2011_4": "102", "Leysinger_Vieli_2011_5": "121", "Leysinger_Vieli_2011_6": "123",
-            "Leysinger_Vieli_2011_7": "133", "Leysinger_Vieli_2011_8": "009b", "Leysinger_Vieli_2011_9": "134",
+            "Leysinger_Vieli_2011_7": "133", "Leysinger_Vieli_2011_8": "009", "Leysinger_Vieli_2011_9": "134",
         },
         "note": "The raw file has no line IDs: lines cut where consecutive points are more than 50 km apart, and "
         "named after Table 1 of Leysinger Vieli et al. (2011), which they match by length and point spacing.",
