@@ -79,6 +79,7 @@ const GRID_SURFACE = 1;
 const GRID_THICKNESS = 2;
 const GRID_BED = 4;
 const GRID_NOTE = "From the Bedmap3 grid (500 m): not measured on this line.";
+const GRID_LABEL = "Bedmap3 grid";
 const MARGIN = { left: 60, right: 14, top: 12, bottom: 38 };
 const BED_FILL = "#8a6a4b";
 const BED_LINE = "#5b4430";
@@ -663,6 +664,7 @@ export class ProfilePanel {
       ctx.fill();
     }
     // Bed, filled down to the bottom of the plot; hatched and dashed where from the Bedmap3 grid
+    const gridPieces: [number, number][] = [];
     for (const [a, b, grid] of pieces(bed)) {
       ctx.beginPath();
       path(bed, a, b);
@@ -678,7 +680,23 @@ export class ProfilePanel {
       ctx.setLineDash(grid ? GRID_DASH : []);
       ctx.stroke();
       ctx.setLineDash([]);
+      if (grid) gridPieces.push([px(sampleDistance(a)), px(sampleDistance(b))]);
     }
+    // Over the hatched bed, at the bottom: where it comes from, where there is room
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    for (const [x0, x1] of gridPieces) {
+      const left = Math.max(x0, area.left);
+      const right = Math.min(x1, area.left + area.width);
+      if (right - left < ctx.measureText(GRID_LABEL).width + 12) continue;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = BED_LINE;
+      ctx.strokeText(GRID_LABEL, (left + right) / 2, bottom - 5);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(GRID_LABEL, (left + right) / 2, bottom - 5);
+    }
+    ctx.font = "12px system-ui, sans-serif";
     const stroke = (series: Series, color: string, width: number) => {
       for (const dashed of [false, true]) {
         ctx.beginPath();
@@ -721,28 +739,6 @@ export class ProfilePanel {
       }
     }
     ctx.restore();
-
-    // Legend of the Bedmap3 grid, when the line has some
-    if (this.hasGrid) {
-      const label = "Bedmap3 grid, not measured";
-      const w = ctx.measureText(label).width;
-      const x = area.left + area.width - w - 34;
-      const y = area.top + 12;
-      ctx.fillStyle = this.hatchPattern(ctx);
-      ctx.fillRect(x, y - 6, 22, 12);
-      ctx.strokeStyle = BED_LINE;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash(GRID_DASH);
-      ctx.beginPath();
-      ctx.moveTo(x, y - 6);
-      ctx.lineTo(x + 22, y - 6);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = text;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(label, x + 28, y);
-    }
 
     // Labels
     ctx.fillStyle = text;
