@@ -323,7 +323,7 @@ Needed first, because radar reaches these cores (section 1.4). The status is wha
 | Vostok | AICC2023 | 408 ka | **Have** |
 | WAIS Divide | WD2014 (Buizert et al., 2015; Sigl et al., 2016) | 68 ka | **Have, to check:** `WDC2014_buizertsigl.tab` has exactly 65,535 rows and stops at 65.5 ka, which looks cut by a spreadsheet limit |
 | WAIS Divide ↔ EDC | correspondence WD2014, AICC2012, AICC2023 | | **Have:** `WDC_EDC_chronology.tab` |
-| Dome Fuji | DF2021 (Oyabu et al., 2022, CC-BY) | 207 ka | To fetch: NIPR ADS, 10.17592/001.2022061303. Older part: DFO-2006+AICC2012 |
+| Dome Fuji | DF2021 (Oyabu et al., 2022, CC-BY) | 207 ka | **Have:** `~/data/ice_core_chronologies/DF2021/` (NIPR ADS, 10.17592/001.2022061303). Older part: DFO-2006+AICC2012 |
 | South Pole | SP19 (Winski et al., 2019) | 54 ka | To fetch: USAP-DC 601206 |
 | Little Dome C | none published | | *Agreed:* use EDC through the radar |
 | Byrd | no recent chronology found; Muldoon et al. (2018) use their own Bayesian one | | *Proposed:* do without it, using WD2014 through the radar |
@@ -517,8 +517,83 @@ leaves room for a later breaking change. The manifest lists it apart, so `sync()
 
 ## 8. The plan
 
-Updated 2026-11-02. Who: **A** = Antoine, **C** = Claude. All work is on `harmonisation` (currently level with
-an older `main`: 0 commits of its own, 9 behind). Nothing goes online before phase 4.
+Updated 2026-11-11 (first written 2026-11-02). Who: **A** = Antoine, **C** = Claude. The work is on `main`; the
+`harmonisation` branch is stale (7 commits behind, none of its own) and can be deleted.
+
+### State on 2026-11-11: the v2 inputs exist
+
+Since 2026-11-02 the plan's input changed: phase 2 no longer starts from the published v1, but from the **v2
+build**, compiled from the raw files.
+- **v2 build** in `~/data/isochrones/AntADatabase-v2-build`, by `build_v2.py` from anta_json `main` (59cafd3):
+  raw_md with the dating fields (`dating method`, `ice core`, `chronology`) and the firn fields per layer,
+  missing thickness, bed and surface filled from the Bedmap survey points (`*_SOURCE`, `BEDMAP_POINT_DIST`), the
+  Bodart_2021 split traces merged (anta_json #5), the out-of-order lines reordered (#6). `compare_v2.py` explains
+  every difference with v1. Shown in `/viewer-dev/` (hidden), its processing page in `/processing/`.
+- **Open in anta_json:** #1 (Bodart_2025a, chronology at Dome Fuji), #2 (Leysinger_Vieli_2011, dating per line),
+  #3 (Napoleoni_2026, out of v2 until resubmitted), #4 (Winter_2018, 25 lines without a Bedmap thickness), #6 and
+  #7 (ordering of lines that turn back on themselves).
+- **Dating metadata still missing** (raw_md.json of anta_json main):
+
+  | Missing | Datasets |
+  |---|---|
+  | `ice core` | Bodart_2025a (#1), Bodart_2025b, Leysinger_Vieli_2011 (#2), Sanderson_2024, Winter_2018 |
+  | `chronology` | Bodart_2025a (#1), Leysinger_Vieli_2011 (#2), Muldoon_2023, Siegert_2004 |
+  | `firn correction applied` | Beem_2021, Jacobel_2005, Leysinger_Vieli_2011, Siegert_2004, Yan_2025 |
+  | `dating method` | Chung_2023 (2 IRHs), Mulvaney_2023 (1 IRH) |
+
+  Ashmore_2020 is modelled, so it needs no core. **Julien is reviewing these fields: wait for his push.**
+- **Metadata changes after the review need no recompilation.** The values of the files don't change: set the new
+  attributes in the `.nc` files of the dataset (from the new raw_md.json), rebuild the index, compare, then publish.
+  To do with a small script (`update_metadata.py`, from raw_md.json to the attributes of the files, with a dry run
+  listing the changes), so that it can be rerun after each push.
+- **Chronologies:** AICC2023, WD2014, SP19 and DF2021 in hand (section 10).
+
+### Next steps, in order
+
+| # | Step | Who | Needs |
+|---|---|---|---|
+| N1 | Julien's review of the dating fields, then `update_metadata.py` on the v2 build, reindex | J, then C | His push |
+| N2 | Port `explore.py` and `check_depth_correction.py` to the `.nc` files of the v2 build (1.2) | C | Nothing |
+| N3 | Segments, clusters of crossovers and coincident tracks on the v2 build (2.1): analysis only, writes tables | C | N2 |
+| N4 | Tie depths at the cores from the papers (3.1), for the chronology update | A, C | N1 |
+| N5 | Chronology update (2.2, level 1 of 4.5): the first table of age changes | C | N1, N4 |
+| N6 | Matching, horizons, review, dating, validation (2.3 to 2.7) | C, **A decides** | N3, N5 |
+| N7 | ~~Decisions D1 to D5 (8b)~~ Taken 2026-11-11 | A | Done |
+
+N2 and N3 don't depend on the metadata, so they can start while Julien reviews.
+
+### Other v2 items
+
+- **IMBIE basins with common names.** The files, the index and `query(IMBIE_basin=...)` use the IMBIE codes
+  (`Jpp-K`, `Cp-D`...), which few users know. Show and accept common names instead (keeping the codes as
+  aliases). A first draft from the position of each basin, **to check against the literature** (Rignot et al.,
+  2019; Mouginot et al., 2017) before use:
+
+  | Code | Region | Draft name |
+  |---|---|---|
+  | K-A | EAIS | Coats Land (Brunt, Stancomb-Wills) |
+  | A-Ap | EAIS | Dronning Maud Land |
+  | Ap-B | EAIS | Enderby Land |
+  | B-C | EAIS | Lambert Glacier - Amery Ice Shelf |
+  | C-Cp | EAIS | Queen Mary Land, Wilhelm II Land (Denman, Shackleton) |
+  | Cp-D | EAIS | Wilkes Land, Aurora Subglacial Basin (Totten) |
+  | D-Dp | EAIS | George V Land, Wilkes Subglacial Basin |
+  | Dp-E | EAIS | Victoria Land |
+  | E-Ep | EAIS | Ross Ice Shelf, East Antarctic side (Transantarctic outlets) |
+  | Jpp-K | EAIS | Filchner Ice Shelf (Recovery, Support Force, Foundation) |
+  | Ep-F | WAIS | Siple Coast (Ross ice streams) |
+  | F-G | WAIS | Marie Byrd Land (Getz) |
+  | G-H | WAIS | Amundsen Sea Embayment (Pine Island, Thwaites) |
+  | H-Hp | WAIS | Bellingshausen Sea (Abbot, Venable) |
+  | J-Jpp | WAIS | Ronne Ice Shelf (Rutford, Institute, Evans) |
+  | Hp-I | APIS | Palmer Land, George VI Ice Shelf |
+  | I-Ipp | APIS | northern Antarctic Peninsula |
+  | Ipp-J | APIS | eastern Palmer Land, Larsen C and D |
+  | Islands | | Ice rises and islands |
+
+  Names of places inside a basin (Dome C, Dome Fuji, ASB, WSB) are better a separate list of regions of
+  interest than basin names, since they don't follow the basin limits. The viewer, the download page and the
+  docs show the same names.
 
 **The order, and why:** the harmonisation decides what the files must hold, so the format is changed once, after it
 (section 9). Original layers and ages are never touched, so **a layer that can't be matched with confidence stays its own
@@ -533,8 +608,8 @@ v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A)
 
 | # | Step | Who | Status |
 |---|---|---|---|
-| 1.1 | Merge `main` into `harmonisation`; freeze the input: a read-only copy of the published v1, with its `db_version` recorded | C | To do |
-| 1.2 | Port `explore.py` and `check_depth_correction.py` to the `.nc` files and rerun them: the figures of section 1 predate the 1,014 lines | C | To do |
+| 1.1 | ~~Merge `main` into `harmonisation`; freeze the published v1~~ The input is the v2 build (state above); freeze it for the final run only | C | Replaced |
+| 1.2 | Port `explore.py` and `check_depth_correction.py` to the `.nc` files of the v2 build and rerun them: the figures of section 1 predate the 1,014 lines | C | To do (N2) |
 | 1.3 | Dataset table `datasets_methods.csv`: check every row, add the missing papers | **A** | Draft (15 of 18 read) |
 | 1.4 | Which raw files have travel times | A | To do |
 | 1.5 | Chronologies in `chronologies/`, precise core positions, licences | C collects, A checks | Tables fetched (section 10), positions and licences to do |
@@ -590,7 +665,7 @@ v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A)
 - **S4. No single age scale across the continent.** The East is on AICC2023; the West is probably a separate network on WD2014. The published WD2014-AICC2023
   table only covers 10 to 57 ka, while WD2014 goes to 67.75 ka. Horizons with no core connection keep older published scales, or model ages (Napoleoni).
   Each age must state its scale, and comparing ages across scales needs care.
-- **S5. Dome Fuji.** DF2021 is still unavailable (the NIPR site returned 503 on 2026-11-02) and only reaches 207 ka. Until then: AICC2012 from Uemura et al. (2018), an older
+- **S5. Dome Fuji.** DF2021 is fetched since 2026-11-10, but only reaches 207 ka. Until then: AICC2012 from Uemura et al. (2018), an older
   scale than the other cores, and a source of false disagreement between cores.
 - **S6. Uncertainties.** AICC2023 errors between cores are correlated, and `sigma_offset` depends on the matching. Their definitions differ between papers, and some layers have none
   (Beem_2021, Leysinger_Vieli_2011). The harmonised uncertainty needs one definition, stated in the paper.
@@ -620,15 +695,21 @@ v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A)
 - **T9. Lines with turns.** One line of a survey can hold several straight profiles joined at turns: `Davis_2026_15` is one 241 km line of that kind, and
   other datasets have the same issue. Not handled for now, as there is no agreed rule for what makes a separate profile. The harmonisation's `segment` level (section 5) is the natural place to solve it.
 
-### Decisions needed from A
+### Decisions from A (taken 2026-11-11)
 
-| # | Question | Recommendation |
-|---|---|---|
-| D1 | Address and schema number of the new data | Keep the name `v2/`, with `schema_version` 3 in its manifest (`v{SCHEMA_VERSION}` is split into two constants). Old packages then get the upgrade message. The alternative, using `v3/`, needs no code but drops the agreed name |
-| D2 | What happens to `v1/` after v2 | Frozen and online, so 0.6.2 and 0.6.3 keep working. No new datasets there |
-| D3 | Submissions during the harmonisation | Keep accepting them, published to v1; each new one is added at the next rerun of phase 2. Freeze the input only for the final run |
-| D4 | `BASAL_UNIT` as an undated IRH, and undated layers | Decide now, since the format changes once. Allow horizons without an age in the schema either way; moving `BASAL_UNIT` could still wait, as it isn't needed for the harmonisation, but later it takes another schema change |
-| D5 | The common depth reference: 168.5 m/us and GSFC-FDM (3.2b) | Decide only after 2.4: without a go, level 1 isn't built and the 8 GB download isn't needed |
+| # | Question | Recommendation | Decision |
+|---|---|---|---|
+| D1 | Address and schema number of the new data | Keep the name `v2/`, with `schema_version` 3 in its manifest (`v{SCHEMA_VERSION}` is split into two constants). Old packages then get the upgrade message. The alternative, using `v3/`, needs no code but drops the agreed name | Keep `v2/`, with `schema_version` 3 in its manifest, as recommended. No `v3/` |
+| D2 | What happens to `v1/` after v2 | Frozen and online, so 0.6.2 and 0.6.3 keep working. No new datasets there | `v1/` stays frozen and online |
+| D3 | Submissions during the harmonisation | Keep accepting them, published to v1; each new one is added at the next rerun of phase 2. Freeze the input only for the final run | Submissions are received and compiled as now, but **not published to v1**: they wait for v2 and are added to it. `v1/` is never touched again. Until v2, `anta-review accept` and `remove` only publish with `--test` |
+| D4 | `BASAL_UNIT` as an undated IRH, and undated layers | Decide now, since the format changes once. Allow horizons without an age in the schema either way; moving `BASAL_UNIT` could still wait, as it isn't needed for the harmonisation, but later it takes another schema change | `BASAL_UNIT` stays as it is: an undated variable, like `ICE_THK`. Given as a layer file, the portal asks no age for it |
+| D5 | The common depth reference: 168.5 m/us and GSFC-FDM (3.2b) | Decide only after 2.4: without a go, level 1 isn't built and the 8 GB download isn't needed | Not needed now: it only matters if the test of 2.4 is a go (see the note below the table) |
+
+**D5, the common depth reference:** the datasets convert travel time to depth with different wave speeds
+(167 to 169.5 m/us) and firn corrections (none, a constant, or a model). Level 1 of 3.2 would recompute every
+depth with one wave speed and one firn model, into `IRH_DEPTH_H`. The test of 2026-11-01 found that these
+parameters don't explain the offsets between datasets, so level 1 is only built if the test on matched horizons
+(2.4) is a go. Only then are the wave speed and the firn model chosen.
 
 ---
 
@@ -656,6 +737,12 @@ v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A)
 | 2026-11-01 | Apparently duplicated lines (Chung, Mulvaney...) stay as individual lines | Agreed |
 | 2026-11-01 | Cavitte `ICE_THK`, `BED_ELEV`: +14.6 m removed in v1 | Proposed, Antoine to confirm |
 | 2026-11-01 | Harmonise on the current files first, format changed once | Agreed |
+| 2026-11-11 | D1: `v2/` with `schema_version` 3 in its manifest | Agreed |
+| 2026-11-11 | D2: `v1/` frozen and online | Agreed |
+| 2026-11-11 | D3: submissions wait for v2, nothing more is published to `v1/` (accept on hold in `anta-review`) | Agreed |
+| 2026-11-11 | D4: `BASAL_UNIT` stays an undated variable | Agreed |
+| 2026-11-11 | D5: the common depth reference is chosen only after the test of 2.4 | Agreed |
+| 2026-11-11 | IMBIE basins shown and queried with common names (section 8, other v2 items) | Agreed, names to settle |
 
 ## 10. Chronology files (2026-11-01)
 
@@ -667,7 +754,7 @@ In `~/data/ice_core_chronologies/` (fetched) and `~/data/AICC2023/`.
 | WAIS Divide | WD2014 | NOAA `wais-wd2014agemodel.txt` | 0 to 67.75 ka, 3404 m |
 | South Pole | SP19 | NOAA `sp19age.txt` (USAP-DC 601206) | 0 to 54.3 ka, 1751 m |
 | Dome Fuji | for now AICC2012, from Uemura et al. (2018), `~/data/ice_cores/isotopes/df/uemura_2018/` | NOAA study 23371 | 0 to 716 ka, 3028 m |
-| Dome Fuji, later | DF2021 | NIPR 10.17592/001.2022061303: **not fetched**, site in maintenance on 2026-11-01, no other copy found | 0 to 207 ka |
+| Dome Fuji | DF2021 | NIPR 10.17592/001.2022061303, fetched 2026-11-10: `DF2021/df2021_chronology.txt` (sheet 2 of `S3_DF2021_0-207kyr_BP.xlsx`, ages b1950) | 0 to 207 ka |
 
 **WD2014:** PANGAEA.902577 and `WDC2014_buizertsigl.tab` stop at 65.478 ka after exactly 65,535 rows at
 one per year, the limit of a 16-bit row count, not of the method. On those rows they equal the NOAA file,
@@ -682,6 +769,6 @@ the NOAA file within 0.5 year.
 **Licences to check before the chronologies go in the database:** USAP-DC lists SP19 as CC BY-NC.
 
 **Dome Fuji for now:** Uemura et al. (2018) give the depth on AICC2012, an older timescale than AICC2023 and not the
-DF2021 of the plan: replace it when NIPR is back, and mark the ages dated with it until then.
+DF2021 of the plan. DF2021 is now fetched: use it to 207 ka, and AICC2012 from Uemura et al. (2018) only below, marked as such.
 
 **`v2/manifest.json` in the bucket is not a database:** one file with `schema_version` 3 and no data, so that packages 0.6.0 and 0.6.1 are told to upgrade. Before publishing the real v2, settle D1 of section 8b: real data with schema 2 there would be accepted by those packages, which can't read it.
