@@ -37,6 +37,11 @@ fall in only **10,193 distinct 1 km cells**. Two causes:
   in Cavitte_2020, 9 % of Sanderson_2024 in Winter_2018, 6 % of Bodart_2021 in Muldoon_2023. Some file
   names are shared too (Cavitte/Mulvaney: 6, Bodart_2025a/Franke: 2).
 
+  **Close tracks are not the same data** (A, 2026-11-11): Chung_2023 and Mulvaney_2023 lie very close to each
+  other but are different datasets, and must never be treated as the same lines or merged. Their crossings
+  and close tracks are counted as crossovers like any other pair, grouped per cluster so that they do not
+  outweigh the rest.
+
 **Coincident tracks are the best comparison we have:** the same radar positions, thousands of
 points long, rather than one point per crossing. The matching must use both, and count crossovers per
 cluster, so one pair of lines cannot outweigh the rest.
@@ -553,14 +558,43 @@ build**, compiled from the raw files.
 | # | Step | Who | Needs |
 |---|---|---|---|
 | N1 | Julien's review of the dating fields, then `update_metadata.py` on the v2 build, reindex | J, then C | His push |
-| N2 | Port `explore.py` and `check_depth_correction.py` to the `.nc` files of the v2 build (1.2) | C | Nothing |
-| N3 | Segments, clusters of crossovers and coincident tracks on the v2 build (2.1): analysis only, writes tables | C | N2 |
+| N2 | ~~Port `explore.py` and `check_depth_correction.py` to the `.nc` files of the v2 build (1.2)~~ Done 2026-11-11 (below) | C | Done |
+| N3 | ~~Segments, clusters of crossovers and coincident tracks on the v2 build (2.1)~~ Done 2026-11-11 (below) | C | Done |
 | N4 | Tie depths at the cores from the papers (3.1), for the chronology update | A, C | N1 |
 | N5 | Chronology update (2.2, level 1 of 4.5): the first table of age changes | C | N1, N4 |
 | N6 | Matching, horizons, review, dating, validation (2.3 to 2.7) | C, **A decides** | N3, N5 |
 | N7 | ~~Decisions D1 to D5 (8b)~~ Taken 2026-11-11 | A | Done |
 
 N2 and N3 don't depend on the metadata, so they can start while Julien reviews.
+
+### N2 and N3 on the v2 build (2026-11-11)
+
+Scripts in this directory: `load.py` (the lines of the `.nc` files), `crossovers.py` (N3), then `explore.py`
+and `check_depth_correction.py` (N2). Output in `~/data/isochrones/harmonisation/AntADatabase-v2-build/`:
+`segments.csv`, `runs.csv`, `pairs.parquet`, `pair_depths.parquet`, `summary.md`, `irh_pairs.json`,
+`explore.txt`, `depth_correction.txt`. The whole chain takes about a minute.
+
+- **Where the lines meet:** 898 lines, 2,420 segments (cut at gaps over 2 km), over 32 pairs of datasets:
+  - 1,674 crossings, plus 25,138 more inside coincident tracks (left out: the track holds them);
+  - 307 coincident tracks, 18,485 km: a line of A within 100 m of lines of B for at least 1 km, short
+    stretches up to 250 m bridged (Chung's flights weave 6 to 100 m around Mulvaney's). Sampled every km;
+  - 1,894 clusters: each coincident track is one, and the crossings of one pair of lines chained within 2 km
+    are one. Every comparison is summarised per cluster first, so one shared flight counts once (S3).
+  - Largest: Franke x Winter 9,419 km coincident (100 tracks, the same AWI flights), Bodart_2025a x Franke
+    1,905 km, Bodart_2021 x Muldoon 1,487 km, Bodart_2025b x Winter 1,454 km, Sanderson x Winter 1,035 km.
+    Chung x Mulvaney: 128 km coincident, 15 clusters. They stay different data (decided 2026-11-11).
+- **Ice cores (explore.py):** as on 2026-11-01. Within 1 km: EDC, BELDC, Dome Fuji, Vostok, EDML, TALDICE,
+  SPICEcore, WDC, Byrd. None near Taylor Dome, Law Dome, Siple Dome, Skytrain, RICE, Fletcher, Berkner, JRI.
+- **Nearest-depth pairs (explore.py):** 2,315 pairs of layers seen together. Still fails at depth, as in
+  1.3: e.g. Cavitte (now without firn correction) vs Mulvaney is -9 m at 1,073 m but +22 to +35 m below
+  1,500 m, and Chung vs Mulvaney picks layers 22 ka apart below 2,000 m. The order-preserving matching (3.3)
+  is needed.
+- **Depth test (check_depth_correction.py):** 39 layer pairs in at least 3 clusters, with the firn correction
+  read from the files. Correlation of measured and predicted offsets +0.51 (-0.18 on 2026-11-01), but the median
+  |offset| only drops from 17.6 to 16.1 m: the published parameters still explain little. Left out because the
+  value of their firn correction is not known in v2 ("by the authors, value not known", it varies by site):
+  Winter, Bodart_2025a, Bodart_2025b, Muldoon; and Beem, Jacobel, Leysinger, Siegert, Yan (not known at all).
+  **For Julien's review:** a value per site, where the paper gives one.
 
 ### Other v2 items
 
@@ -772,6 +806,7 @@ parameters don't explain the offsets between datasets, so level 1 is only built 
 | 2026-11-01 | Lines without IDs: `<Dataset>`, or `<Dataset>_<n>` when cut at jumps; reported in the docs and the manuscript | Agreed |
 | 2026-11-01 | Attribute `processing` in the files, shown when one dataset is queried | Agreed |
 | 2026-11-01 | Apparently duplicated lines (Chung, Mulvaney...) stay as individual lines | Agreed |
+| 2026-11-11 | Chung and Mulvaney are different data, never merged; their crossovers count like any other pair's | Agreed |
 | 2026-11-01 | Cavitte `ICE_THK`, `BED_ELEV`: +14.6 m removed in v1 | Proposed, Antoine to confirm |
 | 2026-11-01 | Harmonise on the current files first, format changed once | Agreed |
 | 2026-11-11 | D1: `v2/` with `schema_version` 3 in its manifest | Agreed |
