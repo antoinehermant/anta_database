@@ -39,8 +39,10 @@ Output:
     {dataset}_track_runs.bin.gz  uint32 (track id, first vertex, vertex count) per run
     profiles/{dataset}/{n}.bin.gz  float32 profile of the n-th track of the dataset: rows of
                              (x km, y km, distance km, surface m, bed m, ice thickness m,
-                             depth m of each layer of tracks[].profile.layers), NaN where
-                             missing, and a row of NaN (but the distance) at each gap
+                             grid, depth m of each layer of tracks[].profile.layers), NaN
+                             where missing, and a row of NaN (but the distance) at each gap.
+                             grid: the values taken from the Bedmap3 grid at the point, not
+                             measured on the line (GRID_* bits; in bins, those of most points)
 """
 
 import argparse
@@ -60,6 +62,8 @@ FDEPTH_NODATA = 65535
 # Largest profile (float32, before gzip): about 2 MB to download, fast to draw in the browser
 PROFILE_MAX_BYTES = 4_000_000
 PROFILE_COLUMNS = ["x", "y", "distance", "surface", "bed", "thickness"]
+# Column grid of the isochrone profiles: bits of the values from the Bedmap3 grid
+GRID_SURFACE, GRID_THICKNESS, GRID_BED = 1, 2, 4
 
 
 class Bedmap3Surface:
@@ -262,9 +266,11 @@ def export_dataset(
             # Ice thickness: of the dataset, completed with Bedmap3
             thk = ds.ICE_THK.values.astype(np.float64) if "ICE_THK" in ds else np.full(len(x), np.nan)
             thickness_source = "ICE_THK" if "ICE_THK" in ds else "Bedmap3"
+            thk_grid = np.zeros(len(x), bool)
             if surface is not None and not np.isfinite(thk).all():
                 missing = ~np.isfinite(thk)
                 thk[missing] = surface.thickness(x[missing], y[missing])
+                thk_grid = missing & np.isfinite(thk)
             thk[thk <= 0] = np.nan
             step = np.concatenate([[0.0], np.hypot(np.diff(x), np.diff(y))])
             line_id = ds.attrs.get("line ID", os.path.splitext(os.path.basename(path))[0])
@@ -351,7 +357,7 @@ def export_dataset(
                     "surface": surface_source,
                     "profile": {
                         "file": f"profiles/{dataset}/{track_id}.bin.gz",
-                        "columns": PROFILE_COLUMNS,
+                        "columns": [*PROFILE_COLUMNS, "grid"],
                         "layers": layer_ids,
                         "bed": "BED_ELEV" if "BED_ELEV" in ds else "surface - thickness",
                         "thickness": thickness_source,
@@ -359,8 +365,16 @@ def export_dataset(
                 }
             )
             bed = ds.BED_ELEV.values.astype(np.float64) if "BED_ELEV" in ds else surf - thk
+            # Where the surface, thickness and bed come from the Bedmap3 grid, as 0/1 columns
+            # averaged like the others, then packed into the column grid
+            surf_grid = np.full(len(x), surface_source == "Bedmap3")
+            bed_grid = ("BED_ELEV" not in ds) & (surf_grid | thk_grid)
+            flags = np.column_stack([surf_grid, thk_grid, bed_grid]).astype(np.float64)
             distance = ds.Distance.values.astype(np.float64) if "Distance" in ds else np.cumsum(step)
-            rows, resolution = _profile(distance, np.column_stack([x, y, surf, bed, thk, *layer_depths]), max_gap)
+            rows, resolution = _profile(distance, np.column_stack([x, y, surf, bed, thk, flags, *layer_depths]), max_gap)
+            bits = rows[:, 6:9]
+            grid = np.where(np.isnan(bits[:, 0]), np.nan, (bits >= 0.5) @ np.array([GRID_SURFACE, GRID_THICKNESS, GRID_BED]))
+            rows = np.column_stack([rows[:, :6], grid, rows[:, 9:]]).astype(np.float32)
             tracks[-1]["profile"]["resolution"] = resolution
             profiles.append(rows)
             for run in line_runs:

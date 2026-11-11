@@ -19,7 +19,7 @@ import { fetchBytes } from "./terrain";
 
 export interface ProfileInfo {
   file: string;
-  columns: string[]; // x, y, distance, surface, bed, thickness; then one depth per layer
+  columns: string[]; // x, y, distance, surface, bed, thickness[, grid]; then one depth per layer
   layers: number[]; // feature ids
   bed: string; // "BED_ELEV" or "surface - thickness"
   thickness: string; // "ICE_THK" (completed with Bedmap3) or "Bedmap3"
@@ -74,9 +74,17 @@ type Mode = "Elevation" | "Depth";
 type Series = { kind: "layer"; index: number } | { kind: "surface" } | { kind: "bed" };
 
 const COLUMNS = 6; // x, y, distance, surface, bed, thickness
+// Bits of the column grid (anta_database.web.irh): values from the Bedmap3 grid, not measured on the line
+const GRID_SURFACE = 1;
+const GRID_THICKNESS = 2;
+const GRID_BED = 4;
+const GRID_NOTE = "From the Bedmap3 grid (500 m): not measured on this line.";
 const MARGIN = { left: 60, right: 14, top: 12, bottom: 38 };
 const BED_FILL = "#8a6a4b";
 const BED_LINE = "#5b4430";
+// Bed from the Bedmap3 grid: hatched and lighter, its line dashed
+const GRID_BED_FILL = "rgba(138, 106, 75, 0.35)";
+const GRID_DASH = [6, 4];
 const ICE_FILL = "rgba(160, 200, 235, 0.22)";
 const SURFACE_LINE = "#5d9fd6";
 const HOVER_PX = 10;
@@ -118,6 +126,10 @@ export class ProfilePanel {
   line: ProfileLine | null = null;
   private rows = new Float32Array(0);
   private width = COLUMNS; // values per row
+  private offset = COLUMNS; // column of the first layer
+  private gridColumn = -1; // column grid, -1 in older exports
+  private hatch: CanvasPattern | null = null;
+  private hasGrid = false; // whether the line has values from the Bedmap3 grid
   private layers: number[] = [];
   // Why the open line has no profile, or null
   private missing: string | null = null;
@@ -233,7 +245,10 @@ export class ProfilePanel {
     if (request !== this.request) return; // another line was opened meanwhile
     this.rows = rows;
     this.layers = line.profile.layers;
-    this.width = COLUMNS + this.layers.length;
+    this.offset = line.profile.columns.length;
+    this.gridColumn = line.profile.columns.indexOf("grid");
+    this.width = this.offset + this.layers.length;
+    this.hasGrid = this.anyGrid();
     const n = rows.length / this.width;
     this.full = [rows[2], rows[(n - 1) * this.width + 2]];
     this.view = [...this.full];
@@ -318,6 +333,14 @@ export class ProfilePanel {
       ["Surface", surface],
       ["Ice thickness", thickness],
       ["Bed", bed],
+      ...(this.hasGrid
+        ? [
+            [
+              "Bedmap3 grid",
+              "dashed lines and a hatched bed: values from the Bedmap3 grid (500 m), where the line has none of its own. They place the isochrones in elevation, but were not measured on this line.",
+            ] as [string, string],
+          ]
+        : []),
       ...(profile.layers.length ? [["Isochrones", "elevation = surface - IRH_DEPTH; depth = IRH_DEPTH"] as [string, string]] : []),
       ["Plot", "scroll to zoom along the line, drag to pan, double-click to see it all; on a touch screen, tap a line for its details. Long profiles are drawn with about two points per pixel: zoom in to see every point."],
     ];
@@ -391,7 +414,7 @@ export class ProfilePanel {
       if (!Number.isFinite(bed)) {
         let deepest = NaN;
         for (let k = 0; k < this.layers.length; k++) {
-          const depth = this.value(row, COLUMNS + k);
+          const depth = this.value(row, this.offset + k);
           if (Number.isFinite(depth) && !(depth <= deepest)) deepest = depth;
         }
         bed = surface - deepest;
@@ -428,8 +451,47 @@ export class ProfilePanel {
     const surface = this.value(row, 3);
     if (series.kind === "surface") return this.mode === "Elevation" ? surface : Number.isFinite(surface) ? 0 : NaN;
     if (series.kind === "bed") return this.mode === "Elevation" ? this.value(row, 4) : this.value(row, 5);
-    const depth = this.value(row, COLUMNS + series.index);
+    const depth = this.value(row, this.offset + series.index);
     return this.mode === "Elevation" ? surface - depth : depth;
+  }
+
+  /** Whether the value of a series at a row comes from the Bedmap3 grid, in the units of the mode. */
+  private fromGrid(series: Series, row: number): boolean {
+    if (this.gridColumn < 0 || series.kind === "layer") return false;
+    const grid = this.value(row, this.gridColumn);
+    if (!(grid > 0)) return false;
+    if (series.kind === "surface") return this.mode === "Elevation" && (grid & GRID_SURFACE) > 0;
+    return (grid & (this.mode === "Elevation" ? GRID_BED : GRID_THICKNESS)) > 0;
+  }
+
+  /** Whether any value of the line comes from the Bedmap3 grid. */
+  private anyGrid(): boolean {
+    if (this.gridColumn < 0) return false;
+    for (let row = 0; row < this.count; row++) if (this.value(row, this.gridColumn) > 0) return true;
+    return false;
+  }
+
+  /** Diagonal hatching over the bed colour, for the bed from the Bedmap3 grid. */
+  private hatchPattern(ctx: CanvasRenderingContext2D): CanvasPattern | string {
+    if (!this.hatch) {
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = 8;
+      const t = tile.getContext("2d")!;
+      t.fillStyle = GRID_BED_FILL;
+      t.fillRect(0, 0, 8, 8);
+      t.strokeStyle = BED_FILL;
+      t.lineWidth = 1.5;
+      t.beginPath();
+      t.moveTo(-2, 10);
+      t.lineTo(10, -2);
+      t.moveTo(6, 10);
+      t.lineTo(10, 6);
+      t.moveTo(-2, 2);
+      t.lineTo(2, -2);
+      t.stroke();
+      this.hatch = ctx.createPattern(tile, "repeat");
+    }
+    return this.hatch ?? GRID_BED_FILL;
   }
 
   private allSeries(): Series[] {
@@ -570,6 +632,22 @@ export class ProfilePanel {
       }
     };
     const sampleDistance = (k: number) => this.value(samples[k], 2);
+    // The runs of a series cut where it switches between measured and Bedmap3 grid; the pieces
+    // share their end sample, so the line stays joined
+    const pieces = (series: Series): [number, number, boolean][] => {
+      const out: [number, number, boolean][] = [];
+      for (const [a, b] of runs(series)) {
+        let start = a;
+        for (let k = a + 1; k <= b + 1; k++) {
+          const grid = this.fromGrid(series, samples[start]);
+          if (k > b || this.fromGrid(series, samples[k]) !== grid) {
+            out.push([start, k > b ? b : k, grid]);
+            start = k;
+          }
+        }
+      }
+      return out;
+    };
     // Ice: from the surface down to the bed, where both are known
     const surface: Series = { kind: "surface" };
     const bed: Series = { kind: "bed" };
@@ -584,27 +662,33 @@ export class ProfilePanel {
       ctx.closePath();
       ctx.fill();
     }
-    // Bed, filled down to the bottom of the plot
-    for (const [a, b] of runs(bed)) {
+    // Bed, filled down to the bottom of the plot; hatched and dashed where from the Bedmap3 grid
+    for (const [a, b, grid] of pieces(bed)) {
       ctx.beginPath();
       path(bed, a, b);
       ctx.lineTo(px(sampleDistance(b)), bottom);
       ctx.lineTo(px(sampleDistance(a)), bottom);
       ctx.closePath();
-      ctx.fillStyle = BED_FILL;
+      ctx.fillStyle = grid ? this.hatchPattern(ctx) : BED_FILL;
       ctx.fill();
       ctx.beginPath();
       path(bed, a, b);
       ctx.strokeStyle = BED_LINE;
       ctx.lineWidth = 1.5;
+      ctx.setLineDash(grid ? GRID_DASH : []);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
     const stroke = (series: Series, color: string, width: number) => {
-      ctx.beginPath();
-      for (const [a, b] of runs(series)) path(series, a, b);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.stroke();
+      for (const dashed of [false, true]) {
+        ctx.beginPath();
+        for (const [a, b, grid] of pieces(series)) if (grid === dashed) path(series, a, b);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.setLineDash(dashed ? GRID_DASH : []);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
     };
     stroke(surface, SURFACE_LINE, 1.5);
     const hovered = this.hover?.series;
@@ -637,6 +721,28 @@ export class ProfilePanel {
       }
     }
     ctx.restore();
+
+    // Legend of the Bedmap3 grid, when the line has some
+    if (this.hasGrid) {
+      const label = "Bedmap3 grid, not measured";
+      const w = ctx.measureText(label).width;
+      const x = area.left + area.width - w - 34;
+      const y = area.top + 12;
+      ctx.fillStyle = this.hatchPattern(ctx);
+      ctx.fillRect(x, y - 6, 22, 12);
+      ctx.strokeStyle = BED_LINE;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(GRID_DASH);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x + 22, y - 6);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = text;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, x + 28, y);
+    }
 
     // Labels
     ctx.fillStyle = text;
@@ -734,17 +840,21 @@ export class ProfilePanel {
     }
     let tooltip: Tooltip;
     if (hover.series.kind === "layer") {
-      const depth = this.value(r, COLUMNS + hover.series.index);
+      const depth = this.value(r, this.offset + hover.series.index);
       tooltip = this.options.describeLayer(this.layers[hover.series.index], depth, point);
       tooltip.rows.push(at);
     } else if (hover.series.kind === "bed") {
       tooltip = {
         title: "Bed",
         rows: [["Bed elevation", round(point.bed)], ["Ice thickness", round(point.thickness)], at],
-        note: null,
+        note: this.fromGrid(hover.series, r) ? GRID_NOTE : null,
       };
     } else {
-      tooltip = { title: "Ice surface", rows: [["Surface elevation", round(point.surface)], at], note: null };
+      tooltip = {
+        title: "Ice surface",
+        rows: [["Surface elevation", round(point.surface)], at],
+        note: this.fromGrid(hover.series, r) ? GRID_NOTE : null,
+      };
     }
     this.options.showTooltip(tooltip, this.pointer.clientX, this.pointer.clientY);
   }
