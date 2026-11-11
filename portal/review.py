@@ -69,6 +69,12 @@ BUCKET = "antadatabase"
 MARKER = ".submission"
 # Bucket prefix of the raw files of the datasets, raw/<Dataset>/ (see above)
 RAW_PREFIX = "raw"
+# v1 is frozen and v2 not published yet (decision D3 of docs/harmonisation/plan.md): accept and
+# remove only publish with --test until v2 is out. Submissions stay ready on the server meanwhile.
+PUBLISHING_ON_HOLD = (
+    "Publishing is on hold until v2 is released (v1 is frozen): the submission stays ready on the server. "
+    "Only --test publishes, to test/ in the bucket."
+)
 CONTENT_TYPES = {".csv": "text/csv", ".tab": "text/tab-separated-values", ".json": "application/json"}
 
 
@@ -546,6 +552,8 @@ def cmd_accept(args) -> None:
         sys.exit(f"Only compiled submissions are accepted (this one is {r['status']})")
     if r.get("test") and not args.test:
         sys.exit("A test submission (sent from /submit/?dev): only with --test")
+    if not args.test:
+        sys.exit(PUBLISHING_ON_HOLD)
     if not Path(cfg["bedmap"]).exists():
         sys.exit(f"No Bedmap3 at {cfg['bedmap']} (for the 3D viewer): set 'bedmap' in {CONFIG_FILE}")
 
@@ -607,6 +615,8 @@ def cmd_remove(args) -> None:
     cfg = settings()
     release = Path(cfg["release_dir"] + ("-test" if args.test else ""))
     name = args.dataset
+    if not args.test:
+        sys.exit(PUBLISHING_ON_HOLD)
     remote = release_copy(release)
     if name not in published_datasets(remote):
         sys.exit(f"{name} is not in the published database")
