@@ -811,6 +811,13 @@ function formatAge(f: Feature): string {
   return f.age_unc_ka === null ? `${f.age_ka} ka` : `${f.age_ka} ± ${f.age_unc_ka} ka`;
 }
 
+/** Where the elevation of an isochrone comes from, when not only from SURF_ELEV. */
+function surfaceNote(surface: string): string {
+  return surface === "Bedmap3"
+    ? "Elevation from depth and the Bedmap3 surface"
+    : "Elevation from depth and SURF_ELEV, with Bedmap3 grid filling";
+}
+
 function isochroneTooltip(f: Feature, hit: Hit): void {
   const rows: [string, string][] = isBasalUnit(f) ? [["Layer", "Basal unit (no age)"]] : [["Age", formatAge(f)]];
   rows.push(["Elevation", `${Math.round(isochrones.lines.elevation(hit.segment, hit.end))} m`]);
@@ -821,7 +828,7 @@ function isochroneTooltip(f: Feature, hit: Hit): void {
   rows.push(["Line ID", f.line_id]);
   if (!isBasalUnit(f)) rows.push(["IRH", String(f.irh)]);
   const notes: string[] = [];
-  if (f.surface !== "SURF_ELEV") notes.push(`Elevation from depth and the ${f.surface} surface`);
+  if (f.surface !== "SURF_ELEV") notes.push(surfaceNote(f.surface));
   if (fdepth !== null && f.thickness === "Bedmap3") notes.push("Fractional depth with the Bedmap3 ice thickness");
   showTooltip(f.citation ?? f.dataset, rows, notes.length ? notes.join(". ") : null);
 }
@@ -838,7 +845,11 @@ function trackTooltip(t: Track, hit: Hit): void {
     [`IRH ages of the dataset${ages.length ? " (ka)" : ""}`, list.join(", ") || "none"],
   ];
   if (basalUnit) rows.push(["Also in the dataset", "a basal unit layer"]);
-  showTooltip(t.citation ?? t.dataset, rows, t.surface === "SURF_ELEV" ? null : `Surface elevation from ${t.surface}`);
+  showTooltip(
+    t.citation ?? t.dataset,
+    rows,
+    t.surface === "SURF_ELEV" ? null : t.surface === "Bedmap3" ? "Surface elevation from Bedmap3" : "Surface elevation from SURF_ELEV, with Bedmap3 grid filling",
+  );
 }
 
 function iceCoreTooltip(core: IceCore): void {
@@ -1005,7 +1016,7 @@ const profile = new ProfilePanel({
     if (point.thickness > 0) rows.push(["Fractional depth", (depth / point.thickness).toFixed(2)]);
     rows.push(["Line ID", f.line_id]);
     if (!isBasalUnit(f)) rows.push(["IRH", String(f.irh)]);
-    return { title: f.citation ?? f.dataset, rows, note: f.surface !== "SURF_ELEV" ? `Elevation from depth and the ${f.surface} surface` : null };
+    return { title: f.citation ?? f.dataset, rows, note: f.surface !== "SURF_ELEV" ? surfaceNote(f.surface) : null };
   },
   showTooltip: (tip, x, y) => {
     showTip(tip);

@@ -30,7 +30,7 @@ export interface Feature {
   doi_dataset: string | null;
   doi_article: string | null;
   institute: string | null;
-  surface: string; // where the surface elevation comes from: "SURF_ELEV" or "Bedmap3"
+  surface: string; // where the surface elevation comes from: "SURF_ELEV", "Bedmap3" or "SURF_ELEV, else Bedmap3"
   thickness?: string; // where the ice thickness comes from: "ICE_THK" (completed with Bedmap3) or "Bedmap3"
 }
 

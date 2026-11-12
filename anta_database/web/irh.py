@@ -5,9 +5,11 @@ For every line (nc file) and IRH, the elevation of the IRH is
 
     IRH_ELEV = SURF_ELEV - IRH_DEPTH
 
-using the SURF_ELEV of the dataset when it has one, and otherwise the Bedmap3
-surface elevation at the point (500 m grid). The fractional depth is
-IRH_DEPTH / ICE_THK, with the Bedmap3 ice thickness where ICE_THK is missing. Each (line, IRH) is a
+using the SURF_ELEV of the dataset, and the Bedmap3 surface elevation at the point
+(500 m grid) where it is missing (the whole line, or only some points: a line partly
+reconnected to Bedmap survey points). The fractional depth is IRH_DEPTH / ICE_THK, with
+the Bedmap3 ice thickness where ICE_THK is missing. The bed of the profiles is BED_ELEV,
+and the surface minus the ice thickness where it is missing. Each (line, IRH) is a
 feature with its metadata; its points are split into runs wherever the IRH is
 missing or consecutive points are far apart, and averaged along-track.
 
@@ -255,14 +257,18 @@ def export_dataset(
                 continue
             x = ds.PSX.values.astype(np.float64)
             y = ds.PSY.values.astype(np.float64)
-            if "SURF_ELEV" in ds:
-                surf = ds.SURF_ELEV.values.astype(np.float64)
-                surface_source = "SURF_ELEV"
-            elif surface is not None:
-                surf = surface(x, y).astype(np.float64)
-                surface_source = "Bedmap3"
-            else:
+            # Surface elevation: of the dataset, completed with Bedmap3
+            surf = ds.SURF_ELEV.values.astype(np.float64) if "SURF_ELEV" in ds else np.full(len(x), np.nan)
+            surf_grid = np.zeros(len(x), bool)
+            if surface is not None and not np.isfinite(surf).all():
+                missing = ~np.isfinite(surf)
+                surf[missing] = surface(x[missing], y[missing])
+                surf_grid = missing & np.isfinite(surf)
+            if not np.isfinite(surf).any():
                 continue
+            surface_source = (
+                "Bedmap3" if "SURF_ELEV" not in ds else "SURF_ELEV, else Bedmap3" if surf_grid.any() else "SURF_ELEV"
+            )
             # Ice thickness: of the dataset, completed with Bedmap3
             thk = ds.ICE_THK.values.astype(np.float64) if "ICE_THK" in ds else np.full(len(x), np.nan)
             thickness_source = "ICE_THK" if "ICE_THK" in ds else "Bedmap3"
@@ -343,6 +349,15 @@ def export_dataset(
                     md,
                 )
 
+            # Bed: of the dataset, else the surface minus the ice thickness
+            bed = ds.BED_ELEV.values.astype(np.float64) if "BED_ELEV" in ds else np.full(len(x), np.nan)
+            bed_measured = np.isfinite(bed)
+            bed[~bed_measured] = (surf - thk)[~bed_measured]
+            bed_source = (
+                "surface - thickness"
+                if "BED_ELEV" not in ds
+                else "BED_ELEV" if bed_measured.all() else "BED_ELEV, else surface - thickness"
+            )
             # Track at the surface, where IRHs are traced
             on_track = (irh_num > 0) & np.isfinite(surf) & np.isfinite(x) & np.isfinite(y)
             line_runs = _runs(on_track, step, max_gap)
@@ -359,16 +374,14 @@ def export_dataset(
                         "file": f"profiles/{dataset}/{track_id}.bin.gz",
                         "columns": [*PROFILE_COLUMNS, "grid"],
                         "layers": layer_ids,
-                        "bed": "BED_ELEV" if "BED_ELEV" in ds else "surface - thickness",
+                        "bed": bed_source,
                         "thickness": thickness_source,
                     },
                 }
             )
-            bed = ds.BED_ELEV.values.astype(np.float64) if "BED_ELEV" in ds else surf - thk
             # Where the surface, thickness and bed come from the Bedmap3 grid, as 0/1 columns
             # averaged like the others, then packed into the column grid
-            surf_grid = np.full(len(x), surface_source == "Bedmap3")
-            bed_grid = ("BED_ELEV" not in ds) & (surf_grid | thk_grid)
+            bed_grid = ~bed_measured & (surf_grid | thk_grid)
             flags = np.column_stack([surf_grid, thk_grid, bed_grid]).astype(np.float64)
             distance = ds.Distance.values.astype(np.float64) if "Distance" in ds else np.cumsum(step)
             rows, resolution = _profile(distance, np.column_stack([x, y, surf, bed, thk, flags, *layer_depths]), max_gap)

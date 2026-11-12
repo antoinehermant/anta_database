@@ -74,12 +74,12 @@ type Mode = "Elevation" | "Depth";
 type Series = { kind: "layer"; index: number } | { kind: "surface" } | { kind: "bed" };
 
 const COLUMNS = 6; // x, y, distance, surface, bed, thickness
-// Bits of the column grid (anta_database.web.irh): values from the Bedmap3 grid, not measured on the line
+// Bits of the column grid (anta_database.web.irh): values filled from the Bedmap3 grid, where the line has none
 const GRID_SURFACE = 1;
 const GRID_THICKNESS = 2;
 const GRID_BED = 4;
-const GRID_NOTE = "From the Bedmap3 grid (500 m): not measured on this line.";
-const GRID_LABEL = "Bedmap3 grid";
+const GRID_NOTE = "Bedmap3 grid filling (500 m): the line has no value here.";
+const GRID_LABEL = "Bedmap3 grid filling";
 const MARGIN = { left: 60, right: 14, top: 12, bottom: 38 };
 const BED_FILL = "#8a6a4b";
 const BED_LINE = "#5b4430";
@@ -325,7 +325,9 @@ export class ProfilePanel {
     const bed =
       profile.bed === "BED_ELEV"
         ? "BED_ELEV of the dataset"
-        : profile.bed === "BED_ELEV, else SURF_ELEV - ICE_THK"
+        : profile.bed === "BED_ELEV, else surface - thickness"
+          ? "BED_ELEV of the dataset, else surface elevation minus ice thickness"
+          : profile.bed === "BED_ELEV, else SURF_ELEV - ICE_THK"
           ? "BED_ELEV of the line, else SURF_ELEV minus ICE_THK where both are measured"
           : "surface elevation minus ice thickness";
     const items: [string, string][] = [
@@ -338,7 +340,7 @@ export class ProfilePanel {
         ? [
             [
               "Bedmap3 grid",
-              "dashed lines and a hatched bed: values from the Bedmap3 grid (500 m), where the line has none of its own. They place the isochrones in elevation, but were not measured on this line.",
+              "dashed lines and a hatched bed: Bedmap3 grid filling (500 m), where the line has no value of its own. It places the isochrones in elevation.",
             ] as [string, string],
           ]
         : []),
