@@ -666,7 +666,6 @@ export class ProfilePanel {
       ctx.fill();
     }
     // Bed, filled down to the bottom of the plot; hatched and dashed where from the Bedmap3 grid
-    const gridPieces: [number, number][] = [];
     for (const [a, b, grid] of pieces(bed)) {
       ctx.beginPath();
       path(bed, a, b);
@@ -682,23 +681,7 @@ export class ProfilePanel {
       ctx.setLineDash(grid ? GRID_DASH : []);
       ctx.stroke();
       ctx.setLineDash([]);
-      if (grid) gridPieces.push([px(sampleDistance(a)), px(sampleDistance(b))]);
     }
-    // Over the hatched bed, at the bottom: where it comes from, where there is room
-    ctx.font = "11px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    for (const [x0, x1] of gridPieces) {
-      const left = Math.max(x0, area.left);
-      const right = Math.min(x1, area.left + area.width);
-      if (right - left < ctx.measureText(GRID_LABEL).width + 12) continue;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = BED_LINE;
-      ctx.strokeText(GRID_LABEL, (left + right) / 2, bottom - 5);
-      ctx.fillStyle = "#fff";
-      ctx.fillText(GRID_LABEL, (left + right) / 2, bottom - 5);
-    }
-    ctx.font = "12px system-ui, sans-serif";
     const stroke = (series: Series, color: string, width: number) => {
       for (const dashed of [false, true]) {
         ctx.beginPath();
@@ -741,6 +724,29 @@ export class ProfilePanel {
       }
     }
     ctx.restore();
+
+    // Legend of the Bedmap3 grid filling, in the bottom left corner, on a semi-transparent box
+    if (this.hasGrid) {
+      const w = ctx.measureText(GRID_LABEL).width + 40;
+      const x = area.left + 6;
+      const y = area.top + area.height - 26;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.fillRect(x, y, w, 20);
+      ctx.fillStyle = this.hatchPattern(ctx);
+      ctx.fillRect(x + 6, y + 5, 22, 10);
+      ctx.strokeStyle = BED_LINE;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(GRID_DASH);
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 5);
+      ctx.lineTo(x + 28, y + 5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#222";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(GRID_LABEL, x + 34, y + 10);
+    }
 
     // Labels
     ctx.fillStyle = text;
