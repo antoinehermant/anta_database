@@ -666,7 +666,11 @@ export class ProfilePanel {
       ctx.fill();
     }
     // Bed, filled down to the bottom of the plot; hatched and dashed where from the Bedmap3 grid
+    // Whether a piece filled from the Bedmap3 grid is drawn, at least 2 px wide (for the legend)
+    let gridShown = false;
+    const shown = (a: number, b: number) => Math.abs(px(sampleDistance(b)) - px(sampleDistance(a))) >= 2;
     for (const [a, b, grid] of pieces(bed)) {
+      if (grid && shown(a, b)) gridShown = true;
       ctx.beginPath();
       path(bed, a, b);
       ctx.lineTo(px(sampleDistance(b)), bottom);
@@ -685,7 +689,11 @@ export class ProfilePanel {
     const stroke = (series: Series, color: string, width: number) => {
       for (const dashed of [false, true]) {
         ctx.beginPath();
-        for (const [a, b, grid] of pieces(series)) if (grid === dashed) path(series, a, b);
+        for (const [a, b, grid] of pieces(series)) {
+          if (grid !== dashed) continue;
+          path(series, a, b);
+          if (grid && series.kind === "surface" && shown(a, b)) gridShown = true;
+        }
         ctx.strokeStyle = color;
         ctx.lineWidth = width;
         ctx.setLineDash(dashed ? GRID_DASH : []);
@@ -725,8 +733,9 @@ export class ProfilePanel {
     }
     ctx.restore();
 
-    // Legend of the Bedmap3 grid filling, in the bottom left corner, on a semi-transparent box
-    if (this.hasGrid) {
+    // Legend of the Bedmap3 grid filling, in the bottom left corner, on a semi-transparent box:
+    // only when some is drawn, in this mode and at this zoom
+    if (gridShown) {
       const w = ctx.measureText(GRID_LABEL).width + 40;
       const x = area.left + 6;
       const y = area.top + area.height - 26;

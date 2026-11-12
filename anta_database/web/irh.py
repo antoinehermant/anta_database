@@ -257,8 +257,18 @@ def export_dataset(
                 continue
             x = ds.PSX.values.astype(np.float64)
             y = ds.PSY.values.astype(np.float64)
-            # Surface elevation: of the dataset, completed with Bedmap3
-            surf = ds.SURF_ELEV.values.astype(np.float64) if "SURF_ELEV" in ds else np.full(len(x), np.nan)
+            # Surface, thickness and bed of the dataset (published or reconnected to Bedmap survey
+            # points); where only one is missing, it is computed from the two others
+            def var(name):
+                return ds[name].values.astype(np.float64) if name in ds else np.full(len(x), np.nan)
+
+            surf, thk, bed = var("SURF_ELEV"), var("ICE_THK"), var("BED_ELEV")
+            only = ~np.isfinite(surf) & np.isfinite(thk) & np.isfinite(bed)
+            surf[only] = bed[only] + thk[only]
+            only = ~np.isfinite(thk) & np.isfinite(surf) & np.isfinite(bed)
+            thk[only] = surf[only] - bed[only]
+            has_surf = np.isfinite(surf).any()
+            # Surface elevation, completed with Bedmap3
             surf_grid = np.zeros(len(x), bool)
             if surface is not None and not np.isfinite(surf).all():
                 missing = ~np.isfinite(surf)
@@ -266,12 +276,9 @@ def export_dataset(
                 surf_grid = missing & np.isfinite(surf)
             if not np.isfinite(surf).any():
                 continue
-            surface_source = (
-                "Bedmap3" if "SURF_ELEV" not in ds else "SURF_ELEV, else Bedmap3" if surf_grid.any() else "SURF_ELEV"
-            )
-            # Ice thickness: of the dataset, completed with Bedmap3
-            thk = ds.ICE_THK.values.astype(np.float64) if "ICE_THK" in ds else np.full(len(x), np.nan)
-            thickness_source = "ICE_THK" if "ICE_THK" in ds else "Bedmap3"
+            surface_source = "Bedmap3" if not has_surf else "SURF_ELEV, else Bedmap3" if surf_grid.any() else "SURF_ELEV"
+            # Ice thickness, completed with Bedmap3
+            thickness_source = "ICE_THK" if np.isfinite(thk).any() else "Bedmap3"
             thk_grid = np.zeros(len(x), bool)
             if surface is not None and not np.isfinite(thk).all():
                 missing = ~np.isfinite(thk)
@@ -350,12 +357,11 @@ def export_dataset(
                 )
 
             # Bed: of the dataset, else the surface minus the ice thickness
-            bed = ds.BED_ELEV.values.astype(np.float64) if "BED_ELEV" in ds else np.full(len(x), np.nan)
             bed_measured = np.isfinite(bed)
             bed[~bed_measured] = (surf - thk)[~bed_measured]
             bed_source = (
                 "surface - thickness"
-                if "BED_ELEV" not in ds
+                if not bed_measured.any()
                 else "BED_ELEV" if bed_measured.all() else "BED_ELEV, else surface - thickness"
             )
             # Track at the surface, where IRHs are traced
