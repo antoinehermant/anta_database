@@ -15,9 +15,9 @@
  */
 import * as THREE from "three";
 import { fetchBytes, fetchData } from "./terrain";
-import { LineLayer, type Part } from "./lines";
+import { LineLayer, type Hit, type Part } from "./lines";
 import type { ProfileInfo } from "./profile";
-import { AGE, AGE_LEGEND, AGE_LEGEND_SPLIT_T, AGE_SPLIT_KA, AGE_SPLIT_T, DEPTH, ELEVATION, scaleT, ticks, type Colormap, type Scale, type Tick } from "./colormaps";
+import { AGE, AGE_LEGEND, AGE_LEGEND_SPLIT_T, AGE_SPLIT_KA, AGE_SPLIT_T, BED_STOPS, Colormap, DEPTH, ELEVATION, scaleT, ticks, type Scale, type Tick } from "./colormaps";
 
 export interface Feature {
   dataset: string;
@@ -49,6 +49,8 @@ interface DatasetFiles {
   runs: string;
   tracks: string;
   track_runs: string;
+  bed?: string; // bed picks, missing in exports before 2026-11-12
+  bed_runs?: string;
 }
 
 export interface IrhIndex {
@@ -389,5 +391,70 @@ export class Tracks {
     const { part, vertex } = this.lines.vertexOf(segment, end);
     const v = part.vertices.subarray(vertex * 5, vertex * 5 + 5);
     return { surface: v[2] - TRACK_LIFT, irhNum: v[3] };
+  }
+}
+
+// Over the bed (m), as the Bedmap bed lines: the terrain is a 2 km average, below or above the picks
+const BED_LIFT = 40;
+
+/**
+ * The bed picks of the isochrone datasets, along their tracks: the bed of each line where it is its
+ * own (published, or from the Bedmap survey points of the same traces), not filled from the Bedmap3
+ * grid. Coloured by bed elevation, as the bed. Feature ids are track ids.
+ */
+export class TrackBed {
+  readonly lines = new LineLayer({ linewidth: 2 });
+  bedRange = 7000; // m, as the colours of the bed
+  private loading = new Map<string, Promise<void>>();
+  private index: IrhIndex | null = null;
+  private baseUrl = "";
+  private readonly colors = new Colormap(BED_STOPS.map(([t, c]): [number, string] => [(t + 1) / 2, c]));
+
+  get group(): THREE.Group {
+    return this.lines.group;
+  }
+
+  init(baseUrl: string, index: IrhIndex): void {
+    this.baseUrl = baseUrl;
+    this.index = index;
+  }
+
+  /** Fetch the bed picks of datasets, each once (none in older exports). */
+  load(names: string[]): Promise<void> {
+    const index = this.index!;
+    const withBed = names.filter((name) => index.datasets[name]?.bed);
+    return loadParts(this.loading, withBed, index, this.baseUrl, (files) => [files.bed!, files.bed_runs!], (loaded) => {
+      for (const { name, data: [buffer, runs] } of loaded) {
+        const vertices = new Float32Array(buffer);
+        if (!vertices.length) continue;
+        for (let z = 2; z < vertices.length; z += 3) vertices[z] += BED_LIFT;
+        const part = this.lines.add(name, vertices, 3, new Uint32Array(runs));
+        this.lines.finish();
+        this.recolor(part);
+      }
+    });
+  }
+
+  private recolor(part: Part): void {
+    this.lines.recolor(part, (vertex, _feature, target) =>
+      this.colors.at((part.vertices[vertex * 3 + 2] - BED_LIFT) / (2 * this.bedRange) + 0.5, target),
+    );
+  }
+
+  /** Colours from -range to +range (m), as the bed. */
+  setBedRange(range: number): void {
+    this.bedRange = range;
+    for (const part of this.lines.parts) this.recolor(part);
+  }
+
+  /** Show only the datasets not hidden. */
+  applyFilter(hiddenDatasets: Set<string>): void {
+    this.lines.setHidden((t) => !this.index?.tracks[t] || hiddenDatasets.has(this.index.tracks[t].dataset));
+  }
+
+  /** Bed elevation (m) at a hovered point. */
+  bedAt(hit: Hit): number {
+    const { part, vertex } = this.lines.vertexOf(hit.segment, hit.end);
+    return part.vertices[vertex * 3 + 2] - BED_LIFT;
   }
 }

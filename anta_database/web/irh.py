@@ -39,6 +39,10 @@ Output:
     {dataset}_tracks.bin.gz  float32 track vertices (x km, y km, surface elevation m,
                              IRH_NUM, oldest age ka or NaN), packed per run
     {dataset}_track_runs.bin.gz  uint32 (track id, first vertex, vertex count) per run
+    {dataset}_bed.bin.gz     float32 bed picks of the tracks (x km, y km, bed elevation m):
+                             the bed of the line, where it does not depend on the Bedmap3
+                             grid (as drawn plain in the profiles), averaged like the tracks
+    {dataset}_bed_runs.bin.gz  uint32 (track id, first vertex, vertex count) per run
     profiles/{dataset}/{n}.bin.gz  float32 profile of the n-th track of the dataset: rows of
                              (x km, y km, distance km, surface m, bed m, ice thickness m,
                              grid, depth m of each layer of tracks[].profile.layers), NaN
@@ -248,6 +252,8 @@ def export_dataset(
     features, vertices, depths, fdepths, runs = [], [], [], [], []
     n_vertices = 0
     tracks, track_vertices, track_runs = [], [], []
+    bed_vertices, bed_runs = [], []
+    n_bed_vertices = 0
     n_track_vertices = 0
     profiles = []
 
@@ -403,6 +409,14 @@ def export_dataset(
                 track_vertices.append(v.astype(np.float32))
                 track_runs.append((track_id, n_track_vertices, len(v)))
                 n_track_vertices += len(v)
+            # Bed picks: the bed where it is the line's own (not from the Bedmap3 grid)
+            picked = np.isfinite(bed) & ~bed_grid & np.isfinite(x) & np.isfinite(y)
+            for run in _runs(picked, step, max_gap):
+                v = _average(np.column_stack([x[run], y[run], bed[run]]), spacing)
+                v[:, :2] /= 1000  # km
+                bed_vertices.append(v.astype(np.float32))
+                bed_runs.append((track_id, n_bed_vertices, len(v)))
+                n_bed_vertices += len(v)
 
     return {
         "vertices": np.concatenate(vertices) if vertices else np.zeros((0, 3), np.float32),
@@ -412,6 +426,8 @@ def export_dataset(
         "features": features,
         "track_vertices": np.concatenate(track_vertices) if track_vertices else np.zeros((0, 5), np.float32),
         "track_runs": np.asarray(track_runs, dtype=np.uint32).reshape(-1, 3),
+        "bed_vertices": np.concatenate(bed_vertices) if bed_vertices else np.zeros((0, 3), np.float32),
+        "bed_runs": np.asarray(bed_runs, dtype=np.uint32).reshape(-1, 3),
         "tracks": tracks,
         "profiles": profiles,
     }
@@ -481,6 +497,7 @@ def export_irh(
             continue
         # Track ids are global, like feature ids
         out["track_runs"][:, 0] += len(index["tracks"])
+        out["bed_runs"][:, 0] += len(index["tracks"])
         files = {
             "vertices": (f"{dataset}.bin.gz", out["vertices"]),
             "depths": (f"{dataset}_depth.bin.gz", out["depths"]),
@@ -488,6 +505,8 @@ def export_irh(
             "runs": (f"{dataset}_runs.bin.gz", out["runs"]),
             "tracks": (f"{dataset}_tracks.bin.gz", out["track_vertices"]),
             "track_runs": (f"{dataset}_track_runs.bin.gz", out["track_runs"]),
+            "bed": (f"{dataset}_bed.bin.gz", out["bed_vertices"]),
+            "bed_runs": (f"{dataset}_bed_runs.bin.gz", out["bed_runs"]),
         }
         for file, array in files.values():
             _write_gz(array, os.path.join(output_dir, file))
@@ -499,6 +518,7 @@ def export_irh(
             n_vertices=int(len(out["vertices"])),
             n_runs=int(len(out["runs"])),
             n_track_vertices=int(len(out["track_vertices"])),
+            n_bed_vertices=int(len(out["bed_vertices"])),
         )
         index["features"].extend(out["features"])
         index["tracks"].extend(out["tracks"])

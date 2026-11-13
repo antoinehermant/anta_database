@@ -13,8 +13,10 @@ uniform vec3 baseColor;
 uniform vec3 shelfColor;
 uniform float opacity;
 #if USE_VELOCITY
-// Speed texture (R = m/a, G = validity) on its own grid; colormapRange is log10(m/a)
+// Speed texture (R = m/a, G = validity) on its own grid; colormapRange is log10(m/a). Colours
+// along log(1 + speed / speedScale): a smaller speedScale (m/a) gives more contrast to slow ice
 uniform sampler2D velocityTex;
+uniform float speedScale;
 uniform vec2 velocityOrigin; // centre of the first texel, km
 uniform float velocityDx; // km
 uniform vec2 velocitySize; // texels
@@ -43,7 +45,7 @@ void main() {
   vec2 vuv = (vPos - velocityOrigin) / (velocityDx * velocitySize) + 0.5 / velocitySize;
   vec2 speed = texture(velocityTex, vuv).rg;
   if (speed.g < 0.5) discard;
-  float c = (log(max(speed.r, 1.0)) / log(10.0) - colormapRange.x) / (colormapRange.y - colormapRange.x);
+  float c = log(1.0 + max(speed.r, 0.0) / speedScale) / log(1.0 + pow(10.0, colormapRange.y) / speedScale);
   vec3 color = texture(colormapTex, vec2(clamp(c, 0.0, 1.0), 0.5)).rgb;
 #elif USE_COLORMAP
   float c = (h - colormapRange.x) / (colormapRange.y - colormapRange.x);

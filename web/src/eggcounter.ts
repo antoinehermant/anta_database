@@ -3,7 +3,8 @@
  * animation, and it stays in place. What was found is kept in the browser (local storage), apart
  * from the settings of the viewer, so resetting them does not lose it. The total comes from the
  * eggs of the viewer, so new ones count at once for those who found the others. Clicking the
- * counter opens a small window with the eggs found, and a button to start again.
+ * counter opens a small window with the eggs found (click one to fly back to it), and a button to
+ * start again.
  */
 const KEY = "eggs-found";
 const FLIGHT_MS = 800;
@@ -22,7 +23,11 @@ export class EggCounter {
   private found: Set<string>;
   private nameTimer = 0;
 
-  constructor(private eggs: { id: string; title: string }[]) {
+  /** goTo(id): fly back to an egg found, from its name in the window */
+  constructor(
+    private eggs: { id: string; title: string }[],
+    private goTo?: (id: string) => void,
+  ) {
     this.found = new Set(this.load());
     this.el.id = "egg-counter";
     this.el.type = "button";
@@ -108,7 +113,16 @@ export class EggCounter {
     list.append(
       ...eggs.map((egg) => {
         const item = document.createElement("li");
-        item.textContent = egg.title;
+        if (!this.goTo) {
+          item.textContent = egg.title;
+          return item;
+        }
+        item.append(
+          button("egg-go", egg.title, "Fly back to it", () => {
+            this.toggle(false);
+            this.goTo!(egg.id);
+          }),
+        );
         return item;
       }),
     );

@@ -118,6 +118,12 @@ body {
   margin-bottom: 2px;
 }
 
+#tooltip .picture {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+}
+
 #tooltip .key {
   color: var(--muted);
 }
@@ -865,6 +871,10 @@ body:has(#sidebar:not(.closed)) #legends {
   transform-origin: right center;
 }
 
+#egg-counter[hidden] {
+  display: none;
+}
+
 #egg-counter:hover,
 #egg-counter.named,
 #egg-counter.tutorial-target {
@@ -926,6 +936,22 @@ body:has(#sidebar:not(.closed)) #legends {
 .egg-panel ul {
   margin: 0 0 12px;
   padding-left: 18px;
+}
+
+/* An egg found: click to fly back to it */
+.egg-panel .egg-go {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent, inherit);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.egg-panel .egg-go:hover {
+  text-decoration: underline;
 }
 
 body.clean #egg-counter,

@@ -59,6 +59,8 @@ export async function fetchBytes(url: string): Promise<ArrayBuffer> {
   const response = await fetchData(url);
   if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
   const buffer = await response.arrayBuffer();
+  // An empty file, already decompressed (e.g. no bed picks for a dataset)
+  if (buffer.byteLength < 2) return buffer;
   const bytes = new Uint8Array(buffer, 0, 2);
   // Servers may already have decompressed it (Content-Encoding: gzip)
   if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return buffer;
@@ -303,6 +305,7 @@ export function terrainMaterial(shared: TerrainUniforms, options: LayerOptions):
       velocityOrigin: { value: new THREE.Vector2(options.velocity?.grid.x0, options.velocity?.grid.y0) },
       velocityDx: { value: options.velocity?.grid.dx ?? 1 },
       velocitySize: { value: new THREE.Vector2(options.velocity?.grid.nx ?? 1, options.velocity?.grid.ny ?? 1) },
+      speedScale: { value: 1 },
     },
   });
 }

@@ -17,17 +17,18 @@ import {
   type Grid,
   type TerrainMeta,
 } from "./terrain";
-import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, loadIndex, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Track } from "./irh";
+import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, loadIndex, TrackBed, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Track } from "./irh";
 import { closer, type Hit, type LineLayer } from "./lines";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { PivotField } from "./pivot";
-import { BED_STOPS, SPEED, ticks } from "./colormaps";
+import { BED_STOPS, SPEED, type Tick } from "./colormaps";
 import { Legend } from "./legend";
 import { KeyNavigation } from "./keys";
 import { EggCounter } from "./eggcounter";
 import { EasterEggs } from "./eggs";
+import { Sea } from "./sea";
 import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
 import { InTheWay } from "./inway";
@@ -95,7 +96,9 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.zoomToCursor = true;
 controls.screenSpacePanning = false; // pan along the ground
-controls.minDistance = 20;
+// Closest zoom (km), apart from the views of the eggs
+const MIN_DISTANCE = 20;
+controls.minDistance = MIN_DISTANCE;
 controls.maxDistance = 15000;
 controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon of the rotation centre
 
@@ -190,6 +193,8 @@ let flight: {
   onEnd: () => void;
   orbit: boolean;
   animate: boolean;
+  // Up away from the ground and down again on the way (km further than the straight path, at mid-way)
+  hop: number;
 } | null = null;
 
 /**
@@ -198,9 +203,21 @@ let flight: {
  * around the centre (its distance, tilt and direction change evenly) instead of going straight.
  * With animate, the animations go on meanwhile (far views, where they are cheap).
  */
-function flyTo(target: THREE.Vector3, position: THREE.Vector3, ms = 800, onEnd = viewToUrl, orbit = false, animate = false): void {
-  flight = { target0: controls.target.clone(), position0: camera.position.clone(), target, position, start: performance.now(), ms, onEnd, orbit, animate };
+function flyTo(target: THREE.Vector3, position: THREE.Vector3, ms = 800, onEnd = viewToUrl, orbit = false, animate = false, hop = 0): void {
+  flight = { target0: controls.target.clone(), position0: camera.position.clone(), target, position, start: performance.now(), ms, onEnd, orbit, animate, hop };
   requestRender();
+}
+
+/**
+ * Fly far, from close to close (to an egg found): out to an overview while leaving, then in
+ * while arriving, the camera never closer to the ground than at both ends.
+ */
+function hopTo(target: THREE.Vector3, position: THREE.Vector3): void {
+  const travel = Math.hypot(target.x - controls.target.x, target.y - controls.target.y);
+  const ends = (camera.position.distanceTo(controls.target) + position.distanceTo(target)) / 2;
+  // Seen from about as high as the way is long, at mid-way
+  const hop = Math.max(0, Math.min(controls.maxDistance, 1.2 * travel) - ends);
+  flyTo(target, position, THREE.MathUtils.clamp(1200 + 0.6 * travel, 1500, 4000), viewToUrl, false, true, hop);
 }
 
 function stepFlight(now: number): void {
@@ -216,6 +233,13 @@ function stepFlight(now: number): void {
     const turn = Math.atan2(Math.sin(theta1 - theta0), Math.cos(theta1 - theta0)); // the shorter way
     const [r, phi, theta] = [r0 + (r1 - r0) * k, phi0 + (phi1 - phi0) * k, theta0 + turn * k];
     camera.position.set(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi)).multiplyScalar(r).add(controls.target);
+  } else if (flight.hop > 0) {
+    // The offset of the camera from the centre goes from one to the other, longer on the way
+    const offset0 = flight.position0.clone().sub(flight.target0);
+    const offset1 = flight.position.clone().sub(flight.target);
+    const offset = offset0.clone().lerp(offset1, k);
+    offset.setLength(offset0.length() + (offset1.length() - offset0.length()) * k + flight.hop * Math.sin(Math.PI * k));
+    camera.position.copy(controls.target).add(offset);
   } else {
     camera.position.lerpVectors(flight.position0, flight.position, k);
   }
@@ -432,6 +456,10 @@ if (import.meta.env.DEV) {
 // Flow lines move at most 30 times per second, to spare the GPU
 const FLOW_INTERVAL = 1000 / 30;
 let lastFlowUpdate = 0;
+// The waves of the sea: their own clock, stopped while they are not drawn
+let lastSeaUpdate = 0;
+let lastEggUpdate = 0;
+let seaTime = 0;
 
 let lastAircraftUpdate = 0;
 
@@ -472,12 +500,24 @@ renderer.setAnimationLoop((time: number) => {
   updateHover();
   if (!animate) {
     // Go on from where they stopped, without a jump
-    lastAircraftUpdate = lastFlowUpdate = time;
+    lastAircraftUpdate = lastFlowUpdate = lastSeaUpdate = lastEggUpdate = time;
   }
+  // The moving eggs, only when the camera is near one of them
+  if (animate && eggs.near(camera) && time - lastEggUpdate >= FLOW_INTERVAL) {
+    eggs.update(Math.min(0.1, (time - lastEggUpdate) / 1000));
+    lastEggUpdate = time;
+    needsRender = true;
+  }
+  if (animate && sea.mesh.visible && time - lastSeaUpdate >= FLOW_INTERVAL) {
+    seaTime += Math.min(0.1, (time - lastSeaUpdate) / 1000);
+    sea.setTime(seaTime);
+    lastSeaUpdate = time;
+    needsRender = true;
+  }
+
   if (animate && aircraft.group.visible && time - lastAircraftUpdate >= FLOW_INTERVAL) {
     const dt = Math.min(0.1, (time - lastAircraftUpdate) / 1000);
     aircraft.update(dt, camera, renderer.domElement.clientHeight);
-    eggs.update(dt);
     lastAircraftUpdate = time;
     needsRender = true;
   }
@@ -501,6 +541,8 @@ renderer.setAnimationLoop((time: number) => {
   // Dashes of the grounding lines: the same length on screen at any zoom
   if (groundingLines.group.visible) groundingLines.setDashPixel(pixelAtTarget());
   // The lines in the way of the open profile fade: the depth of its curtain first
+  // The eggs far away aren't drawn
+  if (eggs.group.visible) eggs.cull(camera);
   inTheWay.render(renderer, camera);
   renderer.render(scene, camera);
   stats.update();
@@ -529,13 +571,24 @@ for (const mesh of [bed, surface]) {
 // The transparent surface is drawn after everything opaque underneath it,
 // then the velocities, the tracks and the flow lines on top of it
 surface.renderOrder = 1;
+// The sea at 0 m (menu, Miscellaneous), under the ice shelves: drawn before them
+const heightUniforms = (m: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>) => {
+  const u = m.material.uniforms;
+  return { heightTex: u.heightTex, texOrigin: u.texOrigin, texDx: u.texDx, texSize: u.texSize };
+};
+const sea = new Sea(heightUniforms(bed), heightUniforms(surface));
+sea.mesh.renderOrder = 0.5;
+scene.add(sea.mesh);
 
 // Isochrones, and their radar tracks at the surface (loaded when first shown)
 const isochrones = new Isochrones();
 const tracks = new Tracks();
 // After the Bedmap tracks (order 3), on top of them
 tracks.group.renderOrder = 4;
-const lineLayers: LineLayer[] = [isochrones.lines, tracks.lines];
+// Bed picks of the isochrone datasets along their tracks; off at start
+const trackBed = new TrackBed();
+trackBed.group.visible = false;
+const lineLayers: LineLayer[] = [isochrones.lines, tracks.lines, trackBed.lines];
 for (const layer of lineLayers) {
   layer.setResolution(window.innerWidth, window.innerHeight);
   layer.setExaggeration(shared.exaggeration.value);
@@ -653,13 +706,33 @@ const u = bed.material.uniforms;
 const eggs = new EasterEggs(
   ground,
   (x, y) => pivotField?.bedAt(x, y) ?? null,
-  (x, y) => pivotField?.surfaceAt(x, y) ?? null,
+  (x, y) => pivotField?.smoothAt("surface", x, y) ?? null,
   { heightTex: u.heightTex, texOrigin: u.texOrigin, texDx: u.texDx, texSize: u.texSize, exaggeration: shared.exaggeration, ...bedMesh },
 );
 eggs.setExaggeration(shared.exaggeration.value);
 // Not in a private preview, for the submitted dataset only
 if (!SUBMISSION) scene.add(eggs.group);
-const eggCounter = SUBMISSION ? null : new EggCounter(eggs.names);
+/** Fly to the view of an egg (eggs.ts): out and in again if it is far. */
+function flyToEgg(id: string): void {
+  const where = eggs.whereIs(id);
+  if (!where) return;
+  // Closer than the usual closest zoom for the small ones (the glass of Lorius), until zoomed out
+  controls.minDistance = Math.min(MIN_DISTANCE, 0.7 * where.position.distanceTo(where.target));
+  hopTo(where.target, where.position);
+  backButton.hidden = false;
+}
+controls.addEventListener("end", () => {
+  if (camera.position.distanceTo(controls.target) > MIN_DISTANCE) controls.minDistance = MIN_DISTANCE;
+});
+const eggCounter = SUBMISSION ? null : new EggCounter(eggs.names, flyToEgg);
+
+/** The eggs and their counter, shown or not (menu, Miscellaneous). */
+function showEggs(): void {
+  eggs.group.visible = settings.eggs;
+  if (eggCounter) eggCounter.el.hidden = !settings.eggs;
+  pointerMoved = true;
+  requestRender();
+}
 
 // Ice velocity (loaded when first shown): the ice surface coloured by speed, and flow lines
 let velocity: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
@@ -679,6 +752,7 @@ function loadVelocity(): Promise<void> {
       opacity: settings.velocityOpacity,
       velocity: { texture: speed, grid: gridOf(meta.grids.speed) },
     });
+    material.uniforms.speedScale.value = speedScale();
     // Same heights as the ice surface, updated with it
     const u = surface.material.uniforms;
     for (const name of ["heightTex", "maskTex", "texOrigin", "texDx", "texSize"]) material.uniforms[name] = u[name];
@@ -697,6 +771,27 @@ function loadVelocity(): Promise<void> {
   return velocityLoading;
 }
 
+/** Speed (m/a) of the scale of the ice speed colours, from the contrast in the menu. */
+function speedScale(): number {
+  return 10 ** -settings.velocityContrast;
+}
+
+/** Ticks of the ice speed legend, along log(1 + speed / speedScale). */
+function speedTicks(): Tick[] {
+  const s = speedScale();
+  const max = 10 ** LOG_SPEED_RANGE.y;
+  const t = (v: number) => Math.log1p(v / s) / Math.log1p(max / s);
+  const out: Tick[] = [
+    { t: 0, label: "0" },
+    { t: 1, label: max.toLocaleString("en") },
+  ];
+  for (const v of [0.01, 0.1, 1, 10, 100, 1000]) {
+    const tick = { t: t(v), label: v.toLocaleString("en") };
+    if (tick.t > 0.06 && out.every((o) => Math.abs(o.t - tick.t) > 0.09)) out.push(tick);
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
 /** Flow lines live around the centre of the view, over about the visible width. */
 function updateFlowArea(): void {
   if (!flowLines) return;
@@ -713,7 +808,7 @@ function showVelocity(): void {
   document.getElementById("velocity-attribution")!.hidden = !on;
   velocityOptions.show(on);
   if (on && velocity) {
-    velocityLegend.show("Ice speed (m/a)", SPEED, ticks({ min: 1, max: 10 ** LOG_SPEED_RANGE.y, log: true }));
+    velocityLegend.show("Ice speed (m/a)", SPEED, speedTicks());
   } else velocityLegend.hide();
   requestRender();
 }
@@ -833,6 +928,17 @@ function isochroneTooltip(f: Feature, hit: Hit): void {
   showTooltip(f.citation ?? f.dataset, rows, notes.length ? notes.join(". ") : null);
 }
 
+function trackBedTooltip(t: Track, hit: Hit): void {
+  showTooltip(
+    t.citation ?? t.dataset,
+    [
+      ["Line ID", t.line_id],
+      ["Bed elevation", `${Math.round(trackBed.bedAt(hit))} m`],
+    ],
+    "Bed picked along the line (not the Bedmap3 grid), averaged along the line",
+  );
+}
+
 function trackTooltip(t: Track, hit: Hit): void {
   const p = tracks.point(hit.segment, hit.end);
   const { ages, noAge, basalUnit } = tracks.datasetAges.get(t.dataset) ?? { ages: [], noAge: 0, basalUnit: false };
@@ -863,12 +969,19 @@ function iceCoreTooltip(core: IceCore): void {
   showTooltip(`${core.site} ice core`, rows, core.reference);
 }
 
-function showTooltip(heading: string, rows: [string, string][], footnote: string | null): void {
+function showTooltip(heading: string, rows: [string, string][], footnote: string | null, picture?: string): void {
   tooltip.replaceChildren();
   const title = document.createElement("div");
   title.className = "title";
   title.textContent = heading;
   tooltip.append(title);
+  if (picture) {
+    // Our own SVG (eggs.ts), not data
+    const figure = document.createElement("div");
+    figure.className = "picture";
+    figure.innerHTML = picture;
+    tooltip.append(figure);
+  }
   for (const [key, value] of rows) {
     const row = document.createElement("div");
     const k = document.createElement("span");
@@ -938,12 +1051,12 @@ function updateHover(): void {
     hoveredCore = core;
     requestRender();
   }
-  const egg = pointer && !core && !SUBMISSION ? eggs.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
+  const egg = pointer && !core && !SUBMISSION && settings.eggs ? eggs.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight) : null;
   // Closest line of all layers
   let best: { layer: LineLayer; hit: Hit } | null = null;
   if (pointer && !core && !egg) {
     for (const layer of lineLayers) {
-      if ((layer === isochrones.lines || layer === bedmap.bed) && isochronesUnderIce()) continue;
+      if ((layer === isochrones.lines || layer === bedmap.bed || layer === trackBed.lines) && isochronesUnderIce()) continue;
       const hit = layer.pick(camera, pointer.x, pointer.y, canvas.clientWidth, canvas.clientHeight);
       if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
     }
@@ -952,12 +1065,13 @@ function updateHover(): void {
     iceCoreTooltip(core);
     placeTooltip(pointer.x, pointer.y);
   } else if (egg && pointer) {
-    showTooltip(egg.title, egg.rows, eggCounter?.has(egg.id) ? egg.note : `${egg.note} Click to collect it.`);
+    showTooltip(egg.title, egg.rows, eggCounter?.has(egg.id) ? egg.note : `${egg.note} Click to collect it.`, egg.picture);
     placeTooltip(pointer.x, pointer.y);
   } else if (!best || !pointer) {
     tooltip.style.visibility = "hidden";
   } else {
     if (best.layer === tracks.lines) trackTooltip(tracks.tracks[best.hit.feature], best.hit);
+    else if (best.layer === trackBed.lines) trackBedTooltip(tracks.tracks[best.hit.feature], best.hit);
     else if (best.layer === isochrones.lines) isochroneTooltip(isochrones.features[best.hit.feature], best.hit);
     else if (best.layer === iceDivides.lines) showTip(iceDivides.describe(best.hit));
     else if (best.layer === bedmap.tracks || best.layer === bedmap.bed) showTip(bedmap.describe(best.layer, best.hit));
@@ -1004,6 +1118,7 @@ const inTheWay = new InTheWay();
 inTheWay.setExaggeration(shared.exaggeration.value);
 isochrones.lines.setInTheWay(inTheWay.uniforms);
 tracks.lines.setInTheWay(inTheWay.uniforms);
+trackBed.lines.setInTheWay(inTheWay.uniforms);
 bedmap.tracks.setInTheWay(inTheWay.uniforms);
 bedmap.bed.setInTheWay(inTheWay.uniforms);
 
@@ -1080,8 +1195,8 @@ irhIndex.then((index) => {
 function openProfileAt(x: number, y: number): void {
   const canvas = renderer.domElement;
   let best: { layer: LineLayer; hit: Hit } | null = null;
-  for (const layer of [isochrones.lines, tracks.lines, bedmap.tracks, bedmap.bed]) {
-    if (!layer.group.visible || ((layer === isochrones.lines || layer === bedmap.bed) && isochronesUnderIce())) continue;
+  for (const layer of [isochrones.lines, tracks.lines, trackBed.lines, bedmap.tracks, bedmap.bed]) {
+    if (!layer.group.visible || ((layer === isochrones.lines || layer === bedmap.bed || layer === trackBed.lines) && isochronesUnderIce())) continue;
     const hit = layer.pick(camera, x, y, canvas.clientWidth, canvas.clientHeight);
     if (hit && (!best || closer(hit.distance, hit.depth, best.hit))) best = { layer, hit };
   }
@@ -1107,7 +1222,7 @@ function openProfileAt(x: number, y: number): void {
     }
     baseUrl = BEDMAP_URL;
   } else {
-    const line = best.layer === tracks.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
+    const line = best.layer === tracks.lines || best.layer === trackBed.lines ? tracks.tracks[best.hit.feature] : isochrones.features[best.hit.feature];
     track = linesById.get(`${line.dataset}\u0000${line.line_id}`);
   }
   if (!track) return;
@@ -1127,14 +1242,16 @@ function openProfileAt(x: number, y: number): void {
     .catch(showError);
 }
 
-/** Collect the egg under a click, if any is not collected yet; whether it did. */
+/** Collect the egg under a click, if not yet, and fly to a view of it; whether there was one. */
 function collectEgg(event: PointerEvent): boolean {
-  if (!eggCounter) return false;
+  if (!eggCounter || !settings.eggs) return false;
   const canvas = renderer.domElement;
   if (iceCores.pick(camera, event.offsetX, event.offsetY, canvas.clientWidth, canvas.clientHeight)) return false;
   const egg = eggs.pick(camera, event.offsetX, event.offsetY, canvas.clientWidth, canvas.clientHeight);
-  if (!egg || eggCounter.has(egg.id)) return false;
-  eggCounter.collect(egg.id, egg.title, event.clientX, event.clientY);
+  if (!egg) return false;
+  // Collected the first time; each time, a good view of it
+  if (!eggCounter.has(egg.id)) eggCounter.collect(egg.id, egg.title, event.clientX, event.clientY);
+  flyToEgg(egg.id);
   pointerMoved = true;
   requestRender();
   return true;
@@ -1172,6 +1289,8 @@ async function loadLevel(meta: TerrainMeta, res: string): Promise<void> {
   const grid = gridOf(level);
   if (!pivotField) {
     pivotField = PivotField.fromLayers(grid, bedTex.userData as never, surfaceTex.userData as never);
+    // On the coarse grid: enough for a flat layer
+    sea.build(grid, bedTex.userData as never, surfaceTex.userData as never);
     const field = pivotField;
     terrainReady((layer, x, y) => field.smoothAt(layer, x, y));
     eggs.place();
@@ -1257,10 +1376,12 @@ const settings = {
   isochrones: true,
   colorBy: "Age" as ColorBy,
   tracks: true,
-  bedmapTracks: false,
+  trackBed: false,
+  // Layers of the Bedmap survey lines, once a generation is shown
+  bedmapTracks: true,
   bedmapBed: false,
-  // Bedmap generations shown, by checkbox
-  bedmapDatasets: Object.fromEntries(BEDMAP_DATASETS.map((d) => [d, true])) as Record<string, boolean>,
+  // Bedmap generations shown, by checkbox: none at start
+  bedmapDatasets: Object.fromEntries(BEDMAP_DATASETS.map((d) => [d, false])) as Record<string, boolean>,
   iceCores: false,
   groundingLines: false,
   groundingLineScenario: "A" as Scenario,
@@ -1268,6 +1389,10 @@ const settings = {
   groundingLineTimes: Object.fromEntries(GROUNDING_LINE_COLORS.map(([age]) => [String(age), true])) as Record<string, boolean>,
   iceDivides: false,
   aircraft: true,
+  eggs: true,
+  sea: true,
+  // Contrast of the ice speed colours: the colours follow log(1 + speed / 10^-contrast m/a)
+  velocityContrast: 0,
   lineWidth: 2.5,
   lightAzimuth: 315, // degrees clockwise from grid north (+y)
   lightElevation: 40,
@@ -1305,6 +1430,7 @@ if (SCREENSHOT) {
 function updateBedRange(): void {
   bed.material.uniforms.colormapRange.value.set(-settings.bedRange, settings.bedRange);
   bedmap.setBedRange(settings.bedRange);
+  trackBed.setBedRange(settings.bedRange);
   requestRender();
 }
 
@@ -1315,6 +1441,7 @@ function updateLight(): void {
   requestRender();
 }
 aircraft.group.visible = settings.aircraft;
+sea.mesh.visible = settings.sea;
 updateLight();
 updateBedRange();
 applyTheme();
@@ -1419,6 +1546,13 @@ velocityOptions
     if (velocity) velocity.material.uniforms.opacity.value = v;
     requestRender();
   });
+velocityOptions
+  .add(settings, "velocityContrast", -2, 2, 0.1)
+  .name("Contrast (slow ice)")
+  .onChange(() => {
+    if (velocity) velocity.material.uniforms.speedScale.value = speedScale();
+    showVelocity();
+  });
 velocityOptions.add(settings, "flowLines").name("Flow lines").onChange(showVelocity);
 velocityOptions
   .add(settings, "animateFlow")
@@ -1499,12 +1633,16 @@ function showIceDivides(): void {
 }
 
 function showBedmap(): void {
-  bedmap.tracks.group.visible = settings.bedmapTracks;
-  bedmap.bed.group.visible = settings.bedmapBed;
-  const attribution = document.getElementById("bedmap-lines-attribution");
-  if (attribution) attribution.hidden = !(settings.bedmapTracks || settings.bedmapBed);
   const shown = BEDMAP_DATASETS.filter((d) => settings.bedmapDatasets[d]);
-  if (settings.bedmapTracks || settings.bedmapBed) {
+  // Its layers only once a generation is chosen
+  bedmapLayers?.show(shown.length > 0);
+  const tracksOn = settings.bedmapTracks && shown.length > 0;
+  const bedOn = settings.bedmapBed && shown.length > 0;
+  bedmap.tracks.group.visible = tracksOn;
+  bedmap.bed.group.visible = bedOn;
+  const attribution = document.getElementById("bedmap-lines-attribution");
+  if (attribution) attribution.hidden = !(tracksOn || bedOn);
+  if (tracksOn || bedOn) {
     bedmap
       .load(BEDMAP_URL, shown)
       .then(() => {
@@ -1516,6 +1654,27 @@ function showBedmap(): void {
       })
       .catch(showError);
   }
+  pointerMoved = true;
+  requestRender();
+}
+
+/** The bed picks of the datasets shown (with the filters), when on. */
+function loadTrackBed(): void {
+  if (!settings.trackBed) return;
+  filtersReady
+    .then(() => trackBed.load(isochrones.datasetsNotHidden()))
+    .then(() => {
+      trackBed.setBedRange(settings.bedRange);
+      trackBed.applyFilter(isochrones.hiddenDatasets);
+      pointerMoved = true;
+      requestRender();
+    })
+    .catch(showError);
+}
+
+function showTrackBed(): void {
+  trackBed.group.visible = settings.trackBed;
+  loadTrackBed();
   pointerMoved = true;
   requestRender();
 }
@@ -1541,18 +1700,7 @@ isochroneFolder
   .add(settings, "tracks")
   .name("Surface tracks")
   .onChange(showTracks);
-// Not in a private preview, which has no aircraft (above)
-if (!SUBMISSION)
-  isochroneFolder
-    .add(settings, "aircraft")
-    .name("Survey aircraft")
-    .onChange((v: boolean) => {
-      aircraft.group.visible = v;
-      // The tracks are their flight paths
-      if (v) loadTracks();
-      lastAircraftUpdate = performance.now();
-      requestRender();
-    });
+isochroneFolder.add(settings, "trackBed").name("Bed picks").onChange(showTrackBed);
 isochroneFolder
   .add(settings, "colorBy", COLOR_BY)
   .name("Colour by")
@@ -1600,6 +1748,7 @@ function queueFilter(): void {
     tracks.applyFilter(isochrones.hiddenDatasets);
     loadIsochrones();
     loadTracks();
+    loadTrackBed();
     for (const layer of lineLayers) layer.invalidate();
     showIsochroneLegend();
     clearHover();
@@ -1649,12 +1798,42 @@ function buildFilters(index: IrhIndex): void {
 }
 
 // Bedmap survey lines, traced or not: not in a private preview, which only shows its dataset
+// The generations, then their layers, only shown once one is chosen
 const bedmapFolder = SUBMISSION ? null : gui.addFolder("Bedmap survey lines");
-if (bedmapFolder) {
-  bedmapFolder.add(settings, "bedmapTracks").name("Surface tracks").onChange(showBedmap);
-  bedmapFolder.add(settings, "bedmapBed").name("Measured bed").onChange(showBedmap);
+const bedmapLayers = bedmapFolder?.addFolder("Layers") ?? null;
+if (bedmapFolder && bedmapLayers) {
   for (const dataset of BEDMAP_DATASETS) bedmapFolder.add(settings.bedmapDatasets, dataset).onChange(showBedmap);
+  // After the generations in the folder
+  bedmapFolder.$children.appendChild(bedmapLayers.domElement);
+  bedmapLayers.add(settings, "bedmapTracks").name("Surface tracks").onChange(showBedmap);
+  bedmapLayers.add(settings, "bedmapBed").name("Bed picks").onChange(showBedmap);
+  bedmapLayers.hide();
   bedmapFolder.close();
+}
+
+// Not in a private preview, which has no aircraft (above) and no eggs
+const miscFolder = SUBMISSION ? null : gui.addFolder("Miscellaneous");
+if (miscFolder) {
+  miscFolder
+    .add(settings, "aircraft")
+    .name("Survey aircraft")
+    .onChange((v: boolean) => {
+      aircraft.group.visible = v;
+      // The tracks are their flight paths
+      if (v) loadTracks();
+      lastAircraftUpdate = performance.now();
+      requestRender();
+    });
+  miscFolder
+    .add(settings, "sea")
+    .name("Sea level")
+    .onChange((v: boolean) => {
+      sea.mesh.visible = v;
+      lastSeaUpdate = performance.now();
+      requestRender();
+    });
+  miscFolder.add(settings, "eggs").name("Hidden eggs").onChange(showEggs);
+  miscFolder.close();
 }
 
 const light = gui.addFolder("Light");
@@ -1689,6 +1868,14 @@ function storedSettings(): SavedGui | null {
   }
 }
 const lastSettings = storedSettings();
+// Before 2026-11-12, the Bedmap generations were all ticked and the layers off: shown by the
+// layers. Now the generations show them: ticked only if a layer was on
+const oldBedmap = lastSettings?.folders["Bedmap survey lines"];
+if (oldBedmap && "Measured bed" in oldBedmap.controllers) {
+  const { "Surface tracks": tracksOn, "Measured bed": bedOn, ...generations } = oldBedmap.controllers;
+  oldBedmap.controllers = generations;
+  if (!tracksOn && !bedOn) for (const dataset of BEDMAP_DATASETS) oldBedmap.controllers[dataset] = false;
+}
 // The filters of the last visit: in the Isochrones folder, or at the top before (2026-11-09)
 const lastFilters = lastSettings?.folders.Isochrones?.folders.Filter ?? lastSettings?.folders.Filter;
 let filtersBuilt = false;
@@ -1828,6 +2015,7 @@ const loading = document.getElementById("loading")!;
 filtersReady = irhIndex.then((index) => {
   isochrones.init(IRH_URL, index);
   tracks.init(IRH_URL, index);
+  trackBed.init(IRH_URL, index);
   buildFilters(index);
   filtersBuilt = true;
   restoreSettings(filters, lastFilters);
@@ -1888,4 +2076,4 @@ if (LESSON) {
     )
     .catch(showError);
 }
-if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial, eggs, eggCounter } });
+if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial, eggs, eggCounter, sea } });
