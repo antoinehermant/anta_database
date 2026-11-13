@@ -7,7 +7,7 @@
  * cores standing on the surface next to Little Dome C; and the glass of whisky
  * of Claude Lorius, on a table outside Dumont d'Urville station; and a train
  * like Snowpiercer, going round and round Skytrain Ice Rise; and the yeti of
- * Yetisports on an island in Pine Island Bay, playing Orca Slap with the
+ * Yetisports on a floe of sea ice in Pine Island Bay, playing Orca Slap with the
  * penguins, aiming at a target on an iceberg.
  *
  * Unlike the aircraft, they have a fixed size in the scene (km), so they are
@@ -321,10 +321,9 @@ function station(): THREE.Group {
 /**
  * The island under the station, 1 unit across at the top (z = 0), going down
  * to z = -1 (scaled to the seafloor): the Île des Pétrels is too small for the
- * 500 m grid of Bedmap3, which has sea there. Bumpy, not round. Snowy: white
- * on top, for the yeti.
+ * 500 m grid of Bedmap3, which has sea there. Bumpy, not round.
  */
-function island(snowy = false): THREE.Mesh {
+function island(): THREE.Mesh {
   // From the foot up, for the faces to look outwards
   const profile = [
     [0.85, -1],
@@ -343,12 +342,36 @@ function island(snowy = false): THREE.Mesh {
     position.setXY(i, position.getX(i) * f, position.getY(i) * f);
   }
   geometry.computeVertexNormals();
-  if (!snowy) return mesh(geometry, new THREE.MeshMatcapMaterial({ matcap: matcap("#9b9893", "#4d4a46", "#bdbab5") }));
-  // Snow on top and over the rim, grey rock below (vertex colours, darkening a white matcap)
+  return mesh(geometry, new THREE.MeshMatcapMaterial({ matcap: matcap("#9b9893", "#4d4a46", "#bdbab5") }));
+}
+
+/**
+ * A floe of thick sea ice, floating: about 1 unit across at the top (z = 0), its flat bottom at
+ * z = -1 (scaled to its thickness, mostly under the water). A broken polygon with sharp edges,
+ * white snow on top, blue ice on the sides and below.
+ */
+function floe(): THREE.Mesh {
+  const profile = [
+    [0, -1],
+    [0.43, -1],
+    [0.48, -0.4],
+    [0.5, -0.1],
+    [0.47, 0],
+    [0, 0],
+  ].map(([r, z]) => new THREE.Vector2(r, z));
+  const geometry = new THREE.LatheGeometry(profile, 11).rotateX(Math.PI / 2);
+  const position = geometry.attributes.position;
   const colors = new Float32Array(position.count * 3);
-  for (let i = 0; i < position.count; i++) colors.set(position.getZ(i) >= -0.02 ? [1, 1, 1] : [0.56, 0.55, 0.53], 3 * i);
+  for (let i = 0; i < position.count; i++) {
+    const a = Math.atan2(position.getY(i), position.getX(i));
+    const f = 1 + 0.12 * Math.sin(3 * a + 1) + 0.07 * Math.sin(5 * a + 2) + 0.06 * Math.sin(7 * a);
+    position.setXY(i, position.getX(i) * f, position.getY(i) * f);
+    const z = position.getZ(i);
+    colors.set(z >= 0 ? [1, 1, 1] : z > -0.5 ? [0.78, 0.9, 1] : [0.55, 0.75, 0.95], 3 * i);
+  }
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  return mesh(geometry, new THREE.MeshMatcapMaterial({ matcap: matcap("#f2f6fa", "#8d99a6"), vertexColors: true }));
+  geometry.computeVertexNormals();
+  return mesh(geometry, new THREE.MeshMatcapMaterial({ matcap: matcap("#f6faff", "#86a7c4"), vertexColors: true, flatShading: true }));
 }
 
 /**
@@ -800,11 +823,11 @@ function yeti(): { group: THREE.Group; body: THREE.Group; right: Arm; left: Arm;
   };
   const right = arm(-1);
   const left = arm(1);
-  const ball = piece(SPHERE, SNOW, [0.03, 0, -0.27], [0.06, 0.06, 0.06]);
+  const ball = piece(SPHERE, SNOW, [0.05, 0, -0.34], [0.15, 0.15, 0.15]);
   right.elbow.add(ball);
   // More snowballs, ready
-  for (const [x, y, z] of [[0.22, -0.28, 0.05], [0.3, -0.2, 0.05], [0.28, -0.36, 0.05], [0.27, -0.28, 0.13]]) {
-    group.add(piece(SPHERE, SNOW, [x, y, z], [0.055, 0.055, 0.055]));
+  for (const [x, y, z] of [[0.28, -0.34, 0.1], [0.46, -0.22, 0.1], [0.44, -0.47, 0.1], [0.38, -0.34, 0.27]]) {
+    group.add(piece(SPHERE, SNOW, [x, y, z], [0.11, 0.11, 0.11]));
   }
   return { group, body, right, left, ball };
 }
@@ -853,13 +876,15 @@ function flap(penguin: THREE.Group, angle: number): void {
   for (const f of penguin.userData.flippers as THREE.Group[]) f.rotation.x = -f.userData.side * angle;
 }
 
-/** An orca, 1 unit long along +x (head at +x), its middle at z = 0. Its tail flukes turn up and down (tail, rotation.y). */
-function orca(): { group: THREE.Group; tail: THREE.Group } {
+/**
+ * An orca, about 1 unit long along +x (head at +x), its middle at z = 0. Its tail bends up and down
+ * in segments, down to the flukes (segments, rotation.y; tail: the flukes).
+ */
+function orca(): { group: THREE.Group; tail: THREE.Group; segments: THREE.Group[] } {
   const group = new THREE.Group();
   const black = new THREE.MeshMatcapMaterial({ matcap: matcap("#3a4048", "#06080a", "#8a96a3") });
   const white = new THREE.MeshMatcapMaterial({ matcap: matcap("#ffffff", "#aab5c0") });
   group.add(piece(SPHERE, black, [0.05, 0, 0], [0.42, 0.11, 0.11]));
-  group.add(piece(SPHERE, black, [-0.3, 0, 0.01], [0.18, 0.055, 0.06]));
   group.add(piece(SPHERE, white, [0.12, 0, -0.035], [0.3, 0.085, 0.08]));
   for (const y of [-0.07, 0.07]) {
     group.add(piece(SPHERE, white, [0.3, y, 0.03], [0.06, 0.03, 0.025]));
@@ -871,15 +896,27 @@ function orca(): { group: THREE.Group; tail: THREE.Group } {
   const shape = new THREE.Shape([new THREE.Vector2(0.06, 0), new THREE.Vector2(-0.06, 0), new THREE.Vector2(-0.04, 0.2)]);
   const dorsal = new THREE.ExtrudeGeometry(shape, { depth: 0.014, bevelEnabled: false }).translate(0, 0, -0.007).rotateX(Math.PI / 2);
   group.add(piece(dorsal, black, [0, 0, 0.09]));
+  // The tail: three segments narrowing to the flukes, each bending on the one before (rotation.y)
+  const segments: THREE.Group[] = [];
+  let parent: THREE.Object3D = group;
+  for (const [at, length, width, height] of [[-0.26, 0.1, 0.07, 0.075], [-0.12, 0.08, 0.05, 0.055], [-0.1, 0.065, 0.035, 0.04]]) {
+    const segment = new THREE.Group();
+    segment.position.set(at, 0, parent === group ? 0.01 : 0);
+    segment.add(piece(SPHERE, black, [-length * 0.7, 0, 0], [length, width, height]));
+    parent.add(segment);
+    segments.push(segment);
+    parent = segment;
+  }
   const tail = new THREE.Group();
-  tail.position.set(-0.46, 0, 0.01);
-  for (const y of [-0.06, 0.06]) {
-    const fluke = piece(SPHERE, black, [-0.05, y, 0], [0.06, 0.07, 0.012]);
+  tail.position.x = -0.09;
+  for (const y of [-0.07, 0.07]) {
+    const fluke = piece(SPHERE, black, [-0.05, y, 0], [0.07, 0.085, 0.012]);
     fluke.rotation.z = -Math.sign(y) * 0.6;
     tail.add(fluke);
   }
-  group.add(tail);
-  return { group, tail };
+  parent.add(tail);
+  segments.push(tail);
+  return { group, tail, segments };
 }
 
 /**
@@ -1044,22 +1081,24 @@ const TRAIN_SPEED = 0.15; // rad/s around the loop: a lap in about 40 s (a year 
 const TRACK_SAMPLES = 720;
 const TUNNEL = [232.5, 327.5].map((d) => Math.round((d / 360) * TRACK_SAMPLES)); // samples of the grounded part
 
-// Orca slap: the island of the yeti in Pine Island Bay, off the Pine Island and Thwaites glaciers (not
-// in Bedmap3, open sea there), the island where the penguins wait, and the iceberg with the target,
+// Orca slap: the floe of the yeti in Pine Island Bay, off the Pine Island and Thwaites glaciers
+// floating in the open sea, the floe where the penguins wait, and the iceberg with the target,
 // out in the bay (towards ICEBERG_AT). In the frame of the scene (units of SLAP_SCALE km): from the
-// middle of the island of the yeti, +x towards the iceberg
+// middle of the floe of the yeti, +x towards the iceberg
 const SLAP_AT = polarStereographic(-74.345, -103.346);
 const ICEBERG_AT = polarStereographic(-74.484, -104.061);
 const SLAP_SCALE = 0.6; // km per unit of the scene
 const ICEBERG_DISTANCE = 26;
 const SLAP_ISLAND = 7; // across the top
+const SLAP_HEIGHT = 8; // m (exaggerated) of the floes out of the water: low, just above the sea
+const FLOE_DRAFT = 0.5; // under the water
 const WAIT_ISLAND = 4;
 const WAIT_AT = new THREE.Vector3(2, -13, 0);
 const YETI_SIZE = 2.2; // all out of scale, like in the game
 const YETI_IN_SCENE = [0.8, 1.4];
 const PENGUIN_SIZE = 0.9;
 const PENGUINS = 6;
-// The way of a penguin: from the island where they wait, into the sea, swimming to the island of the
+// The way of a penguin: from the floe where they wait, into the sea, swimming to the floe of the
 // yeti, out onto it, to its edge by the orca; the others coming back from the far side
 const TO_YETI = WAIT_AT.clone().negate().normalize();
 const DIVE_FROM = WAIT_AT.clone().addScaledVector(TO_YETI, 1.3);
@@ -1067,13 +1106,15 @@ const DIVE_TO = WAIT_AT.clone().addScaledVector(TO_YETI, 3.2);
 const SWIM_TO = TO_YETI.clone().multiplyScalar(-5);
 const HOP_TO = TO_YETI.clone().multiplyScalar(-2.7);
 const POP_FROM = WAIT_AT.clone().addScaledVector(TO_YETI, -3.3);
-// Where the others wait, around the middle of their island (one for each but the one playing)
+// Where the others wait, around the middle of their floe (one for each but the one playing)
 const SPOTS = [[0.3, 0.5], [-0.6, 0.2], [0.1, -0.6], [-0.5, -0.6], [0.7, -0.2]].map(([x, y]) => WAIT_AT.clone().add(new THREE.Vector3(x, y, 0)));
 const LYING = [1, 3]; // spots where they lie on the ground
 const EDGE = new THREE.Vector3(3, -0.5, 0); // where the penguin jumps from
 const ORCA_SIZE = 4.5;
-const ORCA_X = 7.7; // facing the yeti, its head just off the island
-const APEX = new THREE.Vector3(ORCA_X + 2.4, 0, 6.5); // where the snowball hits the penguin
+// Facing the yeti, lying with its chin on the tip of the floe, the tail in the water
+const ORCA_CHIN = 3.2; // x of the chin on the floe
+const ORCA_X = ORCA_CHIN + 1.55; // about the middle of its body
+const APEX = new THREE.Vector3(ORCA_X + 2.8, 0, 6.5); // where the snowball hits the penguin
 const ICEBERG_SIZE = 5;
 const TARGET_HEIGHT = 0.28; // of the iceberg, above the waterline
 const SLAP_LOOP = 12.4; // s, one penguin
@@ -1117,16 +1158,16 @@ export class EasterEggs {
   // Track samples where the train goes deep into the ice and comes out (from the surface, in place())
   private portals: number[] = [];
   private portalTops: number[] = [];
-  // Orca slap: the scene turned towards the iceberg, its island, the players, the snowball in the air
+  // Orca slap: the scene turned towards the iceberg, its floe, the players, the snowball in the air
   private slap = new THREE.Group();
-  private slapIsland = island(true);
-  private waitIsland = island(true);
+  private slapIsland = floe();
+  private waitIsland = floe();
   private slapTop = 0;
   private yeti = yeti();
   private orca = orca();
   private penguins = Array.from({ length: PENGUINS }, penguin);
   private iceberg = iceberg();
-  private snowball = piece(SPHERE, SNOW, [0, 0, 0], [0.25, 0.25, 0.25]);
+  private snowball = piece(SPHERE, SNOW, [0, 0, 0], [0.15 * YETI_SIZE, 0.15 * YETI_SIZE, 0.15 * YETI_SIZE]); // as in the hand
   private puffs = new SnowBursts(600, 0.6 * SLAP_SCALE);
   private releaseAt = new THREE.Vector3(); // where the snowball left the hand of the yeti
   private slapBefore = 0;
@@ -1360,17 +1401,17 @@ export class EasterEggs {
     this.track.geometry.setAttribute("position", new THREE.BufferAttribute(this.trackPoints.slice(), 3));
     this.moveTrain();
 
-    // The island of the yeti, its top a bit above the sea, its foot on the seafloor; the scene
-    // turned so the penguins fly along +x, to the iceberg
+    // The floe of the yeti, its top a bit above the sea; the scene turned so the penguins fly along
+    // +x, to the iceberg
     const [ix, iy] = SLAP_AT;
     const [bx, by] = ICEBERG_AT;
     const seafloor = this.bedAt(ix, iy);
     this.placed.set(this.slap, seafloor !== null);
     this.slap.position.set(ix, iy, 0);
     this.slap.rotation.z = Math.atan2(by - iy, bx - ix);
-    // Heights in units of the scene, not shrunk with it: down to the seafloor
-    this.slapTop = z(30) / SLAP_SCALE;
-    const tall = this.slapTop - z(Math.min(0, seafloor ?? -300) - 50) / SLAP_SCALE;
+    // Heights in units of the scene, not shrunk with it: floating, a bit out of the water
+    this.slapTop = z(SLAP_HEIGHT) / SLAP_SCALE;
+    const tall = this.slapTop + FLOE_DRAFT;
     this.slapIsland.position.z = this.waitIsland.position.z = this.slapTop;
     this.slapIsland.scale.set(SLAP_ISLAND, SLAP_ISLAND, tall);
     this.waitIsland.scale.set(WAIT_ISLAND, WAIT_ISLAND, tall);
@@ -1452,9 +1493,9 @@ export class EasterEggs {
 
   /**
    * One round of Orca Slap, from the time in the loop (SLAP_LOOP s, one penguin each): a penguin
-   * leaves the others on their island, swims to the island of the yeti and jumps on the tail of the
+   * leaves the others on their floe, swims to the floe of the yeti and jumps on the tail of the
    * orca, which slaps it up into the air; the yeti throws a snowball at it, which sends it flying to
-   * the iceberg, flat on the target. It slides down into the sea, and pops out onto the island of the
+   * the iceberg, flat on the target. It slides down into the sea, and pops out onto the floe of the
    * others in the next round, from the far side, as the next one goes.
    */
   private playSlap(): void {
@@ -1466,12 +1507,33 @@ export class EasterEggs {
     const top = this.slapTop;
     this.slap.updateMatrixWorld(true);
 
-    // The orca: breathing; its tail pressed down by the penguin, then whipped up
-    this.orca.group.position.z = 0.1 + 0.05 * Math.sin(this.time * 1.7);
-    const tail =
-      t < 5.65 ? -0.35 * ease(s(5.4, 5.65)) : t < 5.85 ? -0.35 + 1.65 * s(5.65, 5.85) : 1.3 * (1 - ease(s(5.85, 6.6)));
-    this.orca.tail.rotation.y = tail;
-    this.orca.tail.updateMatrixWorld(true);
+    // The orca: breathing, its tail swaying; when the penguin lands, the tail pressed down under the
+    // water, then whipped up from the base to the flukes, a wave along it, and swinging back; the
+    // body rocking with it, the head down as the tail goes up. Spray where the tail hits the water
+    // and where it comes out
+    const bend = (at: number) =>
+      at < 5.4
+        ? 0.08 * Math.sin(at * 1.5)
+        : at < 5.6
+          ? 0.08 * Math.sin(5.4 * 1.5) * (1 - s(5.4, 5.6)) - 0.45 * ease((at - 5.4) / 0.2)
+          : at < 5.8
+            ? -0.45 + 1.15 * ease((at - 5.6) / 0.2)
+            : 0.7 * Math.exp(-3.5 * (at - 5.8)) * Math.cos(8 * (at - 5.8));
+    [0.6, 0.9, 1.1, 0.8].forEach((gain, j) => (this.orca.segments[j].rotation.y = gain * bend(t - 0.045 * j)));
+    const tail = bend(t - 0.135) * 3.4;
+    // Lying on its chin (orca units 0.32 forward, 0.09 down) on top of the floe, tilted for the
+    // base of the tail to be just under the water; the head nodding down as the penguin lands, thrown
+    // up with the slap, bouncing back; turning about the chin, which stays on the snow
+    const [cx, cz] = [0.32 * ORCA_SIZE, 0.09 * ORCA_SIZE];
+    const [ax, az] = [cx + 0.37 * ORCA_SIZE, cz];
+    const lie = Math.asin(Math.min(1, (top + 0.12) / Math.hypot(ax, az))) + Math.atan2(az, ax);
+    const nod =
+      t < 5.6 ? -0.06 * ease(s(5.35, 5.6)) : t < 5.8 ? -0.06 + 0.36 * ease(s(5.6, 5.8)) : 0.3 * Math.exp(-3 * (t - 5.8)) * Math.cos(5 * (t - 5.8));
+    const pitch = lie + nod + 0.015 * Math.sin(this.time * 1.7);
+    const [chinX, chinZ] = [-cx * Math.cos(pitch) - cz * Math.sin(pitch), cx * Math.sin(pitch) - cz * Math.cos(pitch)];
+    this.orca.group.position.set(ORCA_CHIN - chinX, 0, top + 0.02 - chinZ);
+    this.orca.group.rotation.set(0, pitch, Math.PI);
+    this.orca.group.updateMatrixWorld(true);
     const onTail = this.slap.worldToLocal(this.orca.tail.localToWorld(new THREE.Vector3(-0.06, 0, 0.012)));
 
     // The yeti: taking momentum, leaning back and turning, the arm cocked behind its head, the other
@@ -1541,7 +1603,7 @@ export class EasterEggs {
         if (u > 0 && u < 1) p.rotation.x = 0.18 * Math.sin(this.time * 12);
       };
       if (k === PENGUINS - 1 && t < 1.6) {
-        // Last round's: under the sea, then popping out of it onto the island, from the far side
+        // Last round's: under the sea, then popping out of it onto the floe, from the far side
         p.visible = t >= 1.0;
         leap(p, POP_FROM.clone().setZ(-0.6), spot, s(1.0, 1.6), 1.5, [0, 0]);
         continue;
@@ -1580,7 +1642,7 @@ export class EasterEggs {
         p.rotation.set(0, Math.PI / 2, heading(DIVE_TO, SWIM_TO));
         flap(p, 0.4 + 0.5 * Math.sin(this.time * 10));
       } else if (t < 3.8) {
-        // Out onto the island of the yeti
+        // Out onto the floe of the yeti
         leap(p, SWIM_TO, HOP_TO.clone().setZ(top), s(3.4, 3.8), 1.0, [Math.PI / 2, 0]);
       } else if (t < 4.3) {
         waddle(HOP_TO, EDGE, ease(s(3.8, 4.3)));
@@ -1625,6 +1687,9 @@ export class EasterEggs {
       watched.copy(p.visible ? p.position : target);
     }
     // Snow flying off the penguin where the snowball hits it, and on the iceberg
+    const tip = new THREE.Vector3(ORCA_X + 2.6, 0, 0); // where the tail meets the water
+    if (passed(5.55)) this.puffs.emit(tip, new THREE.Vector3(1, 0, 0), 120, 0.25);
+    if (passed(5.72)) this.puffs.emit(tip, new THREE.Vector3(-1, 0, 0), 350, 0.45);
     if (passed(6.9)) this.puffs.emit(APEX, new THREE.Vector3(1, 0, 0), 120, 0.35);
     if (passed(7.9)) this.puffs.emit(bull, new THREE.Vector3(-1, 0, 0), 300, 0.45);
     this.slapBefore = t;
