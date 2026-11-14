@@ -16,6 +16,13 @@ body {
   inset: 0;
 }
 
+/* Over the view when the camera is in the snow or the ice (main.ts) */
+#snow-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 #loading {
   position: fixed;
   left: 50%;

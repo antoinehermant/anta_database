@@ -41,6 +41,9 @@ const RESET_KEYS = ["Digit0", "Numpad0"];
 
 // Per second: a share of the distance between the camera and the centre, and an angle
 const SPEED = 0.6;
+// Moving with the keys: at least as fast as from this distance (km) to the centre, so it doesn't
+// crawl when zoomed in close
+const MIN_SPEED_DISTANCE = 100;
 const TURN_SPEED = Math.PI / 4;
 // Zooming divides the distance to the centre by e every 1 / ZOOM_SPEED seconds
 const ZOOM_SPEED = 1.2;
@@ -182,7 +185,7 @@ export class KeyNavigation {
     this.forward.normalize();
     this.right.crossVectors(this.forward, this.up);
 
-    const step = SPEED * camera.position.distanceTo(controls.target) * dt;
+    const step = SPEED * Math.max(camera.position.distanceTo(controls.target), MIN_SPEED_DISTANCE) * dt;
     const along = THREE.MathUtils.clamp((held.has("forward") ? 1 : 0) - (held.has("back") ? 1 : 0) + this.edge.along, -1, 1);
     const across = THREE.MathUtils.clamp((held.has("right") ? 1 : 0) - (held.has("left") ? 1 : 0) + this.edge.across, -1, 1);
     const turn = (held.has("turnLeft") ? 1 : 0) - (held.has("turnRight") ? 1 : 0);

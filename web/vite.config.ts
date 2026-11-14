@@ -52,8 +52,26 @@ const devViewer: Plugin = {
       : [],
 };
 
+// Local development only: the viewer sends its camera history here (F9), to look into a
+// navigation problem from the state it was left in
+const viewDebug: Plugin = {
+  name: "view-debug",
+  apply: "serve",
+  configureServer(server) {
+    server.middlewares.use("/__view-debug", (req, res) => {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", async () => {
+        const { writeFile } = await import("node:fs/promises");
+        await writeFile("/tmp/anta-view-debug.json", body);
+        res.end("ok");
+      });
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [goatcounter, devViewer],
+  plugins: [goatcounter, devViewer, viewDebug],
   // The submission portal (portal/app.py) in development
   server: {
     proxy: { "/api": "http://localhost:8000" },

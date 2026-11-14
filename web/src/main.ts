@@ -95,12 +95,33 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.zoomToCursor = true;
-controls.screenSpacePanning = false; // pan along the ground
+// Zooming to the cursor keeps the rotation centre on the line of sight (OrbitControls puts
+// it there with screen space panning; otherwise, looking near the horizon, it leaves the
+// centre behind and turns the camera towards it). Panning still moves along the ground:
+// the up movement of the screen is replaced by the one over the ground
+controls.screenSpacePanning = true;
+const internals = controls as unknown as {
+  _panOffset: THREE.Vector3;
+  _sphericalDelta: THREE.Spherical;
+  _dollyStart: THREE.Vector2;
+  _panUp(distance: number, matrix: THREE.Matrix4): void;
+  _handleMouseDownDolly(event: MouseEvent): void;
+  _updateZoomParameters(x: number, y: number): void;
+};
+internals._panUp = (distance, matrix) => {
+  const across = new THREE.Vector3().setFromMatrixColumn(matrix, 0);
+  internals._panOffset.add(new THREE.Vector3().crossVectors(camera.up, across).multiplyScalar(distance));
+};
+// Zooming with the middle button: towards the pointer (OrbitControls gives it x for y)
+internals._handleMouseDownDolly = (event) => {
+  internals._updateZoomParameters(event.clientX, event.clientY);
+  internals._dollyStart.set(event.clientX, event.clientY);
+};
 // Closest zoom (km), apart from the views of the eggs
 const MIN_DISTANCE = 20;
 controls.minDistance = MIN_DISTANCE;
 controls.maxDistance = 15000;
-controls.maxPolarAngle = 0.49 * Math.PI; // never below the horizon of the rotation centre
+controls.maxPolarAngle = 0.85 * Math.PI; // below the horizon too, to look under the sea
 
 // Dragging rotates; with Ctrl (or Shift, Cmd) held, or the right button, it moves over the
 // ground (OrbitControls). Pointing at an edge of the view also moves towards it (below)
@@ -112,12 +133,112 @@ let pivotField: PivotField | null = null;
 // Heights of the terrain as drawn, once the first (coarse) level is loaded
 let terrainReady: (heights: HeightAt) => void;
 const terrainHeights = new Promise<HeightAt>((resolve) => (terrainReady = resolve));
+// Zoomed out beyond ZOOMED_OUT (km from the centre), the view turns around the middle of the
+// continent, the centre of the home view, wherever it is on the screen: the camera stays where
+// it is when an interaction starts (rotations in the update of the controls, below). The zoom
+// still goes towards the pointer
+const ZOOMED_OUT = 4000;
+let rotationAnchor: THREE.Vector3 | null = null;
+function homeTarget(): THREE.Vector3 {
+  const { x, y } = HOME_CENTRE;
+  return new THREE.Vector3(x, y, pivotField ? (pivotField.heightAt(x, y) * shared.exaggeration.value) / 1000 : 0);
+}
 controls.addEventListener("start", () => {
+  const far = camera.position.distanceTo(controls.target) >= ZOOMED_OUT;
+  rotationAnchor = far ? homeTarget() : null;
   if (!pivotField) return;
   const direction = camera.getWorldDirection(new THREE.Vector3());
   const hit = pivotField.intersect(camera.position, direction, shared.exaggeration.value, 2 * controls.maxDistance);
-  if (hit && hit.distanceTo(camera.position) >= controls.minDistance) controls.target.copy(hit);
+  if (hit && hit.distanceTo(camera.position) >= controls.minDistance) {
+    controls.target.copy(hit);
+  } else {
+    // Closer than the closest zoom, nothing ahead (the sky), or the camera in the ice, under
+    // the sea or under the middle of the ice: the centre stays on the line of sight
+    const distance = Math.max(camera.position.distanceTo(controls.target), controls.minDistance);
+    controls.target.copy(camera.position).addScaledVector(direction, distance);
+  }
 });
+
+// The camera can go through the ice and under the sea, but not deep into the rock: a step of
+// the controls that would take it further into the bed than ROCK_TOLERANCE is undone, which
+// stops the zoom there. Only steps going deeper are undone, so it can always come back out
+// (in a narrow valley, or over mountains finer than the coarse grid of the heights)
+const ROCK_TOLERANCE = 200; // m
+/** How deep (m) a point (scene units) is under the bed, negative above it; null without data. */
+function depthInRock(position: THREE.Vector3): number | null {
+  const bed = pivotField?.smoothAt("bed", position.x, position.y) ?? null;
+  return bed === null ? null : bed - (position.z * 1000) / shared.exaggeration.value;
+}
+const updateControls = controls.update.bind(controls);
+const beforeUpdate = { position: new THREE.Vector3(), target: new THREE.Vector3(), quaternion: new THREE.Quaternion() };
+controls.update = (deltaTime?: number | null) => {
+  beforeUpdate.position.copy(camera.position);
+  beforeUpdate.target.copy(controls.target);
+  beforeUpdate.quaternion.copy(camera.quaternion);
+  // Around the anchor: the rotation of this step taken from the controls, and applied to the
+  // camera and its target together, around the vertical and the horizontal across the view
+  const turn = internals._sphericalDelta;
+  const [theta, phi] = rotationAnchor && !flight ? [turn.theta, turn.phi] : [0, 0];
+  if (theta || phi) turn.set(turn.radius, 0, 0);
+  let changed = updateControls(deltaTime);
+  if (theta || phi) {
+    // With damping, a part of the rotation left at each frame, as OrbitControls does
+    const step = controls.enableDamping ? controls.dampingFactor : 1;
+    // Angle of the view from the vertical (z is up, not y as for THREE.Spherical)
+    const offset = camera.position.clone().sub(controls.target);
+    const polar = Math.acos(THREE.MathUtils.clamp(offset.z / offset.length(), -1, 1));
+    const tilt = THREE.MathUtils.clamp(polar + step * phi, 0.01, controls.maxPolarAngle) - polar;
+    camera.updateMatrixWorld();
+    const across = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).setZ(0).normalize();
+    const rotation = new THREE.Quaternion()
+      .setFromAxisAngle(camera.up, step * theta)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(across, tilt));
+    for (const point of [camera.position, controls.target]) point.sub(rotationAnchor!).applyQuaternion(rotation).add(rotationAnchor!);
+    camera.lookAt(controls.target);
+    // What is left of the rotation, damped
+    const keep = controls.enableDamping ? 1 - controls.dampingFactor : 0;
+    turn.theta = theta * keep;
+    turn.phi = phi * keep;
+    controls.dispatchEvent({ type: "change" });
+    changed = true;
+  }
+  if (!changed || flight) return changed;
+  const depth = depthInRock(camera.position);
+  const depthBefore = depthInRock(beforeUpdate.position);
+  if (depth !== null && depth > ROCK_TOLERANCE && (depthBefore === null || depth > depthBefore)) {
+    camera.position.copy(beforeUpdate.position);
+    controls.target.copy(beforeUpdate.target);
+    camera.quaternion.copy(beforeUpdate.quaternion);
+    internals._sphericalDelta.set(0, 0, 0);
+    internals._panOffset.set(0, 0, 0);
+    return false;
+  }
+  return changed;
+};
+
+// Crossing the ice surface: a layer of snow (white) for SNOW_DEPTH under it, then the ice
+// (a light blue veil), drawn over the view
+const SNOW_DEPTH = 8; // km in the scene, whatever the exaggeration, so it lasts a few zoom steps
+const snowVeil = document.createElement("div");
+snowVeil.id = "snow-veil";
+container.appendChild(snowVeil);
+let snowVeilShown = "";
+function updateSnowVeil(): void {
+  const p = camera.position;
+  const surface = pivotField?.smoothAt("surface", p.x, p.y) ?? null;
+  const rock = depthInRock(p);
+  const depth = surface === null ? 0 : (surface * shared.exaggeration.value) / 1000 - p.z; // km
+  let veil = "";
+  if (settings.surface && depth > 0 && (rock === null || rock < 0)) {
+    const snow = 0.92 * settings.surfaceOpacity * THREE.MathUtils.smoothstep(depth, 0, 0.15 * SNOW_DEPTH) * (1 - THREE.MathUtils.smoothstep(depth, 0.6 * SNOW_DEPTH, SNOW_DEPTH));
+    const tint = 0.15 * settings.surfaceOpacity;
+    veil = snow > tint ? `rgba(244, 248, 252, ${snow.toFixed(3)})` : `rgba(150, 200, 235, ${tint.toFixed(3)})`;
+  }
+  if (veil !== snowVeilShown) {
+    snowVeil.style.background = veil;
+    snowVeilShown = veil;
+  }
+}
 
 /** Back to the whole continent: flying there, or at once (when the viewer starts). */
 function resetView(instant = false): void {
@@ -489,6 +610,7 @@ renderer.setAnimationLoop((time: number) => {
   keyNavigation.update(Math.min(0.1, (time - lastFrame) / 1000));
   lastFrame = time;
   controls.update();
+  updateSnowVeil();
   // Moving by itself (a flight, keys, the pad or an edge): drawn at most 30 times a second, and
   // without the animations (but during the flights home and to the map, and as set above for
   // the keys and the edges), so a laptop keeps up however long it lasts
@@ -2075,5 +2197,41 @@ if (LESSON) {
       }),
     )
     .catch(showError);
+}
+// Local development only: the last moves of the camera, sent to the dev server with F9
+// (vite.config.ts writes them to /tmp/anta-view-debug.json)
+if (import.meta.env.DEV) {
+  const history: unknown[] = [];
+  const round = (v: { toArray(): number[] }) => v.toArray().map((x) => +x.toFixed(3));
+  const record = (type: string, extra: object = {}) => {
+    history.push({
+      t: Math.round(performance.now()),
+      type,
+      camera: round(camera.position),
+      quaternion: round(camera.quaternion),
+      target: round(controls.target),
+      distance: +camera.position.distanceTo(controls.target).toFixed(3),
+      minDistance: controls.minDistance,
+      angleToTarget: +THREE.MathUtils.radToDeg(camera.getWorldDirection(new THREE.Vector3()).angleTo(controls.target.clone().sub(camera.position))).toFixed(3),
+      flight: flight !== null,
+      keys: keyNavigation.active,
+      ...extra,
+    });
+    if (history.length > 2000) history.splice(0, history.length - 2000);
+  };
+  let lastChange = 0;
+  controls.addEventListener("start", () => record("start"));
+  controls.addEventListener("end", () => record("end"));
+  controls.addEventListener("change", () => {
+    if (performance.now() - lastChange > 100) record("change");
+    lastChange = performance.now();
+  });
+  renderer.domElement.addEventListener("wheel", (e) => record("wheel", { x: e.clientX, y: e.clientY, deltaY: e.deltaY }), { capture: true });
+  renderer.domElement.addEventListener("pointerdown", (e) => record("pointerdown", { x: e.clientX, y: e.clientY, button: e.button }), { capture: true });
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "F9") return;
+    record("F9", { exaggeration: shared.exaggeration.value, size: [window.innerWidth, window.innerHeight], hash: location.hash });
+    fetch("/__view-debug", { method: "POST", body: JSON.stringify(history) }).then(() => console.log("View history sent"));
+  });
 }
 if (import.meta.env.DEV) Object.assign(window, { viewer: { scene, camera, controls, keyNavigation, isochrones, tracks, iceCores, aircraft, renderer, bed, surface, settings, buildMeshes, groundingLines, iceDivides, profile, openProfileAt, tutorial, eggs, eggCounter, sea } });
