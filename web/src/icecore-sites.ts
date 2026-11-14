@@ -13,11 +13,12 @@ export interface IceCore {
   drilled: string; // field seasons
   reference: string;
   poleScale?: number; // taller pole, so the flag clears a neighbour's
+  basalDebris?: number; // m of ice mixed with rock at the bottom, drawn muddy
 }
 
 export const ICE_CORES: IceCore[] = [
   { name: "EDC", site: "EPICA Dome C", lat: -75.1017, lon: 123.3482, elevation: 3233, depth: 3270, bottomAge: "≈ 800 ka", drilled: "1996–2004", reference: "EPICA community members (2004), Nature" },
-  { name: "BELDC", site: "Beyond EPICA, Little Dome C", lat: -75.2992, lon: 122.4451, elevation: 3230, depth: 2800, bottomAge: "> 1.2 Ma", drilled: "2021–2025", reference: "Beyond EPICA – Oldest Ice (2025); Lilien et al. (2021), The Cryosphere", poleScale: 2.2 },
+  { name: "BELDC", site: "Beyond EPICA, Little Dome C", lat: -75.2992, lon: 122.4451, elevation: 3230, depth: 2800, bottomAge: "> 1.2 Ma", drilled: "2021–2025", reference: "Beyond EPICA – Oldest Ice (2025); Lilien et al. (2021), The Cryosphere", poleScale: 2.2, basalDebris: 300 },
   { name: "Dome Fuji", site: "Dome Fuji (DF2)", lat: -77.3167, lon: 39.7, elevation: 3810, depth: 3035, bottomAge: "≈ 720 ka", drilled: "2003–2007", reference: "Dome Fuji Ice Core Project Members (2017), Science Advances" },
   { name: "Vostok", site: "Vostok (5G)", lat: -78.4644, lon: 106.8372, elevation: 3488, depth: 3769, bottomAge: "≈ 420 ka (meteoric ice)", drilled: "1990–2012", reference: "Petit et al. (1999), Nature; Vasiliev et al. (2012)" },
   { name: "EDML", site: "EPICA Dronning Maud Land (Kohnen)", lat: -75.0025, lon: 0.0684, elevation: 2892, depth: 2774, bottomAge: "≈ 150 ka (undisturbed record)", drilled: "2001–2006", reference: "EPICA community members (2006), Nature" },

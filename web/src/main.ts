@@ -30,7 +30,7 @@ import { EggCounter } from "./eggcounter";
 import { EasterEggs, ENDURANCE_AT } from "./eggs";
 import { Sea } from "./sea";
 import { onThemeChange, themeButton } from "./theme";
-import { IceCores, type IceCore } from "./icecores";
+import { IceCores, polarStereographic, type IceCore } from "./icecores";
 import { InTheWay } from "./inway";
 import { Aircraft, flightLines, type FlightLine } from "./aircraft";
 import { FlowField, FlowLines, loadSpeedTexture, loadVelocityMeta, LOG_SPEED_RANGE } from "./velocity";
@@ -316,6 +316,8 @@ let flight: {
   animate: boolean;
   // Up away from the ground and down again on the way (km further than the straight path, at mid-way)
   hop: number;
+  // Called on each frame with the progress of the flight (0 to 1, eased)
+  onStep?: (k: number) => void;
 } | null = null;
 
 /**
@@ -364,13 +366,18 @@ function stepFlight(now: number): void {
   } else {
     camera.position.lerpVectors(flight.position0, flight.position, k);
   }
+  flight.onStep?.(k);
   if (t === 1) {
     const { onEnd } = flight;
     flight = null;
     onEnd();
   }
 }
-controls.addEventListener("start", () => (flight = null));
+controls.addEventListener("start", () => {
+  // A flight changing the settings on the way (the surface opacity to an ice core) leaves them where it stopped
+  if (flight?.onStep) saveSettings();
+  flight = null;
+});
 
 // Closest the view of a clicked line comes (km from the camera to the middle of the line), so a
 // short line isn't seen too close: higher zooms in less
@@ -411,6 +418,31 @@ function zoomToLine(x: Float32Array, y: Float32Array): void {
   const tilt = Math.asin(THREE.MathUtils.clamp(current.z / current.length(), -1, 1));
   const offset = new THREE.Vector3(nx * Math.cos(tilt), ny * Math.cos(tilt), Math.sin(tilt)).multiplyScalar(distance);
   flyTo(target, target.clone().add(offset));
+  fadeSurfaceOnTheWay();
+}
+
+// Surface opacity at the end of a flight to a line or an ice core, so they show through
+const SEEN_THROUGH_OPACITY = 0.7;
+
+/**
+ * On the flight just started, the ice surface (if shown) fades to at most SEEN_THROUGH_OPACITY in the
+ * second half of the way, its slider following.
+ */
+function fadeSurfaceOnTheWay(): void {
+  const from = settings.surfaceOpacity;
+  if (!flight || !settings.surface || from <= SEEN_THROUGH_OPACITY) return;
+  const end = flight.onEnd;
+  flight.onStep = (k) => {
+    settings.surfaceOpacity = THREE.MathUtils.lerp(from, SEEN_THROUGH_OPACITY, THREE.MathUtils.smoothstep(k, 0.4, 1));
+    surface.material.uniforms.opacity.value = settings.surfaceOpacity;
+    eggs.setIceSurface(settings.surface, settings.surfaceOpacity);
+    surfaceOpacity.updateDisplay();
+  };
+  // Saved once there (or wherever it stopped, see the start of the controls)
+  flight.onEnd = () => {
+    surfaceOpacity.setValue(SEEN_THROUGH_OPACITY);
+    end();
+  };
 }
 
 // Momentum after a drag: the view glides on, but stops once it barely moves
@@ -847,6 +879,26 @@ function flyToEgg(id: string): void {
 controls.addEventListener("end", () => {
   if (camera.position.distanceTo(controls.target) > MIN_DISTANCE) controls.minDistance = MIN_DISTANCE;
 });
+/**
+ * A view of a whole ice core, from the bottom of the borehole to the surface: from the side
+ * the camera is on, a bit above the horizontal so the view stays above the ice surface
+ * (seen through it).
+ */
+function flyToCore(core: IceCore): void {
+  const [x, y] = polarStereographic(core.lat, core.lon);
+  const scale = shared.exaggeration.value / 1000;
+  const target = new THREE.Vector3(x, y, (core.elevation - core.depth / 2) * scale);
+  const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const distance = THREE.MathUtils.clamp((0.75 * core.depth * scale) / tan, 2 * MIN_DISTANCE, controls.maxDistance);
+  const tilt = THREE.MathUtils.degToRad(25);
+  let heading = Math.atan2(camera.position.y - y, camera.position.x - x);
+  if (Math.hypot(camera.position.x - x, camera.position.y - y) < 1) heading = -Math.PI / 2;
+  const offset = new THREE.Vector3(Math.cos(heading) * Math.cos(tilt), Math.sin(heading) * Math.cos(tilt), Math.sin(tilt));
+  hopTo(target, target.clone().add(offset.multiplyScalar(distance)));
+  backButton.hidden = false;
+  fadeSurfaceOnTheWay();
+}
+
 const eggCounter = SUBMISSION ? null : new EggCounter(eggs.names, flyToEgg);
 
 /** The eggs and their counter, shown or not (menu, Miscellaneous). */
@@ -1093,7 +1145,7 @@ function iceCoreTooltip(core: IceCore): void {
   ];
   if (core.bottomAge) rows.push(["Oldest ice", core.bottomAge]);
   rows.push(["Drilled", core.drilled]);
-  showTooltip(`${core.site} ice core`, rows, core.reference);
+  showTooltip(`${core.site} ice core`, rows, `${core.reference}. Click to zoom on it.`);
 }
 
 function showTooltip(heading: string, rows: [string, string][], footnote: string | null, picture?: string): void {
@@ -1403,7 +1455,11 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
 renderer.domElement.addEventListener("pointerup", (event) => {
   const click = pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 5 && performance.now() - pressed.time < 500;
   pressed = null;
-  if (click && !collectEgg(event)) openProfileAt(event.offsetX, event.offsetY);
+  if (!click) return;
+  const canvas = renderer.domElement;
+  const core = iceCores.group.visible ? iceCores.pick(camera, event.offsetX, event.offsetY, canvas.clientWidth, canvas.clientHeight) : null;
+  if (core) flyToCore(core);
+  else if (!collectEgg(event)) openProfileAt(event.offsetX, event.offsetY);
 });
 
 let maskTexture: THREE.DataTexture | null = null;
