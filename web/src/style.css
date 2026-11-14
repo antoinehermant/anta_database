@@ -33,24 +33,25 @@ body {
   pointer-events: none;
 }
 
+/* Link to the credits page: bottom centre, out of the way of the pad of buttons */
 #attribution {
   position: fixed;
-  right: 8px;
+  left: 50%;
   bottom: 6px;
+  transform: translateX(-50%);
   color: var(--muted);
   font-size: 0.75rem;
-  text-align: right;
 }
 
 #attribution a {
   color: var(--link);
 }
 
-/* Pad of buttons moving the view (src/keys.ts), above the attribution */
+/* Pad of buttons moving the view (src/keys.ts), in the bottom right corner */
 #move-pad {
   position: fixed;
   right: 10px;
-  bottom: 44px;
+  bottom: 10px;
   display: grid;
   grid-template-areas: "tl up tr in" "left down right out";
   grid-template-columns: repeat(3, 34px) 40px;
@@ -888,7 +889,7 @@ body:has(#sidebar:not(.closed)) #legends {
 #egg-counter {
   position: fixed;
   right: 10px;
-  bottom: 122px;
+  bottom: 88px;
   display: flex;
   align-items: center;
   gap: 5px;

@@ -945,7 +945,6 @@ function loadVelocity(): Promise<void> {
     scene.add(flowLines.mesh);
     updateFlowArea();
     flowLines.respawn();
-    document.getElementById("velocity-doi")?.setAttribute("href", meta.doi);
   })();
   return velocityLoading;
 }
@@ -984,7 +983,6 @@ function showVelocity(): void {
   if (on && !velocity) loadVelocity().then(showVelocity).catch(showError);
   if (velocity) velocity.visible = on;
   if (flowLines) flowLines.mesh.visible = on && settings.flowLines;
-  document.getElementById("velocity-attribution")!.hidden = !on;
   velocityOptions.show(on);
   if (on && velocity) {
     velocityLegend.show("Ice speed (m/a)", SPEED, speedTicks());
@@ -1791,7 +1789,6 @@ function showGroundingLines(): void {
   const on = settings.groundingLines;
   groundingLines.setVisible(on);
   groundingLineOptions.show(on);
-  document.getElementById("raised-attribution")!.hidden = !on;
   const apply = () => {
     groundingLines.scenario = settings.groundingLineScenario;
     groundingLines.hiddenAges.clear();
@@ -1818,7 +1815,6 @@ function showGroundingLineLegend(): void {
 function showIceDivides(): void {
   const on = settings.iceDivides;
   iceDivides.setVisible(on);
-  document.getElementById("imbie-attribution")!.hidden = !on;
   if (on) {
     terrainHeights
       .then((heights) => iceDivides.load(OUTLINES_URL, heights))
@@ -1840,8 +1836,6 @@ function showBedmap(): void {
   const bedOn = settings.bedmapBed && shown.length > 0;
   bedmap.tracks.group.visible = tracksOn;
   bedmap.bed.group.visible = bedOn;
-  const attribution = document.getElementById("bedmap-lines-attribution");
-  if (attribution) attribution.hidden = !(tracksOn || bedOn);
   if (tracksOn || bedOn) {
     bedmap
       .load(BEDMAP_URL, shown)
@@ -2221,7 +2215,6 @@ filtersReady = irhIndex.then((index) => {
   restoreSettings(filters, lastFilters);
 });
 terrainPreview = loadMeta(DATA_URL).then(async (meta) => {
-  document.getElementById("bedmap-doi")?.setAttribute("href", meta.doi);
   await loadLevel(meta, PREVIEW);
   return meta;
 });

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Credits · AntADatabase</title>
+    <meta name="description" content="Credits of the AntADatabase website and 3D viewer: the data, 3D models, pictures and software it uses." />
+    <link rel="canonical" href="https://antadatabase.com/credits/" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#2a6aa8" />
+    <link rel="stylesheet" href="/src/privacy.css" />
+    <script>
+      // Theme before the first paint, as in src/theme.ts: dark unless "Light" (or "Auto"
+      // and a light browser) was chosen
+      const theme = localStorage.getItem("theme");
+      const dark = theme !== "Light" && (theme !== "Auto" || matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    </script>
+  </head>
+  <body>
+    <header id="top">
+      <div class="wrap">
+        <h1><a href="/"><img class="logo" src="/logo.png" alt="" width="34" height="32" />AntADatabase</a></h1>
+        <nav>
+          <a href="/viewer/">3D viewer</a>
+          <a href="https://docs.antadatabase.com/intro.html">Python database</a>
+          <a href="/download/">Download</a>
+          <a href="/submit/">Submit</a>
+          <a href="/contact/">Contact</a>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <p class="back"><a href="/">← Home</a></p>
+      <h2>Credits</h2>
+      <p>
+        The isochrones are those of the datasets of the database, each credited with its citation in the viewer and in
+        the <a href="/download/">catalogue</a>. The website and the 3D viewer also use the work below.
+      </p>
+
+      <h3>Data in the 3D viewer</h3>
+      <ul>
+        <li>Bed and surface topography: <a href="https://doi.org/10.5285/2d0e4791-8e20-46a3-80e4-f5f6716025d2" target="_blank" rel="noopener">Bedmap3</a> (Pritchard et al.), CC BY 4.0.</li>
+        <li>Survey lines: <a href="https://doi.org/10.5194/essd-15-2695-2023" target="_blank" rel="noopener">BEDMAP1, 2 and 3</a> (Frémand et al., 2023), CC BY 4.0.</li>
+        <li>Grounding lines: <a href="https://doi.org/10.1016/j.quascirev.2014.06.025" target="_blank" rel="noopener">RAISED</a> (Bentley et al., 2014).</li>
+        <li>Ice divides: IMBIE2 drainage basins (Rignot et al.).</li>
+        <li>Ice velocity: <a href="https://doi.org/10.5067/D7GK8F5J8M8R" target="_blank" rel="noopener">MEaSUREs InSAR-Based Antarctica Ice Velocity Map, version 2</a> (Rignot et al., NSIDC-0484).</li>
+      </ul>
+
+      <h3>3D models</h3>
+      <p>Simplified and compressed for the viewer.</p>
+      <ul>
+        <li>Survey aircraft: <a href="https://sketchfab.com/3d-models/maule-aircraft-realtime-211f6285446b4ee398f240222d018a67" target="_blank" rel="noopener">“Maule - Aircraft RealTime”</a> by ismael.tharin, Sketchfab, CC BY 4.0.</li>
+        <li><a href="https://sketchfab.com/3d-models/endurance-ship-wreck-discovered-027aaee12ade48388f3bbac141b8cd9f" target="_blank" rel="noopener">“Endurance Ship Wreck discovered”</a> by semeion (Simeon Schmauß), Sketchfab, CC BY 4.0.</li>
+        <li><a href="https://sketchfab.com/3d-models/snowpiercer-engine-63db9c37952f44b79f4fa6d1ae8c11d8" target="_blank" rel="noopener">“Snowpiercer Engine”</a> (CC BY 4.0), <a href="https://sketchfab.com/3d-models/snowpiercer-car-ab349a90cbb74962afe14146a1d70151" target="_blank" rel="noopener">“Snowpiercer Car”</a>, <a href="https://sketchfab.com/3d-models/snowpiercer-car-garden-6e8f63837abe4f84833790840d87f25a" target="_blank" rel="noopener">“Snowpiercer Car Garden”</a> and <a href="https://sketchfab.com/3d-models/snowpiercer-car-tail-06be2b62c9524bee97f885579b1483fd" target="_blank" rel="noopener">“Snowpiercer Car Tail”</a> (CC BY-NC 4.0), by ReyhanGTZ, Sketchfab.</li>
+        <li><a href="https://sketchfab.com/3d-models/ufo-flying-saucer-spaceship-ovni-094ce2baf6ee40aa8f083b7d0fcf0a9f" target="_blank" rel="noopener">“UFO Flying Saucer Spaceship OVNI”</a> by BlackHawk0512, Sketchfab (Sketchfab Standard licence).</li>
+      </ul>
+
+      <h3>Pictures</h3>
+      <ul>
+        <li>The Endurance trapped in the ice, 1915, photograph by Frank Hurley, public domain (Wikimedia Commons).</li>
+      </ul>
+
+      <h3>Software</h3>
+      <ul>
+        <li><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> (3D rendering), MIT licence.</li>
+        <li><a href="https://lil-gui.georgealways.com" target="_blank" rel="noopener">lil-gui</a> (settings panel), MIT licence.</li>
+        <li><a href="https://github.com/Touffy/client-zip" target="_blank" rel="noopener">client-zip</a> (zip downloads), MIT licence.</li>
+        <li><a href="https://github.com/zeux/meshoptimizer" target="_blank" rel="noopener">meshoptimizer</a> and <a href="https://gltf-transform.dev" target="_blank" rel="noopener">glTF Transform</a> (compression of the 3D models), MIT licence.</li>
+      </ul>
+    </main>
+    <footer class="wrap muted">
+      Developed as part of the CHARIBDIS project (Swiss National Science Foundation grant no. 211542), University of
+      Bern. Source code on <a href="https://github.com/antoinehermant/anta_database" target="_blank" rel="noopener">GitHub</a>
+      (MIT licence). Contact: <a href="mailto:antoine.hermant@unibe.ch">antoine.hermant@unibe.ch</a>. <a href="/privacy/">Privacy</a>. <a href="/credits/">Credits</a>.
+    </footer>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

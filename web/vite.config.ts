@@ -89,6 +89,7 @@ export default defineConfig({
         contact: page("contact/index.html"),
         "preview-ended": page("preview-ended/index.html"),
         privacy: page("privacy/index.html"),
+        credits: page("credits/index.html"),
         // How the data is processed (docs/harmonisation/processing_page.py): not linked, not indexed for now
         processing: page("processing/index.html"),
       },
