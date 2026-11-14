@@ -27,7 +27,7 @@ import { BED_STOPS, SPEED, type Tick } from "./colormaps";
 import { Legend } from "./legend";
 import { KeyNavigation } from "./keys";
 import { EggCounter } from "./eggcounter";
-import { EasterEggs } from "./eggs";
+import { EasterEggs, ENDURANCE_AT } from "./eggs";
 import { Sea } from "./sea";
 import { onThemeChange, themeButton } from "./theme";
 import { IceCores, type IceCore } from "./icecores";
@@ -832,6 +832,7 @@ const eggs = new EasterEggs(
   { heightTex: u.heightTex, texOrigin: u.texOrigin, texDx: u.texDx, texSize: u.texSize, exaggeration: shared.exaggeration, ...bedMesh },
 );
 eggs.setExaggeration(shared.exaggeration.value);
+eggs.onLoaded = requestRender;
 // Not in a private preview, for the submitted dataset only
 if (!SUBMISSION) scene.add(eggs.group);
 /** Fly to the view of an egg (eggs.ts): out and in again if it is far. */
@@ -849,8 +850,12 @@ controls.addEventListener("end", () => {
 const eggCounter = SUBMISSION ? null : new EggCounter(eggs.names, flyToEgg);
 
 /** The eggs and their counter, shown or not (menu, Miscellaneous). */
+const ENDURANCE_CLEARING = 45; // km
+
 function showEggs(): void {
   eggs.group.visible = settings.eggs;
+  // Clearer water over the wreck of the Endurance, to see it through the waves
+  sea.setClearing(ENDURANCE_AT[0], ENDURANCE_AT[1], settings.eggs ? ENDURANCE_CLEARING : 0);
   if (eggCounter) eggCounter.el.hidden = !settings.eggs;
   pointerMoved = true;
   requestRender();
@@ -1125,9 +1130,20 @@ function showTip(tip: Tooltip): void {
 }
 
 function placeTooltip(x: number, y: number): void {
-  // Keep the tooltip inside the window
-  const left = Math.min(x + 16, window.innerWidth - tooltip.offsetWidth - 8);
-  const top = y + 16 + tooltip.offsetHeight > window.innerHeight ? y - tooltip.offsetHeight - 12 : y + 16;
+  const [width, height] = [window.innerWidth, window.innerHeight];
+  const [gap, margin] = [16, 8];
+  // Too tall for the window (a long story with a picture): wider, the picture beside the text,
+  // then smaller text
+  tooltip.classList.remove("wide", "compact");
+  if (tooltip.offsetHeight > height - 2 * margin && tooltip.querySelector(".picture")) tooltip.classList.add("wide");
+  if (tooltip.offsetHeight > height - 2 * margin) tooltip.classList.add("compact");
+  const [w, h] = [tooltip.offsetWidth, tooltip.offsetHeight];
+  // Right of the pointer if it fits, else left of it, else on the side with more room
+  let left = x + gap + w <= width - margin ? x + gap : x - gap - w >= margin ? x - gap - w : width - x > x ? x + gap : x - gap - w;
+  // Below, else above, else beside it, centred on its height: always within the window
+  let top = y + gap + h <= height - margin ? y + gap : y - gap - h >= margin ? y - gap - h : y - h / 2;
+  left = THREE.MathUtils.clamp(left, margin, Math.max(margin, width - w - margin));
+  top = THREE.MathUtils.clamp(top, margin, Math.max(margin, height - h - margin));
   tooltip.style.transform = `translate(${left}px, ${top}px)`;
   tooltip.style.visibility = "visible";
 }
@@ -1481,6 +1497,7 @@ function buildMeshes(res: string): void {
   if (velocity) velocity.geometry = surface.geometry;
   bed.visible = settings.bed;
   surface.visible = settings.surface;
+  eggs.setIceSurface(settings.surface, settings.surfaceOpacity);
   requestRender();
 }
 
@@ -1532,6 +1549,7 @@ if (SUBMISSION) {
   settings.aircraft = false;
   settings.surfaceOpacity = 0.5;
   surface.material.uniforms.opacity.value = settings.surfaceOpacity;
+  eggs.setIceSurface(settings.surface, settings.surfaceOpacity);
 }
 
 // Link preview screenshots (public/og-image.jpg, 1200×630) in development: ?screenshot
@@ -1542,6 +1560,7 @@ if (SCREENSHOT) {
   Object.assign(settings, { surfaceOpacity: 0.6, lineWidth: 3, exaggeration: 100 });
   isochrones.lines.setLineWidth(settings.lineWidth);
   surface.material.uniforms.opacity.value = settings.surfaceOpacity;
+  eggs.setIceSurface(settings.surface, settings.surfaceOpacity);
   shared.exaggeration.value = settings.exaggeration;
   for (const layer of lineLayers) layer.setExaggeration(settings.exaggeration);
   iceCores.setExaggeration(settings.exaggeration);
@@ -1564,6 +1583,7 @@ function updateLight(): void {
 }
 aircraft.group.visible = settings.aircraft;
 sea.mesh.visible = settings.sea;
+if (!SUBMISSION && settings.eggs) sea.setClearing(ENDURANCE_AT[0], ENDURANCE_AT[1], ENDURANCE_CLEARING);
 updateLight();
 updateBedRange();
 applyTheme();
@@ -1646,6 +1666,7 @@ layers
   .name("Ice surface")
   .onChange((v: boolean) => {
     surface.visible = v;
+    eggs.setIceSurface(v, settings.surfaceOpacity);
     surfaceOpacity.show(v);
     if (v) loadDetail("surface").catch(showError);
     requestRender();
@@ -1655,6 +1676,7 @@ const surfaceOpacity = layers
   .name("Surface opacity")
   .onChange((v: number) => {
     surface.material.uniforms.opacity.value = v;
+    eggs.setIceSurface(settings.surface, v);
     requestRender();
   })
   .show(settings.surface);

@@ -110,7 +110,9 @@ body {
   z-index: 30;
   visibility: hidden;
   pointer-events: none;
-  max-width: 320px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: hidden;
   padding: 8px 10px;
   border-radius: 6px;
   background: var(--panel);
@@ -129,6 +131,32 @@ body {
   display: flex;
   justify-content: center;
   margin: 4px 0;
+}
+
+/* Too tall for the window: wider, the picture beside the text, then smaller text (placeTooltip) */
+#tooltip.wide {
+  max-width: min(620px, calc(100vw - 16px));
+}
+
+#tooltip.wide .picture {
+  float: right;
+  width: min(260px, 45%);
+  margin: 2px 0 6px 10px;
+}
+
+#tooltip.compact {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+#tooltip.compact .note {
+  font-size: 0.7rem;
+}
+
+#tooltip .picture img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
 }
 
 #tooltip .key {

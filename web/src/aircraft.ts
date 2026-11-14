@@ -8,9 +8,17 @@
  * flown recently, so it never jumps.
  */
 import * as THREE from "three";
+import { EasterEggs, matcap } from "./eggs";
+// "Maule - Aircraft RealTime" by ismael.tharin (Sketchfab, CC BY 4.0), without its interior,
+// simplified to 30 % of its faces, textures at 512 (WebP), meshopt
+import mauleModel from "./models/maule.glb?url";
 
 // On screen (px): wingspan, height above the surface, speed (px/s)
 const WINGSPAN_PX = 26;
+// A bit bigger zoomed in: up to 1 + CLOSE_GROWTH times, growing from FAR_KM to CLOSE_KM away (log)
+const CLOSE_GROWTH = 5;
+const FAR_KM = 500;
+const CLOSE_KM = 20;
 const ALTITUDE_PX = 30;
 const SPEED_PX = 30;
 // Pulses: one every PULSE_INTERVAL s, each going down to the bed in PULSE_LIFE s
@@ -166,7 +174,7 @@ function depthClear(): THREE.Group {
   return group.add(mesh);
 }
 
-/** A small twin-engine aircraft, 1 unit wingspan, nose along +x, z up. */
+/** A small twin-engine aircraft (until the Maule is loaded), 1 unit wingspan, nose along +x, z up. */
 function aircraftModel(): THREE.Group {
   const body = opaqueOnTop("#f2f2f0");
   const paint = opaqueOnTop("#d8352a");
@@ -189,6 +197,33 @@ function aircraftModel(): THREE.Group {
   for (const y of [-0.2, 0.2]) add(new THREE.CylinderGeometry(0.028, 0.022, 0.18, 10).rotateZ(-Math.PI / 2), dark, 0.11, y, 0.025);
   add(new THREE.BoxGeometry(0.08, 0.36, 0.012), paint, -0.35, 0, 0.01);
   add(new THREE.BoxGeometry(0.1, 0.014, 0.15), paint, -0.35, 0, 0.08);
+  return model;
+}
+
+/**
+ * The Maule in place of the drawn aircraft, 1 unit wingspan, nose along +x, its middle at z = 0.
+ * Shaded with a matcap over its textures, opaque on top like the drawn one.
+ */
+async function loadAircraftModel(): Promise<THREE.Group> {
+  const model = await EasterEggs.loadModel(mauleModel);
+  const size = model.userData.size as THREE.Vector3;
+  model.scale.setScalar(1 / size.x);
+  model.position.z = -0.5 * size.y * model.scale.z;
+  const paint = matcap("#f4f4f2", "#5a5e66");
+  const glass = matcap("#5d7286", "#12181f", "#b8c8d8");
+  model.traverse((object) => {
+    object.renderOrder = AIRCRAFT_ORDER;
+    if (!(object instanceof THREE.Mesh)) return;
+    const m = object.material as THREE.MeshStandardMaterial;
+    object.material = new THREE.MeshMatcapMaterial({
+      matcap: m.map ? paint : glass,
+      map: m.map,
+      normalMap: m.normalMap,
+      side: m.side,
+      transparent: true,
+      opacity: 1,
+    });
+  });
   return model;
 }
 
@@ -226,6 +261,7 @@ export class Aircraft {
   readonly group = new THREE.Group();
   private planes: Plane[] = [];
   private exaggeration = 1;
+  private modelRequested = false;
 
   /**
    * One aircraft per dataset. lines(dataset) gives the legs to fly (empty
@@ -309,7 +345,21 @@ export class Aircraft {
   }
 
   /** Move by dt seconds, sized for the camera and canvas height (px). */
+  /** Put the Maule in place of the drawn aircraft, once loaded. */
+  private loadModel(): void {
+    this.modelRequested = true;
+    loadAircraftModel()
+      .then((model) => {
+        for (const plane of this.planes) {
+          plane.model.clear();
+          plane.model.add(model.clone());
+        }
+      })
+      .catch((error) => console.error("Aircraft model:", error));
+  }
+
   update(dt: number, camera: THREE.PerspectiveCamera, height: number): void {
+    if (!this.modelRequested) this.loadModel();
     const z = (m: number) => (m * this.exaggeration) / 1000;
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const position = new THREE.Vector3();
@@ -341,9 +391,12 @@ export class Aircraft {
       along(path, plane.distance, position);
       plane.surface = position.z;
       // Size of a pixel (km) at the aircraft
-      const pixel = (2 * tan * camera.position.distanceTo(position.clone().setZ(z(position.z)))) / height;
-      const wingspan = WINGSPAN_PX * pixel;
-      const altitude = Math.max(z(600), ALTITUDE_PX * pixel);
+      const away = camera.position.distanceTo(position.clone().setZ(z(position.z)));
+      const pixel = (2 * tan * away) / height;
+      const close = THREE.MathUtils.clamp(Math.log(FAR_KM / away) / Math.log(FAR_KM / CLOSE_KM), 0, 1);
+      const growth = 1 + CLOSE_GROWTH * close;
+      const wingspan = WINGSPAN_PX * growth * pixel;
+      const altitude = Math.max(z(600), ALTITUDE_PX * growth * pixel);
       const top = position.z + (altitude * 1000) / this.exaggeration; // m
 
       // Heading towards a point a few wingspans ahead, turning smoothly

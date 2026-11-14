@@ -8,7 +8,8 @@
  * of Claude Lorius, on a table outside Dumont d'Urville station; and a train
  * like Snowpiercer, going round and round Skytrain Ice Rise; and the yeti of
  * Yetisports on a floe of sea ice in Pine Island Bay, playing Orca Slap with the
- * penguins, aiming at a target on an iceberg.
+ * penguins, aiming at a target on an iceberg; and the wreck of the Endurance of
+ * Shackleton on the floor of the Weddell Sea, where it was found in 2022.
  *
  * Unlike the aircraft, they have a fixed size in the scene (km), so they are
  * tiny from afar and grow as you zoom in on them. Their shapes aren't
@@ -20,9 +21,25 @@ import * as THREE from "three";
 import { ConvexGeometry } from "three/examples/jsm/geometries/ConvexGeometry.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { polarStereographic } from "./icecores";
+import endurancePhoto from "./pictures/endurance-1915.jpg";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+// The stern of the wreck as scanned in 2022: "Endurance Ship Wreck discovered" by semeion
+// (Simeon Schmauß), Sketchfab, CC BY 4.0: all its faces, the full texture without its alpha
+// (WebP, quality 90), positions and texture coordinates on 16 bits, compressed with meshopt (2 MB)
+import enduranceScan from "./models/endurance-wreck.glb?url";
+// The train: "Snowpiercer Engine" (CC BY 4.0), "Snowpiercer Car", "Snowpiercer Car Garden" and
+// "Snowpiercer Car Tail" (CC BY-NC 4.0), by ReyhanGTZ, Sketchfab; compressed with meshopt
+import snowpiercerEngine from "./models/snowpiercer-engine.glb?url";
+import snowpiercerCar from "./models/snowpiercer-car.glb?url";
+import snowpiercerGarden from "./models/snowpiercer-garden.glb?url";
+import snowpiercerTail from "./models/snowpiercer-tail.glb?url";
+// The crashed vessel: "UFO Flying Saucer Spaceship OVNI" by BlackHawk0512, Sketchfab (Sketchfab
+// Standard licence), simplified to 40 % of its faces, textures at 2048 (WebP), meshopt
+import ufoModel from "./models/ufo.glb?url";
 
 /** Shading without lights: a sphere lit from the top left, as a matcap texture. */
-function matcap(light: string, dark: string, highlight = "#ffffff"): THREE.CanvasTexture {
+export function matcap(light: string, dark: string, highlight = "#ffffff"): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 128;
   const context = canvas.getContext("2d")!;
@@ -41,6 +58,152 @@ function mesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.M
   const m = new THREE.Mesh(geometry, material);
   m.frustumCulled = false;
   return m;
+}
+
+/**
+ * The wreck of the Endurance, 1 unit long (44 m in reality), the bow towards +x, the keel at
+ * z = 0: a black wooden hull, its deck, the stumps of the three masts broken off when she sank
+ * (one lying across the deck), the bowsprit, and on the stern her name over the star of
+ * Polaris, her first name, as filmed on the wreck in 2022.
+ */
+function endurance(): THREE.Group {
+  const group = new THREE.Group();
+  // Darkened by three kilometres of water, and darker still from afar (their colour, set with
+  // the distance: EasterEggs.cull)
+  const hull = new THREE.MeshMatcapMaterial({ matcap: matcap("#3a3e44", "#0a0b0d", "#646b74"), side: THREE.DoubleSide });
+  const wood = new THREE.MeshMatcapMaterial({ matcap: matcap("#7a6046", "#2e2014", "#9c8466"), side: THREE.DoubleSide });
+  const iron = new THREE.MeshMatcapMaterial({ matcap: matcap("#6a5a4c", "#1e1814", "#8c7a68") });
+  const [LENGTH, BEAM, DEPTH] = [1, 0.17, 0.13];
+  // Half width along the hull (t from the stern, 0, to the bow, 1): full amidships, a rounded
+  // stern, a sharp bow; the sheer rising towards both ends
+  const half = (t: number) => (BEAM / 2) * Math.min(1, 0.55 + 2.2 * t) * Math.min(1, Math.sqrt(Math.max(0, (1 - t) / 0.35)));
+  const sheer = (t: number) => DEPTH + 0.025 * (2 * t - 1) ** 2;
+  const [N, M] = [32, 12];
+  const positions: number[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const w = half(t);
+    // Round bilges down to the keel, from port deck edge to starboard deck edge
+    for (let j = 0; j <= M; j++) {
+      const a = (j / M) * Math.PI;
+      positions.push((t - 0.5) * LENGTH, -w * Math.cos(a), sheer(t) * (1 - Math.sin(a) ** 0.7));
+    }
+  }
+  const indices: number[] = [];
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < M; j++) {
+      const [a, b] = [i * (M + 1) + j, (i + 1) * (M + 1) + j];
+      indices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  const shell = new THREE.BufferGeometry();
+  shell.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  shell.setIndex(indices);
+  shell.computeVertexNormals();
+  group.add(mesh(shell, hull));
+  // The transom, closing the stern
+  const transom = new THREE.Shape();
+  for (let j = 0; j <= M; j++) {
+    const a = (j / M) * Math.PI;
+    const [y, z] = [-half(0) * Math.cos(a), sheer(0) * (1 - Math.sin(a) ** 0.7)];
+    if (j === 0) transom.moveTo(y, z);
+    else transom.lineTo(y, z);
+  }
+  // Drawn in (y, z): x of the shape to y, its y to z
+  const toStern = new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);
+  group.add(piece(new THREE.ShapeGeometry(transom).applyMatrix4(toStern), hull, [-LENGTH / 2, 0, 0]));
+  // The deck, a bit under the rail
+  const outline = new THREE.Shape();
+  for (let i = 0; i <= N; i++) outline[i ? "lineTo" : "moveTo"]((i / N - 0.5) * LENGTH, half(i / N) * 0.94);
+  for (let i = N; i >= 0; i--) outline.lineTo((i / N - 0.5) * LENGTH, -half(i / N) * 0.94);
+  group.add(piece(new THREE.ShapeGeometry(outline), wood, [0, 0, DEPTH - 0.012]));
+  // Deckhouse aft, and a hatch
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  group.add(piece(box, wood, [-0.25, 0, DEPTH + 0.01], [0.12, 0.08, 0.04]));
+  group.add(piece(box, wood, [0.12, 0, DEPTH], [0.07, 0.06, 0.02]));
+  // The masts broken off: the foremast, the mainmast and the mizzen, as stumps of different
+  // heights, the top of the mainmast lying across the deck and over the side
+  const spar = new THREE.CylinderGeometry(1, 1, 1, 10).rotateX(Math.PI / 2).translate(0, 0, 0.5);
+  for (const [x, height, lean] of [[0.27, 0.16, 0.12], [0.02, 0.09, -0.08], [-0.2, 0.2, 0.05]]) {
+    const m = piece(spar, wood, [x, 0, DEPTH - 0.012], [0.009, 0.009, height]);
+    m.rotation.set(lean, -lean / 2, 0);
+    group.add(m);
+  }
+  const fallen = piece(spar, wood, [0.0, -0.02, DEPTH + 0.012], [0.008, 0.008, 0.42]);
+  fallen.rotation.set(Math.PI / 2 - 0.12, 0, 0.5);
+  group.add(fallen);
+  // Bowsprit
+  const bowsprit = piece(spar, wood, [LENGTH / 2 - 0.02, 0, DEPTH + 0.02], [0.007, 0.007, 0.16]);
+  bowsprit.rotation.set(0, Math.PI / 2 - 0.2, 0);
+  group.add(bowsprit);
+  // Name and star on the stern
+  const canvas = document.createElement("canvas");
+  [canvas.width, canvas.height] = [512, 160];
+  const context = canvas.getContext("2d")!;
+  context.fillStyle = "#c9ab6c"; // dull gold
+  context.font = "bold 64px Georgia, serif";
+  context.textAlign = "center";
+  context.fillText("ENDURANCE", 256, 64);
+  context.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const [r, a] = [k % 2 ? 16 : 40, -Math.PI / 2 + (k * Math.PI) / 5];
+    context.lineTo(256 + r * Math.cos(a), 112 + r * Math.sin(a));
+  }
+  context.fill();
+  const name = new THREE.CanvasTexture(canvas);
+  name.colorSpace = THREE.SRGBColorSpace;
+  // Facing aft (-x), read from behind the stern: across the plane to -y, up to z
+  const aft = new THREE.Matrix4().set(0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);
+  const plate = mesh(new THREE.PlaneGeometry(0.075, 0.0235).applyMatrix4(aft), new THREE.MeshBasicMaterial({ map: name, transparent: true, depthWrite: false }));
+  plate.position.set(-LENGTH / 2 - 0.002, 0, 0.78 * DEPTH);
+  group.add(plate);
+  group.userData.materials = [hull, wood, iron, plate.material];
+
+  // Things fallen from her on the seafloor around, made bigger to be seen (from the bottom of
+  // the keel, z = 0): the wheel, off the stern, and an anchor, off the bow
+  const wheel = new THREE.Group();
+  wheel.add(mesh(new THREE.TorusGeometry(1, 0.08, 8, 32), wood));
+  wheel.add(piece(new THREE.CylinderGeometry(0.2, 0.2, 0.3, 16).rotateX(Math.PI / 2), wood, [0, 0, 0]));
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4;
+    const spoke = piece(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), wood, [0.6 * Math.cos(a), 0.6 * Math.sin(a), 0]);
+    spoke.rotation.z = a - Math.PI / 2;
+    wheel.add(spoke);
+  }
+  wheel.scale.setScalar(0.05);
+  // Lying on the seafloor, one side of the rim propped on its handles
+  wheel.position.set(-0.68, 0.12, 0.012);
+  wheel.rotation.set(0.15, 0.1, 0.4);
+  group.add(wheel);
+  const anchor = new THREE.Group();
+  const bar = (r: number, length: number) => new THREE.CylinderGeometry(r, r, length, 10);
+  // Shank (along y), the stock across its top (across the arms too), the ring, and the arms
+  // curving up to the flukes
+  anchor.add(piece(bar(0.06, 1.6), iron, [0, 0, 0]));
+  anchor.add(piece(bar(0.05, 1.3).rotateX(Math.PI / 2), iron, [0, 0.72, 0]));
+  anchor.add(piece(new THREE.TorusGeometry(0.14, 0.035, 6, 16), iron, [0, 0.92, 0]));
+  const arms = mesh(new THREE.TorusGeometry(0.55, 0.06, 8, 24, Math.PI), iron);
+  arms.position.set(0, -0.25, 0);
+  arms.rotation.z = Math.PI;
+  anchor.add(arms);
+  for (const side of [-1, 1]) {
+    const fluke = piece(new THREE.ConeGeometry(0.16, 0.32, 3), iron, [0.55 * side, -0.12, 0], [1, 1, 0.4]);
+    anchor.add(fluke);
+  }
+  anchor.scale.setScalar(0.07);
+  // On its side, on one end of the stock and a fluke
+  anchor.position.set(0.72, -0.1, 0.03);
+  anchor.rotation.set(0.5, 0, 1.1);
+  group.add(anchor);
+  // Planks and a crate
+  for (const [x, y, rot, length] of [[0.62, 0.2, 0.3, 0.12], [-0.6, -0.18, 1.2, 0.09], [0.15, 0.22, 2.1, 0.1]]) {
+    const plank = piece(box, wood, [x, y, 0.003], [length, 0.012, 0.004]);
+    plank.rotation.z = rot;
+    group.add(plank);
+  }
+  const crate = piece(box, wood, [-0.42, 0.2, 0.012], [0.03, 0.03, 0.025]);
+  crate.rotation.set(0.2, 0.1, 0.7);
+  group.add(crate);
+  return group;
 }
 
 /** A flying saucer, 1 unit across, its axis along z. */
@@ -169,7 +332,9 @@ function fossil(): THREE.Group {
  */
 function cromlech(): THREE.Group {
   const group = new THREE.Group();
-  const ice = new THREE.MeshMatcapMaterial({ matcap: matcap("#e4f1ff", "#6f8fb0") });
+  // Shown like the ice surface layer: with its opacity (EasterEggs.setIceSurface)
+  const ice = new THREE.MeshMatcapMaterial({ matcap: matcap("#e4f1ff", "#6f8fb0"), transparent: true });
+  group.userData.ice = ice;
   let seed = 11;
   const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const CORES = 50;
@@ -462,6 +627,8 @@ class SnowBursts {
   constructor(
     private count = 3000,
     private size = 1.2,
+    color = "#f7faff",
+    private fade = 3, // s
   ) {
     const geometry = new THREE.BufferGeometry();
     this.positions = new THREE.BufferAttribute(new Float32Array(count * 3), 3);
@@ -473,7 +640,7 @@ class SnowBursts {
     const material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      uniforms: { size: { value: size }, scale: { value: 1 } },
+      uniforms: { size: { value: size }, scale: { value: 1 }, color: { value: new THREE.Color(color) } },
       vertexShader: /* glsl */ `
         attribute float alpha;
         uniform float size; // km
@@ -486,11 +653,12 @@ class SnowBursts {
           gl_Position = projectionMatrix * p;
         }`,
       fragmentShader: /* glsl */ `
+        uniform vec3 color;
         varying float vAlpha;
         void main() {
           float r = length(gl_PointCoord - 0.5) * 2.0;
           if (r > 1.0) discard;
-          gl_FragColor = vec4(vec3(0.97, 0.98, 1.0), vAlpha * (1.0 - r * r) * 0.9);
+          gl_FragColor = vec4(color, vAlpha * (1.0 - r * r) * 0.9);
         }`,
     });
     this.points = new THREE.Points(geometry, material);
@@ -526,7 +694,7 @@ class SnowBursts {
     const v = this.velocities;
     for (let i = 0; i < this.count; i++) {
       if (this.life[i] <= 0) continue;
-      this.life[i] = Math.max(0, this.life[i] - dt / 3);
+      this.life[i] = Math.max(0, this.life[i] - dt / this.fade);
       const drag = Math.exp(-1.2 * dt);
       v[3 * i] *= drag;
       v[3 * i + 1] *= drag;
@@ -1049,6 +1217,18 @@ function spiralTexture(): THREE.CanvasTexture {
 }
 
 // Sizes (km) and places
+const ENDURANCE_SIZE = 22; // 44 m long in reality
+// The scanned stern instead of the drawn ship, unless ?endurance=drawn (to compare them)
+const ENDURANCE_SCANNED = new URLSearchParams(window.location.search).get("endurance") !== "drawn";
+// Size of the scan (km per unit of the model, about 3 m): about 10 km across its rail
+const SCAN_SCALE = 4;
+// Distances (km) of the camera where the wreck is fully lit, and dark (tinted DEEP_SEA)
+const ENDURANCE_LIT = 60;
+const ENDURANCE_DARK = 500;
+const DEEP_SEA = new THREE.Color("#33445a");
+const WHITE = new THREE.Color("#ffffff");
+// The wreck, as found by Endurance22 (Wikipedia: 68°44′21″ S, 52°19′47″ W), 3008 m deep
+export const ENDURANCE_AT = polarStereographic(-(68 + 44 / 60 + 21 / 3600), -(52 + 19 / 60 + 47 / 3600));
 const VESSEL_SIZE = 9;
 const VESSEL_AT = polarStereographic(-84.36, 165.6); // a flank of Mount Kirkpatrick
 const FOSSIL_SIZE = 10;
@@ -1075,6 +1255,11 @@ const TRACK_RADII = [
   37.1, 37.3, 37.8, 38.4, 39.2, 40.0,
 ];
 const TRAIN_CARS = 14;
+// The cars of the models, from the engine to the tail, once loaded (the drawn ones until then)
+const TRAIN_MAKEUP = ["engine", "car", "car", "garden", "car", "car", "car", "car", "garden", "car", "car", "car", "car", "tail"] as const;
+const TRAIN_MODELS = { engine: snowpiercerEngine, car: snowpiercerCar, garden: snowpiercerGarden, tail: snowpiercerTail };
+const TRAIN_MODEL_SCALE = 1.1; // units of the train (CAR_LENGTH) per unit of the models (about 2 km)
+const TRAIN_GAP = 0.05; // between the cars of the models, in units of the train
 const TRAIN_HEIGHT = 0.9; // km, about a car with its roof
 const CAR_LENGTH = 2; // km, with the gap between cars
 const TRAIN_SPEED = 0.15; // rad/s around the loop: a lap in about 40 s (a year in the film)
@@ -1131,7 +1316,10 @@ export class EasterEggs {
   private exaggeration = 1;
   private vessel = vessel();
   private fossil = fossil();
+  private endurance = endurance();
+  private scanRequested = false;
   private cromlech = cromlech();
+  private iceSurface = true;
   // Cores of the cromlech knocked over by the mouse: falling, then broken on the snow (until a reload)
   private falling: { core: THREE.Mesh; toward: number; angle: number; speed: number }[] = [];
   private sliding: { piece: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; t: number }[] = [];
@@ -1152,6 +1340,8 @@ export class EasterEggs {
   // Points of the track (km, from the drill site; z with the exaggeration), every 360/TRACK_SAMPLES degrees
   private trackPoints = new Float32Array(TRACK_SAMPLES * 3);
   private trainAngle = 0;
+  private trainRequested = false;
+  private vesselRequested = false;
   // Snow thrown up where the train goes into the ice and out of it
   private snow = new SnowBursts();
   private debris = new IceDebris();
@@ -1169,6 +1359,16 @@ export class EasterEggs {
   private iceberg = iceberg();
   private snowball = piece(SPHERE, SNOW, [0, 0, 0], [0.15 * YETI_SIZE, 0.15 * YETI_SIZE, 0.15 * YETI_SIZE]); // as in the hand
   private puffs = new SnowBursts(600, 0.6 * SLAP_SCALE);
+  // The water thrown up by the slap of the tail: drops, and rings spreading on the sea
+  private splash = new SnowBursts(1200, 0.3 * SLAP_SCALE, "#cfe8f7", 0.8);
+  private ripples = [0, 1].map(() => {
+    const ring = mesh(
+      new THREE.RingGeometry(0.85, 1, 48),
+      new THREE.MeshBasicMaterial({ color: "#e6f4fc", transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    ) as THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+    ring.visible = false;
+    return ring;
+  });
   private releaseAt = new THREE.Vector3(); // where the snowball left the hand of the yeti
   private slapBefore = 0;
   private whirlpool: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>;
@@ -1197,6 +1397,15 @@ export class EasterEggs {
       new THREE.MeshBasicMaterial({ map: spiralTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
     );
     this.whirlpool.frustumCulled = false;
+    this.endurance.scale.setScalar(ENDURANCE_SIZE);
+    // The scan replaces the drawn ship, once loaded (when close: cull())
+    if (ENDURANCE_SCANNED) {
+      this.endurance.clear();
+      this.endurance.userData.materials = [];
+    }
+    // Upright on the seafloor, listing a little; along the flattest line of the bed there (150°,
+    // 43 m of relief over its length in Bedmap3, against up to 160 m across)
+    this.endurance.rotation.set(0.05, 0.02, THREE.MathUtils.degToRad(150));
     this.vessel.scale.setScalar(VESSEL_SIZE);
     // Nose down into the slope
     this.vessel.rotation.set(0.75, -0.35, 0.4);
@@ -1223,8 +1432,8 @@ export class EasterEggs {
     this.slap.scale.setScalar(SLAP_SCALE);
     for (const p of this.penguins) p.scale.setScalar(PENGUIN_SIZE);
     this.iceberg.scale.setScalar(ICEBERG_SIZE);
-    this.slap.add(this.slapIsland, this.waitIsland, this.yeti.group, this.orca.group, ...this.penguins, this.iceberg, this.snowball, this.puffs.points);
-    this.group.add(this.vessel, this.fossil, this.whirlpool, this.cromlech, this.island, this.station, this.table.group, this.train, this.slap);
+    this.slap.add(this.slapIsland, this.waitIsland, this.yeti.group, this.orca.group, ...this.penguins, this.iceberg, this.snowball, this.puffs.points, this.splash.points, ...this.ripples);
+    this.group.add(this.endurance, this.vessel, this.fossil, this.whirlpool, this.cromlech, this.island, this.station, this.table.group, this.train, this.slap);
     this.fossilRows = [
       ["Position", "69.7° S, 152.8° E, at the bottom of a deep trough"],
       ["Near", "the lines of Bodart and Sutter (2025b)"],
@@ -1332,6 +1541,27 @@ export class EasterEggs {
         view: [35, 22],
         reach: 300,
       },
+      {
+        id: "endurance",
+        title: "Endurance (1912)",
+        rows: [
+          ["Position", "68.7° S, 52.3° W, on the floor of the Weddell Sea, 3008 m deep"],
+          ["Expedition", "Imperial Trans-Antarctic Expedition (1914–1917), Ernest Shackleton and 27 men, to cross Antarctica on foot"],
+          ["Beset", "January 1915, frozen into the pack ice of the Weddell Sea, a day's sail from the coast, then drifting with it for ten months"],
+          ["Lost", "crushed by the ice and left in October 1915; sank on 21 November 1915, Frank Worsley taking her position"],
+          ["Escape", "camps on the drifting ice; the three boats to Elephant Island in April 1916; Shackleton and five men in the James Caird, 1300 km to South Georgia, then over its mountains to a whaling station"],
+          ["Rescued", "the men left on Elephant Island in August 1916: all 28 survived"],
+          ["Found", "5 March 2022 by the Endurance22 expedition, about four miles south of Worsley's position, upright and well kept, her name still on the stern"],
+          ["Protected", "a Historic Site and Monument of the Antarctic Treaty, left untouched"],
+        ],
+        note:
+          "Frank Hurley's photograph of the Endurance trapped in the ice, 1915." +
+          (ENDURANCE_SCANNED ? "" : " The star under her name is from her first name, Polaris."),
+        objects: [this.endurance],
+        view: [55, 30],
+        picture: `<img src="${endurancePhoto}" alt="The Endurance trapped in the pack ice, photograph by Frank Hurley, 1915" width="280" height="210">`,
+        reach: 300,
+      },
     ];
     this.place();
   }
@@ -1344,6 +1574,19 @@ export class EasterEggs {
   /** Put them at the heights of the terrain, once it is loaded (and again with the exaggeration). */
   place(): void {
     const z = (m: number) => (m * this.exaggeration) / 1000;
+    // On the seafloor, the keel just in the mud: on the highest of the bed under its length (the
+    // bed is drawn from a coarse grid, between the points)
+    const [ex, ey] = ENDURANCE_AT;
+    let wreckBed: number | null = null;
+    const heading = this.endurance.rotation.z;
+    for (const t of [-0.5, -0.25, 0, 0.25, 0.5])
+      for (const across of [-0.1, 0, 0.1]) {
+        const along = t * ENDURANCE_SIZE;
+        const h = this.bedAt(ex + along * Math.cos(heading) - across * ENDURANCE_SIZE * Math.sin(heading), ey + along * Math.sin(heading) + across * ENDURANCE_SIZE * Math.cos(heading));
+        if (h !== null) wreckBed = Math.max(wreckBed ?? -Infinity, h);
+      }
+    this.placed.set(this.endurance, wreckBed !== null);
+    if (wreckBed !== null) this.endurance.position.set(ex, ey, z(wreckBed) - 0.005 * ENDURANCE_SIZE);
     const [vx, vy] = VESSEL_AT;
     const ground = this.heightAt(vx, vy);
     this.placed.set(this.vessel, ground !== null);
@@ -1441,6 +1684,7 @@ export class EasterEggs {
     this.moveCores(dt);
     if (this.slap.visible) this.playSlap();
     this.puffs.update(dt);
+    this.splash.update(dt);
     // The old air rising in the glass of Lorius, again and again
     for (const b of this.table.bubbles) b.position.z = 0.03 + ((b.position.z - 0.03 + 0.04 * dt) % 0.12);
     const map = this.whirlpool.material.map!;
@@ -1466,7 +1710,10 @@ export class EasterEggs {
       // Anticlockwise: heading along the track
       at(a + 0.002, ahead);
       car.rotation.z = Math.atan2(ahead.y - car.position.y, ahead.x - car.position.x);
-      a -= CAR_LENGTH / trackRadius(a);
+      // To the middle of the next car: half of each (the cars of the models differ in length)
+      const next = this.cars[this.cars.indexOf(car) + 1];
+      const spacing = next ? ((car.userData.length ?? 1) + (next.userData.length ?? 1)) / 2 : 0;
+      a -= (spacing * CAR_LENGTH) / trackRadius(a);
     }
   }
 
@@ -1476,6 +1723,8 @@ export class EasterEggs {
    */
   private burstSnow(before: number): void {
     const p = this.trackPoints;
+    // Not through an ice surface that isn't shown
+    if (!this.iceSurface) return;
     for (const sample of this.portals) {
       const portal = (sample / TRACK_SAMPLES) * Math.PI * 2;
       const passed = (a: number) => Math.atan2(Math.sin(a - portal), Math.cos(a - portal)) >= 0;
@@ -1688,8 +1937,24 @@ export class EasterEggs {
     }
     // Snow flying off the penguin where the snowball hits it, and on the iceberg
     const tip = new THREE.Vector3(ORCA_X + 2.6, 0, 0); // where the tail meets the water
-    if (passed(5.55)) this.puffs.emit(tip, new THREE.Vector3(1, 0, 0), 120, 0.25);
-    if (passed(5.72)) this.puffs.emit(tip, new THREE.Vector3(-1, 0, 0), 350, 0.45);
+    // The tail hitting the water, then flinging the penguin: a crown of drops, a little foam
+    if (passed(5.55)) {
+      this.splash.emit(tip, new THREE.Vector3(1, 0, 0), 450, 0.55);
+      this.puffs.emit(tip, new THREE.Vector3(1, 0, 0), 40, 0.25);
+    }
+    if (passed(5.72)) {
+      this.splash.emit(tip, new THREE.Vector3(-1, 0, 0), 650, 0.75);
+      this.puffs.emit(tip, new THREE.Vector3(-1, 0, 0), 120, 0.45);
+    }
+    // Rings spreading from where the tail hit, one after the other, fading
+    this.ripples.forEach((ring, k) => {
+      const age = (t - 5.55 - 0.2 * k) / 0.9;
+      ring.visible = age > 0 && age < 1;
+      if (!ring.visible) return;
+      ring.position.set(tip.x, tip.y, 0.02);
+      ring.scale.setScalar(0.4 + 4.5 * age);
+      ring.material.opacity = 0.7 * (1 - age) ** 1.5;
+    });
     if (passed(6.9)) this.puffs.emit(APEX, new THREE.Vector3(1, 0, 0), 120, 0.35);
     if (passed(7.9)) this.puffs.emit(bull, new THREE.Vector3(-1, 0, 0), 300, 0.45);
     this.slapBefore = t;
@@ -1756,14 +2021,143 @@ export class EasterEggs {
    */
   cull(camera: THREE.Camera): void {
     const near = (o: THREE.Object3D, km: number) => this.isPlaced(o) && camera.position.distanceTo(o.position) < km;
+    this.endurance.visible = near(this.endurance, 2500);
+    if (ENDURANCE_SCANNED && this.endurance.visible && !this.scanRequested) this.loadScan();
+    if (this.endurance.visible) {
+      // In the dark from afar, lit as it is once close: from ENDURANCE_DARK km to ENDURANCE_LIT km
+      const d = camera.position.distanceTo(this.endurance.position);
+      const light = 1 - THREE.MathUtils.smoothstep(d, ENDURANCE_LIT, ENDURANCE_DARK);
+      for (const material of this.endurance.userData.materials as { color: THREE.Color }[]) material.color.lerpColors(DEEP_SEA, WHITE, light);
+    }
     this.vessel.visible = near(this.vessel, 900);
+    if (this.vessel.visible && !this.vesselRequested) this.loadVessel();
     this.fossil.visible = near(this.fossil, 900);
     this.whirlpool.visible = near(this.whirlpool, 4000);
-    this.cromlech.visible = near(this.cromlech, 600);
+    this.cromlech.visible = this.iceSurface && near(this.cromlech, 600);
     this.station.visible = this.island.visible = this.table.group.visible = near(this.station, 700);
     this.train.visible = near(this.train, 1500);
+    if (this.train.visible && !this.trainRequested) this.loadTrain();
     this.slap.visible = near(this.slap, 900);
   }
+
+  /** The ice surface layer shown or not, and its opacity: the cromlech, standing on it, follows it. */
+  setIceSurface(visible: boolean, opacity: number): void {
+    this.iceSurface = visible;
+    (this.cromlech.userData.ice as THREE.MeshMatcapMaterial).opacity = opacity;
+  }
+
+  /**
+   * A model (glTF, compressed with meshopt) in the frame of the eggs: its bottom at z = 0,
+   * centred, its z (glTF, y up) along x, in a group to scale.
+   */
+  static async loadModel(url: string): Promise<THREE.Group> {
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
+    const model = gltf.scene;
+    const box = new THREE.Box3().setFromObject(model);
+    const centre = box.getCenter(new THREE.Vector3());
+    model.position.set(-centre.x, -box.min.y, -centre.z);
+    model.traverse((object) => (object.frustumCulled = false));
+    // From y up (glTF) to z up, and its z to x
+    const upright = new THREE.Group();
+    upright.add(model);
+    upright.rotation.x = Math.PI / 2;
+    const group = new THREE.Group();
+    group.add(upright);
+    group.rotation.z = Math.PI / 2;
+    group.userData.size = box.getSize(new THREE.Vector3());
+    return group;
+  }
+
+  /**
+   * The model of the saucer in place of the drawn one, 1 unit across, its middle at z = 0. Shaded
+   * like the other eggs (matcap, with its textures and their relief), not with the lights of the
+   * scene; its windows lit.
+   */
+  private loadVessel(): void {
+    this.vesselRequested = true;
+    EasterEggs.loadModel(ufoModel)
+      .then((model) => {
+        const size = model.userData.size as THREE.Vector3;
+        model.scale.setScalar(1 / Math.max(size.x, size.z));
+        model.position.z = -0.5 * size.y * model.scale.z;
+        const metal = matcap("#d8dde3", "#2a2e33", "#ffffff");
+        model.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          const m = object.material as THREE.MeshStandardMaterial;
+          const glowing = m.emissiveMap !== null || m.emissive.getHex() !== 0;
+          object.material = glowing
+            ? new THREE.MeshBasicMaterial({ map: m.map ?? m.emissiveMap, color: m.map ? "#ffffff" : m.emissive, side: m.side })
+            : new THREE.MeshMatcapMaterial({ matcap: metal, map: m.map, normalMap: m.normalMap, side: m.side });
+        });
+        this.vessel.clear();
+        this.vessel.add(model);
+        this.onLoaded?.();
+      })
+      .catch((error) => console.error("Vessel model:", error));
+  }
+
+  /** The cars of the models in place of the drawn ones, each as long as its model. */
+  private loadTrain(): void {
+    this.trainRequested = true;
+    const kinds = Object.keys(TRAIN_MODELS) as (keyof typeof TRAIN_MODELS)[];
+    Promise.all(kinds.map((kind) => EasterEggs.loadModel(TRAIN_MODELS[kind])))
+      .then((models) => {
+        const byKind = Object.fromEntries(kinds.map((kind, i) => [kind, models[i]]));
+        this.cars.forEach((car, k) => {
+          const model = byKind[TRAIN_MAKEUP[k]].clone();
+          // Back in units of the train (the cars are scaled by CAR_LENGTH)
+          model.scale.setScalar(TRAIN_MODEL_SCALE);
+          car.clear();
+          car.add(model);
+          car.userData.length = TRAIN_MODEL_SCALE * (model.userData.size as THREE.Vector3).z + TRAIN_GAP;
+        });
+        this.onLoaded?.();
+      })
+      .catch((error) => console.error("Snowpiercer models:", error));
+  }
+
+  /** Load the scan of the wreck: its bottom at z = 0, centred, the length of the ship along x. */
+  private loadScan(): void {
+    this.scanRequested = true;
+    new GLTFLoader()
+      .setMeshoptDecoder(MeshoptDecoder)
+      .loadAsync(enduranceScan)
+      .then((gltf) => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const centre = box.getCenter(new THREE.Vector3());
+        model.position.set(-centre.x, -box.min.y, -centre.z);
+        // From y up (glTF) to z up, and its z (along the ship) to x
+        const upright = new THREE.Group();
+        upright.add(model);
+        upright.rotation.x = Math.PI / 2;
+        const wreck = new THREE.Group();
+        wreck.add(upright);
+        // Settled into the mud: a bit down by the stern and listing, and sunk a little
+        wreck.rotation.set(0.07, -0.06, Math.PI / 2);
+        wreck.position.z = -0.012;
+        wreck.scale.setScalar(SCAN_SCALE / ENDURANCE_SIZE);
+        const materials: { color: THREE.Color }[] = [];
+        model.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          object.frustumCulled = false;
+          // Solid everywhere: the transparency of its texture is left out, which would show
+          // through the planks and the rail (and, blended, draw the faces in the order of the file)
+          const material = object.material as THREE.MeshBasicMaterial;
+          material.transparent = false;
+          material.depthWrite = true;
+          material.alphaTest = 0;
+          materials.push(material);
+        });
+        this.endurance.userData.materials = materials;
+        this.endurance.add(wreck);
+        this.onLoaded?.();
+      })
+      .catch((error) => console.error("Endurance scan:", error));
+  }
+
+  /** Called when something loaded late (the scan of the Endurance) is ready to be drawn. */
+  onLoaded: (() => void) | null = null;
 
   /** Knock a standing core over, away from the middle of the ring or across it, at random. */
   private topple(core: THREE.Mesh): void {
