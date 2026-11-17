@@ -223,7 +223,11 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
     if both:
         report.errors.append(f"{', '.join(both)} both in variable files and in layer files: keep only one of them")
     # Every layer needs an age, as in the form, for now: undated layers may be accepted later
-    ages = {layer["irh"]: layer.get("age") for layer in record.get("layers") or []}
+    # A layer is dated by an age, or by an age range (age_min, age_max)
+    ages = {
+        layer["irh"]: layer.get("age") or (layer.get("age_min") and layer.get("age_max"))
+        for layer in record.get("layers") or []
+    }
     undated = sorted(n for n in points if not ages.get(n))
     if undated:
         report.errors.append(f"No age for {', '.join(f'IRH {n}' for n in undated)}: every layer needs an age")
@@ -263,6 +267,13 @@ def check_raw(dataset_dir: Path, record: dict) -> Report:
 # --- The compiled dataset
 
 
+def age_text(age: float, age_range: tuple[float, float] | None = None) -> str:
+    """'4.72 ka', or '2.88-6.88 ka' for an age range."""
+    if age_range:
+        return f"{age_range[0] / 1000:g}-{age_range[1] / 1000:g} ka"
+    return f"{age / 1000:g} ka"
+
+
 def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) -> Report:
     """Check the compiled nc files of a dataset (after IndexDatabase assigned the ages).
     surface: anta_database.web.irh.Bedmap3Surface around the dataset, or None."""
@@ -276,6 +287,7 @@ def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) 
 
     points: dict[int, int] = {}
     ages: dict[int, float] = {}
+    ranges: dict[int, tuple[float, float]] = {}
     too_deep: dict[int, int] = {}
     spikes: dict[int, int] = {}
     crossings: dict[tuple[int, int], list[int]] = {}  # (older, younger): [crossing, shared]
@@ -305,6 +317,12 @@ def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) 
                 for i, age in zip(irhs, ds.IRH_AGE.values.astype(float)):
                     if np.isfinite(age):
                         ages[i] = age
+            # An age range (e.g. from an age model): the order with another IRH is only known when
+            # the ranges do not overlap
+            if "IRH_AGE_MIN" in ds and "IRH_AGE_MAX" in ds:
+                for i, lo, hi in zip(irhs, ds.IRH_AGE_MIN.values.astype(float), ds.IRH_AGE_MAX.values.astype(float)):
+                    if np.isfinite(lo) and np.isfinite(hi):
+                        ranges[i] = (lo, hi)
             for k, i in enumerate(irhs):
                 d = depth[:, k]
                 valid = np.isfinite(d)
@@ -316,7 +334,8 @@ def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) 
             dated = [(k, i) for k, i in enumerate(irhs) if i in ages]
             for a, (ka, ia) in enumerate(dated):
                 for kb, ib in dated[a + 1:]:
-                    if ages[ia] == ages[ib]:
+                    (la, ha), (lb, hb) = ranges.get(ia, (ages[ia],) * 2), ranges.get(ib, (ages[ib],) * 2)
+                    if ages[ia] == ages[ib] or (la <= hb and lb <= ha and (ia in ranges or ib in ranges)):
                         continue
                     (ko, io), (ky, iy) = ((ka, ia), (kb, ib)) if ages[ia] > ages[ib] else ((kb, ib), (ka, ia))
                     both = np.isfinite(depth[:, ko]) & np.isfinite(depth[:, ky])
@@ -352,7 +371,7 @@ def check_compiled(dataset_dir: Path, raw_points: dict[int, int], surface=None) 
         worst = max(sorted(count), key=count.get)
         others = sorted(j for pair in crossing if worst in pair for j in pair if j != worst)
         report.warnings.append(
-            f"IRH {worst} ({ages[worst] / 1000:g} ka) crosses {plural(len(others), 'IRH')} of other ages "
+            f"IRH {worst} ({age_text(ages[worst], ranges.get(worst))}) crosses {plural(len(others), 'IRH')} of other ages "
             f"(IRH {', '.join(map(str, others))}): check its number and age"
         )
         crossing = {pair for pair in crossing if worst not in pair}

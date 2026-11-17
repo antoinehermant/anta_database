@@ -300,17 +300,42 @@ td {
   color: var(--muted);
 }
 
-/* Layers */
+/* Layers: narrow fields, the numbers are short */
 .layers {
   font-size: 14px;
 }
 
 .layers input {
-  width: 110px;
+  width: 108px;
 }
 
 .layers input.irh-number {
-  width: 56px;
+  width: 40px;
+}
+
+.layers input.survey-year {
+  width: 64px;
+}
+
+.layers input.survey-project {
+  width: 90px;
+}
+
+/* Long file names wrap rather than push the table out */
+.layers td.file-name {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+/* The uncertainty (or the end of the range), and for a modelled age the button to switch */
+.layers .age-unc {
+  white-space: nowrap;
+}
+
+.layers .age-toggle {
+  margin-left: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
 }
 
 /* Under the dating method: the core and chronology, or the model */
@@ -322,7 +347,12 @@ td {
 }
 
 .layers .dating input {
-  width: 190px;
+  width: 130px;
+}
+
+/* Wider than its section (many files): scroll, not overflow */
+#layers {
+  overflow-x: auto;
 }
 
 /* Under the radar instruments: the platform of each */

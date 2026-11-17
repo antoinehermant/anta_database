@@ -344,12 +344,18 @@ def export_dataset(
                 if not valid.any():
                     continue
                 age_unc = _scalar(sel.IRH_AGE_UNC.values) if "IRH_AGE_UNC" in sel else None
+                # An age range (e.g. from an age model), shown instead of the age
+                age_min = _scalar(sel.IRH_AGE_MIN.values) if "IRH_AGE_MIN" in sel else None
+                age_max = _scalar(sel.IRH_AGE_MAX.values) if "IRH_AGE_MAX" in sel else None
+                if age_min is None or age_max is None:
+                    age_min = age_max = None
                 md = irh_md.get(int(irh), {})
                 citation = citation or md.get("citation")
                 add_feature(depth, {
                     "irh": int(irh),
                     "age_ka": None if age is None else round(age / 1000, 2),
                     "age_unc_ka": None if age_unc is None else round(age_unc / 1000, 2),
+                    **({} if age_min is None else {"age_min_ka": round(age_min / 1000, 2), "age_max_ka": round(age_max / 1000, 2)}),
                 }, md)
 
             # Basal unit: a layer without age (not an IRH, nor in IRH_NUM), same metadata as the IRHs

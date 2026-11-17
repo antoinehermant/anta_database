@@ -1080,6 +1080,7 @@ renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefa
 
 function formatAge(f: Feature): string {
   if (f.age_ka === null) return "not assigned";
+  if (f.age_min_ka !== undefined && f.age_max_ka !== undefined) return `${f.age_min_ka}–${f.age_max_ka} ka (model range)`;
   return f.age_unc_ka === null ? `${f.age_ka} ka` : `${f.age_ka} ± ${f.age_unc_ka} ka`;
 }
 

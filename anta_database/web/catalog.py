@@ -55,7 +55,7 @@ def _scan_files(files: List[str]) -> Dict:
     n_points = 0
     for path in files:
         with h5py.File(path, "r") as f:
-            variables.update(k for k in f.keys() if k not in ("point", "IRH", "PSX", "PSY", "Distance", "IRH_AGE", "IRH_AGE_UNC"))
+            variables.update(k for k in f.keys() if k not in ("point", "IRH", "PSX", "PSY", "Distance", "IRH_AGE", "IRH_AGE_UNC", "IRH_AGE_MIN", "IRH_AGE_MAX"))
             x = f["PSX"][:] / 1000
             y = f["PSY"][:] / 1000
             ok = np.isfinite(x) & np.isfinite(y)
@@ -65,11 +65,16 @@ def _scan_files(files: List[str]) -> Dict:
             cells[iy * n + ix] = True
             ages = f["IRH_AGE"][:] if "IRH_AGE" in f else [np.nan] * len(f["IRH"])
             uncs = f["IRH_AGE_UNC"][:] if "IRH_AGE_UNC" in f else [np.nan] * len(f["IRH"])
-            for irh, age, unc in zip(f["IRH"][:], ages, uncs):
+            mins = f["IRH_AGE_MIN"][:] if "IRH_AGE_MIN" in f else [np.nan] * len(f["IRH"])
+            maxs = f["IRH_AGE_MAX"][:] if "IRH_AGE_MAX" in f else [np.nan] * len(f["IRH"])
+            for irh, age, unc, age_min, age_max in zip(f["IRH"][:], ages, uncs, mins, maxs):
+                ranged = np.isfinite(age_min) and np.isfinite(age_max)
                 irhs.setdefault(int(irh), {
                     "irh": int(irh),
                     "age": float(age) if np.isfinite(age) else None,
                     "age_unc": float(unc) if np.isfinite(unc) else None,
+                    # An age range (e.g. from an age model): age is then its middle
+                    **({"age_min": float(age_min), "age_max": float(age_max)} if ranged else {}),
                 })
     # Occupied cells, as gaps between their flat indices (smaller json)
     flat = np.flatnonzero(cells)

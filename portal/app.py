@@ -115,11 +115,34 @@ class Layer(BaseModel):
     irh: int = Field(ge=1)
     age: Optional[float] = Field(default=None, gt=0)
     age_unc: Optional[float] = Field(default=None, ge=0)
+    # Or an age range, from an age model (instead of age and age_unc)
+    age_min: Optional[float] = Field(default=None, gt=0)
+    age_max: Optional[float] = Field(default=None, gt=0)
     # How the age was found: at an ice core (tied to its chronology), or by a model
     dating_method: Optional[Literal["ice-core", "modelled"]] = None
     # The ice core and its chronology, or the model and its reference (modelled): optional
     ice_core: Optional[str] = Field(default=None, max_length=100)
     chronology: Optional[str] = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def age_or_range(self) -> "Layer":
+        if (self.age_min is None) != (self.age_max is None):
+            raise ValueError(f"IRH {self.irh}: an age range needs both its youngest and oldest age")
+        if self.age_min is not None:
+            if self.dating_method != "modelled":
+                raise ValueError(f"IRH {self.irh}: an age range is only for modelled ages")
+            if self.age is not None or self.age_unc is not None:
+                raise ValueError(f"IRH {self.irh}: give an age with its uncertainty, or an age range, not both")
+            if self.age_min >= self.age_max:
+                raise ValueError(f"IRH {self.irh}: the youngest age of the range must be below the oldest")
+        return self
+
+    def raw_ages(self) -> dict:
+        """The ages of the layer in raw_md.json."""
+        ages = {"age": self.age, "age uncertainty": self.age_unc}
+        if self.age_min is not None:
+            ages.update({"age min": self.age_min, "age max": self.age_max})
+        return ages
 
 
 class FirnCorrection(BaseModel):
@@ -221,8 +244,7 @@ def raw_metadata(s: Submission) -> list[dict]:
                 "file structure": "IRH",
                 "dataset": s.dataset,
                 "IRH": f.irh if f.kind == "irh" else f.variable,
-                "age": layer.age if layer else None,
-                "age uncertainty": layer.age_unc if layer else None,
+                **(layer.raw_ages() if layer else {"age": None, "age uncertainty": None}),
                 "dating method": layer.dating_method if layer else None,
                 "ice core": layer.ice_core if layer else None,
                 "chronology": layer.chronology if layer else None,
@@ -242,8 +264,7 @@ def raw_metadata(s: Submission) -> list[dict]:
                 "file structure": "line",
                 "dataset": s.dataset,
                 "IRH": irh,
-                "age": layer.age if layer else None,
-                "age uncertainty": layer.age_unc if layer else None,
+                **(layer.raw_ages() if layer else {"age": None, "age uncertainty": None}),
                 "dating method": layer.dating_method if layer else None,
                 "ice core": layer.ice_core if layer else None,
                 "chronology": layer.chronology if layer else None,
@@ -300,6 +321,7 @@ def write_submission(directory: Path, s: Submission, record: dict) -> None:
 def submission_summary(s: Submission, submission_id: str, total: int) -> str:
     layers = ", ".join(
         (f"IRH {l.irh}: {l.age:g} ± {l.age_unc:g} a" if l.age and l.age_unc is not None
+         else f"IRH {l.irh}: {l.age_min:g}-{l.age_max:g} a (range)" if l.age_min is not None
          else f"IRH {l.irh}: {f'{l.age:g} a' if l.age else 'undated'}")
         + (f" ({l.dating_method})" if l.dating_method else "")
         for l in s.layers

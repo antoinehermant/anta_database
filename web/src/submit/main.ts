@@ -41,6 +41,21 @@ localStorage.removeItem("submit-draft");
 
 /** How the age of a layer was found: at an ice core (tied to its chronology), or by a model */
 type DatingMethod = "ice-core" | "modelled";
+/** The age of a layer in the form: an age and its uncertainty, or for a modelled age a range */
+interface LayerAge {
+  age: string;
+  age_unc: string;
+  /** A modelled age given as a range (age_min to age_max) instead of age ± age_unc */
+  range?: boolean;
+  age_min?: string;
+  age_max?: string;
+  dating_method?: DatingMethod | "";
+  ice_core?: string;
+  chronology?: string;
+}
+
+/** Whether the age of a layer is given as a range: only for modelled ages */
+const isRange = (a: LayerAge | undefined) => a?.dating_method === "modelled" && !!a.range;
 const DATING_METHODS: [DatingMethod, string][] = [
   ["ice-core", "Ice core"],
   ["modelled", "Model"],
@@ -65,7 +80,7 @@ interface Draft {
    * Age, uncertainty and dating by IRH number: the method, and the ice core and chronology (ice
    * core) or the model and its reference (modelled, in chronology)
    */
-  ages: Record<string, { age: string; age_unc: string; dating_method?: DatingMethod | ""; ice_core?: string; chronology?: string }>;
+  ages: Record<string, LayerAge>;
   /** IRH number of each layer file (one file per layer) */
   fileIrh: Record<string, string>;
   /** The line of the layer files without a LINE_ID column */
@@ -625,13 +640,13 @@ function ageInputs(irh: number): HTMLElement[] {
     details.replaceChildren(
       ...(value.dating_method === "ice-core"
         ? [
-            text("chronology", "chronology, e.g. AICC2023", "Chronology", chronologyList),
-            text("ice_core", "core, e.g. EDC", "Ice core", coreList),
+            text("chronology", "chronology", "Chronology", chronologyList),
+            text("ice_core", "ice core", "Ice core", coreList),
             chronologies,
             cores,
           ]
         : value.dating_method === "modelled"
-          ? [text("chronology", "model and reference, e.g. 1D ice-flow model (Author et al., 2026)", "Model")]
+          ? [text("chronology", "model (reference)", "Model")]
           : []),
     );
   };
@@ -651,14 +666,17 @@ function ageInputs(irh: number): HTMLElement[] {
     save();
     update();
   });
-  const cells = (["age", "age_unc"] as const).map((key) => {
-    const input = element("input", {
-      value: value[key],
-      inputMode: "numeric",
-      placeholder: key === "age" ? "age" : "±",
-      className: `irh-${irh}-${key}`,
-    });
-    input.setAttribute("aria-label", `${key === "age" ? "Age" : "Age uncertainty"} of IRH ${irh} (years)`);
+  // The age and its uncertainty, or for a modelled age the range, with a button to switch
+  const cells = [element("td"), element("td", { className: "age-unc" })];
+  const ageInput = (key: "age" | "age_unc" | "age_min" | "age_max") => {
+    const [placeholder, label] = {
+      age: ["age", "Age"],
+      age_unc: ["±", "Age uncertainty"],
+      age_min: ["from (youngest)", "Youngest age of the range"],
+      age_max: ["to (oldest)", "Oldest age of the range"],
+    }[key];
+    const input = element("input", { value: value[key] ?? "", inputMode: "numeric", placeholder, className: `irh-${irh}-${key}` });
+    input.setAttribute("aria-label", `${label} of IRH ${irh} (years)`);
     input.addEventListener("input", () => {
       value[key] = input.value.trim();
       // Same layer in several files: keep their fields in step
@@ -666,9 +684,28 @@ function ageInputs(irh: number): HTMLElement[] {
       save();
       update();
     });
-    return element("td", {}, input);
+    return input;
+  };
+  const toggle = element("button", { type: "button", className: "age-toggle" });
+  toggle.addEventListener("click", () => {
+    value.range = !value.range;
+    save();
+    // Every row of the layer (one per file) switches
+    showLayers();
+    update();
   });
-  return [...cells, element("td", {}, method, details)];
+  const showAge = () => {
+    const range = isRange(value);
+    cells[0].replaceChildren(ageInput(range ? "age_min" : "age"));
+    cells[1].replaceChildren(ageInput(range ? "age_max" : "age_unc"), ...(value.dating_method === "modelled" ? [toggle] : []));
+    toggle.textContent = range ? "±" : "range";
+    toggle.title = range ? "Give an age and its uncertainty instead" : "Give the range of ages of the model instead";
+    toggle.setAttribute("aria-label", `IRH ${irh}: ${toggle.title.toLowerCase()}`);
+  };
+  showAge();
+  method.addEventListener("change", showAge);
+  // The dating method first: it decides whether the age can be given as a range
+  return [element("td", {}, method, details), ...cells];
 }
 
 function showLayers() {
@@ -698,6 +735,7 @@ function showLayers() {
           const input = element("input", {
             value: own[key],
             placeholder: key === "project" ? draft.survey.projects.join(", ") || "project" : draft.survey.acquisition_year || "year or years",
+            className: key === "project" ? "survey-project" : "survey-year",
           });
           input.setAttribute("aria-label", `${key === "project" ? "Project" : "Acquisition year"} of ${f.name}, if different`);
           if (key === "project") input.setAttribute("list", "suggest-projects");
@@ -708,7 +746,7 @@ function showLayers() {
           });
           return element("td", {}, input);
         });
-        const row = element("tr", {}, element("td", {}, f.name), element("td", {}, irh), ...ages, ...surveyInputs);
+        const row = element("tr", {}, element("td", { className: "file-name" }, f.name), element("td", {}, irh), ...ages, ...surveyInputs);
         showAges();
         irh.addEventListener("input", () => {
           draft.fileIrh[f.name] = irh.value.trim();
@@ -723,10 +761,10 @@ function showLayers() {
       element(
         "table",
         { className: "layers" },
-        head("File", "IRH", "Age (years)", "± (years)", "Dating", "Acquisition year*", "Project*"),
+        head("File", "IRH", "Dating", "Age (years)", "± (years)", "Year*", "Project*"),
         element("tbody", {}, ...rows),
       ),
-      element("p", { className: "muted" }, "* Only if different from the survey above."),
+      element("p", { className: "muted" }, "* Acquisition year and project, only if different from the survey above."),
       ...(variables.length
         ? [element("p", {}, `Variables: ${variables.map((f) => `${f.variable} (${f.name})`).join(", ")}.`)]
         : []),
@@ -744,7 +782,7 @@ function showLayers() {
       ),
     );
     root.replaceChildren(
-      element("table", { className: "layers" }, head("Layer", "Age (years)", "± (years)", "Dating", ""), element("tbody", {}, ...rows)),
+      element("table", { className: "layers" }, head("Layer", "Dating", "Age (years)", "± (years)", ""), element("tbody", {}, ...rows)),
     );
   }
 }
@@ -813,6 +851,17 @@ function layerIssues(): Issue[] {
   const younger: string[] = [];
   for (const irh of irhNumbers()) {
     const { age = "", age_unc = "", dating_method = "" } = draft.ages[irh] ?? {};
+    if (isRange(draft.ages[irh])) {
+      // A modelled age given as a range
+      const { age_min = "", age_max = "" } = draft.ages[irh];
+      if (!age_min && !age_max) undated.push(irh);
+      else if (!(Number(age_min) > 0) || !(Number(age_max) > 0))
+        issues.push({ level: "error", text: `IRH ${irh}: give both ends of the age range, in years.` });
+      else if (Number(age_min) >= Number(age_max))
+        issues.push({ level: "error", text: `IRH ${irh}: the range must go from the youngest age to the oldest.` });
+      else if (Number(age_max) < 1000) issues.push({ level: "warning", text: `IRH ${irh}: ${age_min} to ${age_max} years, are ages in years (not ka)?` });
+      continue;
+    }
     if (!age) undated.push(irh);
     if (age && !dating_method) issues.push({ level: "error", text: `IRH ${irh}: choose how it was dated (ice core or model).` });
     const { ice_core = "", chronology = "" } = draft.ages[irh] ?? {};
@@ -1068,8 +1117,12 @@ function payload() {
     })),
     layers: irhNumbers().map((irh) => ({
       irh,
-      age: draft.ages[irh]?.age ? Number(draft.ages[irh].age) : null,
-      age_unc: draft.ages[irh]?.age_unc ? Number(draft.ages[irh].age_unc) : null,
+      ...(isRange(draft.ages[irh])
+        ? { age: null, age_unc: null, age_min: Number(draft.ages[irh].age_min), age_max: Number(draft.ages[irh].age_max) }
+        : {
+            age: draft.ages[irh]?.age ? Number(draft.ages[irh].age) : null,
+            age_unc: draft.ages[irh]?.age_unc ? Number(draft.ages[irh].age_unc) : null,
+          }),
       dating_method: draft.ages[irh]?.dating_method || null,
       ice_core: (draft.ages[irh]?.dating_method === "ice-core" && draft.ages[irh]?.ice_core) || null,
       chronology: draft.ages[irh]?.chronology || null,

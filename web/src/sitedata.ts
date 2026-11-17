@@ -23,6 +23,9 @@ export interface Irh {
   irh: number;
   age: number | null;
   age_unc: number | null;
+  /** An age range (e.g. from an age model): age is then its middle */
+  age_min?: number;
+  age_max?: number;
 }
 
 export interface CatalogDataset {

@@ -24,6 +24,7 @@ export function formatSize(bytes: number): string {
 function formatAge(irh: Irh): string {
   if (irh.age === null) return `IRH ${irh.irh}: no age`;
   const ka = (a: number) => (a / 1000).toLocaleString("en", { maximumFractionDigits: a < 10000 ? 2 : 1 });
+  if (irh.age_min !== undefined && irh.age_max !== undefined) return `${ka(irh.age_min)}–${ka(irh.age_max)} ka (model range)`;
   return irh.age_unc === null ? `${ka(irh.age)} ka` : `${ka(irh.age)} ± ${ka(irh.age_unc)} ka`;
 }
 

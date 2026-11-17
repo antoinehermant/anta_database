@@ -26,6 +26,9 @@ export interface Feature {
   layer?: "basal unit"; // missing for the isochrones
   age_ka: number | null;
   age_unc_ka: number | null;
+  /** An age range (e.g. from an age model): age_ka is then its middle */
+  age_min_ka?: number;
+  age_max_ka?: number;
   citation: string | null;
   doi_dataset: string | null;
   doi_article: string | null;

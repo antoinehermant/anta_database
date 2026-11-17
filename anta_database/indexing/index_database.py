@@ -18,7 +18,14 @@ from anta_database.netcdf import write
 AGE_ATTRS = {
     "IRH_AGE": {"units": "years", "long_name": "IRH age", "description": "Age of the IRH in years before present, as published"},
     "IRH_AGE_UNC": {"units": "years", "long_name": "IRH age uncertainty", "description": "Uncertainty on the age of the IRH, as published"},
+    "IRH_AGE_MIN": {"units": "years", "long_name": "IRH age range, youngest", "description": "Youngest age of the range given for the IRH (e.g. by an age model), as published"},
+    "IRH_AGE_MAX": {"units": "years", "long_name": "IRH age range, oldest", "description": "Oldest age of the range given for the IRH (e.g. by an age model), as published"},
 }
+# An IRH given an age range without a single age gets the middle of the range as IRH_AGE
+RANGE_NOTE = (
+    "Where an age range is given (IRH_AGE_MIN, IRH_AGE_MAX) and no single age was published, "
+    "IRH_AGE is the middle of the range"
+)
 # How each IRH was dated: fields of raw_md.json, written as attributes of IRH_AGE of the same names,
 # one value per IRH in the order of IRH ("" where not given)
 DATING = ["dating method", "ice core", "chronology"]
@@ -62,12 +69,17 @@ class IndexDatabase:
         Ages to assign to the IRHs of a file (in the order of f_irh), from the metadata
         of the dataset (raw_md.json) and the overrides of assign_ages.json (by IRH ID).
 
-        Returns (ids or None, ages, age uncertainties), NaN where unknown.
+        An IRH can have an age range ("age min", "age max"), e.g. from an age model: without a
+        published "age", its age is the middle of the range.
+
+        Returns (ids or None, ages, age uncertainties, youngest, oldest), NaN where unknown.
         """
-        inconsistent_irhs = md_raw.groupby("IRH")["age"].nunique()
+        dataset = md_raw["dataset"].dropna().iloc[0]
+        columns = [c for c in ("age", "age min", "age max") if c in md_raw]
+        inconsistent_irhs = md_raw.groupby("IRH")[columns].nunique().gt(1).any(axis=1)
         if (inconsistent_irhs > 1).any():
             raise ValueError(
-                f"Inconsistent ages for IRHs in {md_raw['dataset'].iloc[0]}: {inconsistent_irhs[inconsistent_irhs > 1].index.tolist()}"
+                f"Inconsistent ages for IRHs in {dataset}: {inconsistent_irhs[inconsistent_irhs].index.tolist()}"
             )
         md_raw = md_raw.drop_duplicates(subset="IRH", keep="first")
         # Ensures IRH are in the same order and fill with NaN values if some are missing
@@ -75,16 +87,23 @@ class IndexDatabase:
 
         n = len(f_irh)
         ids = md_raw["IRH ID"].to_numpy() if "IRH ID" in md_raw.columns else None
-        ages = (
-            md_raw["age"].to_numpy(dtype=float)
-            if "age" in md_raw
-            else np.full(n, np.nan)
-        )
-        uncs = (
-            md_raw["age uncertainty"].to_numpy(dtype=float)
-            if "age uncertainty" in md_raw
-            else np.full(n, np.nan)
-        )
+        def column(name):
+            return md_raw[name].to_numpy(dtype=float, copy=True) if name in md_raw else np.full(n, np.nan)
+
+        ages, uncs = column("age"), column("age uncertainty")
+        youngest, oldest = column("age min"), column("age max")
+        ranged = np.isfinite(youngest) & np.isfinite(oldest)
+        if (np.isfinite(youngest) != np.isfinite(oldest)).any():
+            raise ValueError(f"An age range needs both 'age min' and 'age max', in the metadata of {dataset}")
+        wrong = ranged & ((youngest > oldest) | (np.isfinite(ages) & ((ages < youngest) | (ages > oldest))))
+        if wrong.any():
+            raise ValueError(
+                f"Age ranges of {dataset}: 'age min' must be at most 'age max', with the age (if given) "
+                f"between them: IRH {np.asarray(f_irh)[wrong].tolist()}"
+            )
+        # The middle of the range, in whole years, when no single age was published
+        middle = ranged & ~np.isfinite(ages)
+        ages[middle] = np.floor((youngest[middle] + oldest[middle]) / 2 + 0.5)
 
         if ids is not None and assign_age_df is not None:
             for i, irh_id in enumerate(ids):
@@ -96,15 +115,15 @@ class IndexDatabase:
                     uncs[i] = assigned["age uncertainty"]
 
         # Ages are whole years
-        for name, values in (("age", ages), ("age uncertainty", uncs)):
+        for name, values in (("age", ages), ("age uncertainty", uncs), ("age min", youngest), ("age max", oldest)):
             known = values[np.isfinite(values)]
             not_years = known[known != np.round(known)]
             if not_years.size:
                 raise ValueError(
                     f"Ages must be whole years (e.g. 10000): {name} {not_years.tolist()} "
-                    f"in the metadata of {md_raw['dataset'].dropna().iloc[0]} or in assign_ages.json"
+                    f"in the metadata of {dataset} or in assign_ages.json"
                 )
-        return ids, ages, uncs
+        return ids, ages, uncs, youngest, oldest
 
     @staticmethod
     def _target_dating(f_irh: np.ndarray, md_raw: pd.DataFrame) -> dict:
@@ -157,11 +176,12 @@ class IndexDatabase:
             f_irh = ds.IRH.values
             old_ages = ds["IRH_AGE"].values if "IRH_AGE" in ds.variables else None
             old_uncs = ds["IRH_AGE_UNC"].values if "IRH_AGE_UNC" in ds.variables else None
+            old_range = [ds[v].values if v in ds.variables else np.full(len(f_irh), np.nan) for v in ("IRH_AGE_MIN", "IRH_AGE_MAX")]
             old_ids = ds["IRH_ID"].values if "IRH_ID" in ds.variables else None
             age_attrs = ds["IRH_AGE"].attrs if "IRH_AGE" in ds.variables else {}
             old_dating = {f: _texts(np.atleast_1d(age_attrs[f])) for f in DATING if f in age_attrs}
 
-        ids, ages, uncs = self._target_ages(f_irh, md_dict[dataset], assign_age_df)
+        ids, ages, uncs, youngest, oldest = self._target_ages(f_irh, md_dict[dataset], assign_age_df)
         dating = self._target_dating(f_irh, md_dict[dataset])
         result = {"file": h5_file, "dataset": dataset, "changes": []}
 
@@ -174,6 +194,8 @@ class IndexDatabase:
                 same_ids
                 and self._same_values(old_ages, ages)
                 and self._same_values(old_uncs, uncs)
+                and self._same_values(old_range[0], youngest)
+                and self._same_values(old_range[1], oldest)
                 and old_dating == dating
             ):
                 result["status"] = "unchanged"
@@ -185,6 +207,8 @@ class IndexDatabase:
                     old_id_str[i] != new_id_str[i]
                     or not self._same_values(old_ages[i], ages[i])
                     or not self._same_values(old_uncs[i], uncs[i])
+                    or not self._same_values(old_range[0][i], youngest[i])
+                    or not self._same_values(old_range[1][i], oldest[i])
                 ):
                     # None for missing values: NaN != NaN would repeat the change per file
                     values = [
@@ -208,6 +232,12 @@ class IndexDatabase:
             age_attrs.update(dating)
         ds["IRH_AGE"] = ("IRH", self._stored(ages), age_attrs)
         ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs), AGE_ATTRS["IRH_AGE_UNC"])
+        # The range only in the files of IRHs that have one
+        ds = ds.drop_vars(["IRH_AGE_MIN", "IRH_AGE_MAX"], errors="ignore")
+        if np.isfinite(youngest).any():
+            ds["IRH_AGE"].attrs["description"] += f". {RANGE_NOTE}"
+            ds["IRH_AGE_MIN"] = ("IRH", self._stored(youngest), AGE_ATTRS["IRH_AGE_MIN"])
+            ds["IRH_AGE_MAX"] = ("IRH", self._stored(oldest), AGE_ATTRS["IRH_AGE_MAX"])
         if ids is not None:
             ds = ds.assign_coords(IRH_ID=("IRH", ids))
             ds = ds.set_coords(["IRH_ID", "IRH_AGE"])
@@ -418,7 +448,9 @@ class IndexDatabase:
             CREATE TABLE IF NOT EXISTS ages (
                 id INTEGER PRIMARY KEY,
                 age TEXT,
-                age_unc TEXT
+                age_unc TEXT,
+                age_min TEXT,
+                age_max TEXT
                 )
             """)
 
@@ -590,6 +622,10 @@ class IndexDatabase:
                 if "IRH_AGE" in ds_vars:
                     ages = ds["IRH_AGE"][:]
                     age_uncs = ds["IRH_AGE_UNC"][:]
+                    # The age range, NaN where none
+                    age_mins, age_maxs = (
+                        ds[v][:] if v in ds_vars else np.full(len(ages), np.nan) for v in ("IRH_AGE_MIN", "IRH_AGE_MAX")
+                    )
                     # None where not given, per IRH
                     dating = [
                         [t or None for t in _texts(np.atleast_1d(ds["IRH_AGE"].attrs[f]))]
@@ -698,15 +734,14 @@ class IndexDatabase:
 
             # Insert ages and regions
             if ages is not None:
-                for age, age_unc, *how in zip(ages, age_uncs, *dating):
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO ages (age, age_unc) VALUES (?, ?)",
-                        (_year_string(age), _year_string(age_unc)),
-                    )
-                    age_id = cursor.execute(
-                        "SELECT id FROM ages WHERE age = ? AND age_unc = ?",
-                        (_year_string(age), _year_string(age_unc)),
-                    ).fetchone()[0]
+                for age, age_unc, age_min, age_max, *how in zip(ages, age_uncs, age_mins, age_maxs, *dating):
+                    values = tuple(map(_year_string, (age, age_unc, age_min, age_max)))
+                    found = cursor.execute(
+                        "SELECT id FROM ages WHERE age = ? AND age_unc = ? AND age_min = ? AND age_max = ?", values
+                    ).fetchone()
+                    age_id = found[0] if found else cursor.execute(
+                        "INSERT INTO ages (age, age_unc, age_min, age_max) VALUES (?, ?, ?, ?)", values
+                    ).lastrowid
                     cursor.execute(
                         """
                         INSERT OR IGNORE INTO dataset_ages (dataset_id, age_id, dating_method, ice_core, chronology)

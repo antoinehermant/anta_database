@@ -42,6 +42,15 @@ def _line_id(line_id, flight_id):
 PLATFORM = ("datasets", "platform")
 # Query argument -> attribute of IRH_AGE in the files (one value per IRH)
 DATING_FIELDS = {"dating_method": "dating method", "ice_core": "ice core", "chronology": "chronology"}
+# The age range of a layer (e.g. from an age model), columns of the ages table since v2
+AGE_RANGE = ("age_min", "age_max")
+
+
+def _age_range(age_min, age_max) -> str:
+    """'2878-6882' (years), or '-' without a range."""
+    if age_min is not None and age_max is not None and age_min.isdigit() and age_max.isdigit():
+        return f"{age_min}-{age_max}"
+    return "-"
 
 
 class Metadata(dict):
@@ -183,13 +192,13 @@ class Database:
         return sqlite3.connect(uri, uri=True)
 
     def _has_column(self, table: str, column: str) -> bool:
-        """Whether the index has this column: the platform and the dating are not in v1."""
+        """Whether the index has this column: the platform, the dating and the age range are not in v1."""
         if self._columns is None:
             conn = self._connect()
             try:
                 self._columns = {
                     (t, row[1])
-                    for t in ("datasets", "dataset_ages")
+                    for t in ("datasets", "dataset_ages", "ages")
                     for row in conn.execute(f"PRAGMA table_info({t})")
                 }
             finally:
@@ -197,7 +206,7 @@ class Database:
         return (table, column) in self._columns
 
     def _extra_select(self) -> str:
-        """The platform and the dating of the select clauses, NULL in a v1 index."""
+        """The platform, the dating and the age range of the select clauses, NULL in an older index."""
         platform = "d.platform" if self._has_column(*PLATFORM) else "NULL"
         dating = [
             f"CASE WHEN v.name = 'IRH_DEPTH' THEN da.{c} ELSE NULL END"
@@ -205,7 +214,15 @@ class Database:
             else "NULL"
             for c in DATING_FIELDS
         ]
-        return ", ".join([f"{platform} AS platform", *(f"{d} AS {c}" for d, c in zip(dating, DATING_FIELDS))])
+        age_range = [
+            f"CASE WHEN v.name = 'IRH_DEPTH' THEN a.{c} ELSE NULL END" if self._has_column("ages", c) else "NULL"
+            for c in AGE_RANGE
+        ]
+        return ", ".join([
+            f"{platform} AS platform",
+            *(f"{d} AS {c}" for d, c in zip(dating, DATING_FIELDS)),
+            *(f"{r} AS {c}" for r, c in zip(age_range, AGE_RANGE)),
+        ])
 
     def _check_filters(self, **filters) -> None:
         for name, value in filters.items():
@@ -870,6 +887,7 @@ class Database:
             "acquisition_year": [],
             "age": [],
             "age_unc": [],
+            "age_range": [],
             "var": [],
             "reference": [],
             "DOI_dataset": [],
@@ -915,6 +933,7 @@ class Database:
         }
         ages_list = []
         ages_unc_list = []
+        age_range_list = []
         vars_list = []
         institutes_list = []
         projects_list = []
@@ -940,8 +959,9 @@ class Database:
             basins,
             radar_instruments,
             platforms,
-            *dating,
+            *extra,
         ) in results:
+            dating, age_min, age_max = extra[: len(DATING_FIELDS)], *extra[len(DATING_FIELDS):]
             if platforms:
                 platform_set.update(platforms.split(", "))
             for field, value in zip(DATING_FIELDS, dating):
@@ -959,6 +979,7 @@ class Database:
                     ages_unc_list.append(int(ages_unc))
                 else:
                     ages_unc_list.append("-")
+                age_range_list.append(_age_range(age_min, age_max))
             if vars is not None:
                 vars_list.append(vars)
             if institutes is not None:
@@ -986,14 +1007,14 @@ class Database:
             else:
                 basin_list.append("-")
 
-        paired = sorted(zip(ages_list, ages_unc_list), key=lambda x: x[0])
+        paired = sorted(zip(ages_list, ages_unc_list, age_range_list), key=lambda x: x[0])
 
         unique_pairs = []
         seen = set()
-        for age, unc in paired:
+        for age, unc, age_range in paired:
             if age not in seen:
                 seen.add(age)
-                unique_pairs.append((age, unc))
+                unique_pairs.append((age, unc, age_range))
 
         unique_institutes = set()
         for institutes in institutes_list:
@@ -1024,9 +1045,11 @@ class Database:
             }
         ).sort_values("dataset")
 
-        sorted_ages, sorted_age_unc = zip(*unique_pairs) if unique_pairs else ([], [])
+        sorted_ages, sorted_age_unc, sorted_age_range = zip(*unique_pairs) if unique_pairs else ([], [], [])
         metadata["age"] = [str(age) for age in sorted_ages]
         metadata["age_unc"] = [str(age_unc) for age_unc in sorted_age_unc]
+        # Per age, its range ('-' when none): the age is then the middle of the range
+        metadata["age_range"] = list(sorted_age_range)
         metadata["var"] = sorted(set(vars_list))
         metadata["institute"] = sorted(set(unique_institutes))
         metadata["project"] = sorted(set(unique_projects))
@@ -1249,6 +1272,7 @@ class Database:
                 "project": file_md["project"],
                 "acquisition_year": file_md["acquisition_year"],
                 "age_unc": md["age_unc"],
+                "age_range": md["age_range"],
                 "reference": file_md["reference"],
                 "DOI_dataset": file_md["DOI_dataset"],
                 "DOI_article": file_md["DOI_article"],
@@ -1324,6 +1348,8 @@ class MetadataResult:
             )
             output.append(f"\n  - age: {', '.join(map(str, md['age']))}")
             output.append(f"\n  - age_unc: {', '.join(map(str, md['age_unc']))}")
+            if any(r != "-" for r in md["age_range"]):
+                output.append(f"\n  - age_range: {', '.join(md['age_range'])}")
             output.append(f"\n  - var: {', '.join(md['var'])}")
             output.append(f"\n  - region: {', '.join(md['region'])}")
             output.append(f"\n  - IMBIE_basin: {', '.join(md['IMBIE_basin'])}")
