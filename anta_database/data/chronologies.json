@@ -9,11 +9,11 @@
     "TALDICE-1": {"cores": ["TALDICE"], "reference": "Buiron et al. (2011), Climate of the Past"},
     "WD2014": {"cores": ["WDC"], "reference": "Buizert et al. (2015); Sigl et al. (2016), Climate of the Past"},
     "SP19": {"cores": ["SPICEcore"], "reference": "Winski et al. (2019), Climate of the Past"},
-    "DFO2006": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature"},
+    "DFO-2006": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature"},
     "DF2021": {"cores": ["Dome Fuji"], "reference": "Oyabu et al. (2022), Quaternary Science Reviews"},
     "ST22": {"cores": ["Skytrain"], "reference": "Mulvaney et al. (2023), Climate of the Past"},
     "RICE17": {"cores": ["RICE"], "reference": "Lee et al. (2020), Climate of the Past"},
-    "DFO2006+AICC2012": {"cores": ["Dome Fuji"], "reference": "Kawamura et al. (2007), Nature; Bazin et al. (2013), Climate of the Past (as combined in Wang et al., 2023)"},
+    "DFO-2006+AICC2012": {"cores": ["Dome Fuji"], "reference": "Dome Fuji Ice Core Project Members (2017), Science Advances: DFO-2006 below 342 ka, AICC2012 above 344 ka"},
     "Byrd-BB2001": {"cores": ["Byrd"], "reference": "Blunier and Brook (2001), Science"},
     "Byrd-H1994": {"cores": ["Byrd"], "reference": "Hammer et al. (1994), Annals of Glaciology"},
     "Vostok-RR2003": {"cores": ["Vostok"], "reference": "Ruddiman and Raymo (2003), Quaternary Science Reviews"}
