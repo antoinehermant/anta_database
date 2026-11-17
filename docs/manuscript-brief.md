@@ -594,7 +594,7 @@ still open when writing.
 3. **Survey defaults:** institute(s), project(s), radar instrument(s), and the acquisition year or
    a period `2010-2011`. Names are autocompleted from the catalogue, to keep the vocabularies
    consistent. Files can override these defaults.
-4. **Files:** `.csv` or `.tab`. The content must match the extension. Limits: 100 files, 1 GB per
+4. **Files:** `.csv` or `.tab`. The content must match the extension. Limits: 200 files, 1 GB per
    file, 5 GB per submission. Files are read in pieces: a 1 GB file takes about 25 s to check.
    **Standard column names are required** (there is no mapping step):
    - **coordinates:** `PSX`, `PSY` (EPSG:3031) or `LON`, `LAT` (WGS84);

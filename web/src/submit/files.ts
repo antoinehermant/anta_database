@@ -60,7 +60,7 @@ export const EXTENSIONS: Record<string, string> = { csv: ",", tab: "\t" };
 
 const IRH_COLUMN = /^IRH(\d+)$/;
 /** Limits of a submission, as in the portal (portal/config.py) */
-export const MAX_FILES = 100;
+export const MAX_FILES = 200;
 export const MAX_FILE_GB = 1;
 export const MAX_TOTAL_GB = 5;
 const GB = 1024 ** 3;

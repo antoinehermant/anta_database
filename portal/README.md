@@ -200,7 +200,7 @@ On the server itself, the same commands are
 - Rate limits per address and per IP: verification codes, submissions (10 per day) and
   contact messages.
 - A hidden field that only bots fill in, in both forms: their requests are dropped silently.
-- Size limits: 100 files, 1 GB per file and 5 GB per submission (`PORTAL_MAX_GB`). The form
+- Size limits: 200 files, 1 GB per file and 5 GB per submission (`PORTAL_MAX_GB`). The form
   reads the files in pieces, so a 1 GB file takes about 25 s to check in the browser.
 
 ORCID login could replace the email codes later (it needs a registered ORCID API client, with

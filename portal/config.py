@@ -31,7 +31,7 @@ CLOSED_FILE = DATA / "CLOSED"
 
 ORIGINS = os.environ.get("PORTAL_ORIGINS", "https://antadatabase.com,http://localhost:5173").split(",")
 # Limits of a submission, as in the form (web/src/submit/files.ts)
-MAX_FILES = 100
+MAX_FILES = 200
 MAX_FILE_BYTES = 1024**3
 MAX_BYTES = int(os.environ.get("PORTAL_MAX_GB", "5")) * 1024**3
 # Files of contact messages: stored with the message (<PORTAL_DATA>/contact/<id>/), not emailed.
