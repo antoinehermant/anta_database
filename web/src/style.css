@@ -371,6 +371,93 @@ body:has(#sidebar:not(.closed)) #legends {
   border-top: 1px solid var(--widget-hover);
 }
 
+/* The regions chosen (main.ts, regionFilter), each with a button to remove it, then the field to add more */
+#gui .region-list {
+  margin: 2px 0;
+  padding: 0 var(--padding);
+  list-style: none;
+  font-size: 12px;
+}
+
+#gui .region-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+#gui .region-list span {
+  cursor: pointer;
+}
+
+#gui .region-list span:hover {
+  text-decoration: underline;
+}
+
+#gui .region-list button {
+  padding: 0 5px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#gui .region-list button:hover {
+  background: var(--widget-hover);
+  opacity: 1;
+}
+
+#gui .region-search {
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--padding));
+  margin: 2px var(--padding);
+  padding: 3px 6px;
+  border: none;
+  border-radius: 3px;
+  background: var(--widget-color);
+  color: var(--text-color);
+  font: inherit;
+  font-size: 12px;
+}
+
+/* A "?" after the name of a controller, its explanation on hover (main.ts, addHelp) */
+#gui .gui-help {
+  position: relative;
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--widget-hover);
+  font-size: 10px;
+  line-height: 13px;
+  text-align: center;
+  cursor: help;
+}
+
+#gui .gui-help:hover::after,
+#gui .gui-help:focus::after {
+  content: attr(data-help);
+  position: absolute;
+  z-index: 10;
+  top: 18px;
+  left: -60px;
+  width: 200px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--panel, #1c2633);
+  box-shadow: 0 1px 6px var(--shadow, rgba(0, 0, 0, 0.4));
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
 /* What the region filter shows (main.ts, regionFilter) */
 #gui .region-info {
   padding: 2px var(--padding) 4px;

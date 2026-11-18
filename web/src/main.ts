@@ -2054,11 +2054,26 @@ function checkboxFolder<T>(title: string, items: [label: string, value: T][], hi
 const normalise = (name: string) =>
   name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
+/** A "?" after the name of a controller, its explanation shown on hover (or focus, by keyboard). */
+function addHelp(controller: { $name: HTMLElement }, text: string): void {
+  const help = document.createElement("span");
+  help.className = "gui-help";
+  help.textContent = "?";
+  help.tabIndex = 0;
+  help.dataset.help = text;
+  help.setAttribute("aria-label", text);
+  // Not a click on the box of the controller
+  help.addEventListener("click", (event) => event.preventDefault());
+  controller.$name.append(help);
+}
+
 /**
- * Region: an ice sheet, an IMBIE basin, or a place of the SCAR Composite Gazetteer (lines within a
- * radius), typed or picked from the suggestions by any of its names (anta_database.regions).
- * Choosing one ticks, in the Datasets folder, only the datasets with lines there, and flies to it;
- * "Only its lines" also hides their lines elsewhere. All regions ticks every dataset again.
+ * Regions: ice sheets, IMBIE basins, or places of the SCAR Composite Gazetteer (lines within a
+ * radius), typed or picked from the suggestions by any of their names (anta_database.regions).
+ * Each region chosen is listed (× to remove it), and the field stays to add more. With regions,
+ * only their lines are shown, and in the Datasets folder only the datasets with lines there are
+ * ticked; "Whole datasets" shows every line of those datasets. All regions removes them all and
+ * ticks every dataset again. The regions chosen are kept with the settings (a hidden controller).
  * showDatasets: ticks the boxes of the Datasets folder (null in a private preview, without it)
  */
 function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown: (dataset: string) => boolean) => void) | null): void {
@@ -2082,54 +2097,107 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
   }
   document.body.append(list);
 
-  const HINT = "All the datasets. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
-  const folder = filters.addFolder("Region").close();
-  const state = { region: "", onlyLines: false };
+  const folder = filters.addFolder("Regions").close();
+  // chosen: the labels of the regions, "|" between them (saved with the settings)
+  const state = { chosen: "", wholeDatasets: false };
+  let chosen: Region[] = [];
+  const items = document.createElement("ul");
+  items.className = "region-list";
+  const field = document.createElement("input");
+  field.type = "text";
+  field.className = "region-search";
+  field.setAttribute("list", list.id);
+  field.placeholder = "Add a region: Dome C, WSB, Dronning Maud Land...";
+  field.setAttribute("aria-label", "Add a region");
   const info = document.createElement("div");
   info.className = "region-info";
-  let region: Region | undefined;
+
   const showLines = () => {
     isochrones.regionLines =
-      region && state.onlyLines ? new Set(region.tracks.map((t) => lineKey(index.tracks[t].dataset, index.tracks[t].line_id))) : null;
+      chosen.length && !state.wholeDatasets
+        ? new Set(chosen.flatMap((r) => r.tracks.map((t) => lineKey(index.tracks[t].dataset, index.tracks[t].line_id))))
+        : null;
     queueFilter();
   };
-  const input = folder
-    .add(state, "region")
-    .name("Name")
-    .onFinishChange((value: string) => {
-      region = value.trim() ? byName.get(normalise(value)) : undefined;
-      info.textContent = region
-        ? `${region.name}: ${describe(region)}, ${count(datasetsOf(region).size, "dataset")}, ${count(region.tracks.length, "line")}`
-        : value.trim()
-          ? "No line in a region of this name: the datasets are left as they are"
-          : HINT;
-      showLines();
-      // Restoring the settings: the boxes of the datasets come back as they were left
-      if (restoringSettings || (value.trim() && !region)) return;
-      if (region) {
-        const inside = datasetsOf(region);
-        showDatasets?.((dataset) => inside.has(dataset));
-        frameBox(region.box, 1500);
-      } else showDatasets?.(() => true);
-    });
-  const field = input.domElement.querySelector("input")!;
-  field.setAttribute("list", list.id);
-  field.placeholder = "Dome C, WSB, Dronning Maud Land...";
-  // A suggestion picked from the list applies at once (the field otherwise waits for Enter or
-  // a click away): an input event that is not typing (Firefox), or a replacement (Chrome)
-  field.addEventListener("input", (event) => {
-    if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") field.blur();
+  const showList = () => {
+    items.replaceChildren(
+      ...chosen.map((r) => {
+        const item = document.createElement("li");
+        const name = document.createElement("span");
+        name.textContent = label(r);
+        name.title = `${describe(r)}: ${count(datasetsOf(r).size, "dataset")}, ${count(r.tracks.length, "line")}. Click to fly there`;
+        name.addEventListener("click", () => frameBox(r.box, 1500));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "×";
+        remove.title = `Remove ${r.name}`;
+        remove.setAttribute("aria-label", `Remove ${r.name}`);
+        remove.addEventListener("click", () => setChosen(chosen.filter((c) => c !== r)));
+        item.append(name, remove);
+        return item;
+      }),
+    );
+    const lines = new Set(chosen.flatMap((r) => r.tracks)).size;
+    const datasets = new Set(chosen.flatMap((r) => [...datasetsOf(r)])).size;
+    info.textContent = chosen.length
+      ? `${count(datasets, "dataset")}, ${count(lines, "line")} in ${chosen.length > 1 ? "these regions" : "this region"}`
+      : "All the datasets. Add an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
+  };
+  /** The regions chosen; restoring: from the settings, the boxes of the datasets left as they were. */
+  const setChosen = (next: Region[], restoring = false) => {
+    chosen = next;
+    showList();
+    showLines();
+    if (restoring) return;
+    saved.setValue(chosen.map(label).join("|")); // kept with the settings
+    const inside = new Set(chosen.flatMap((r) => [...datasetsOf(r)]));
+    showDatasets?.((dataset) => chosen.length === 0 || inside.has(dataset));
+  };
+
+  const saved = folder
+    .add(state, "chosen")
+    .onChange((value: string) => {
+      if (!restoringSettings) return;
+      const restored = value.split("|").map((name) => byName.get(normalise(name)));
+      setChosen(restored.filter((r): r is Region => r !== undefined), true);
+    })
+    .hide();
+  const add = () => {
+    const value = field.value.trim();
+    if (!value) return;
+    const region = byName.get(normalise(value));
+    if (!region) {
+      info.textContent = `No line in a region called "${value}"`;
+      return;
+    }
+    field.value = "";
+    if (!chosen.includes(region)) setChosen([...chosen, region]);
+    frameBox(region.box, 1500);
+  };
+  field.addEventListener("keydown", (event) => {
+    event.stopPropagation(); // typing, not moving the view
+    if (event.key === "Enter") add();
   });
-  folder.$children.appendChild(info);
-  folder.add(state, "onlyLines").name("Only its lines").onChange(showLines);
-  folder.add({ all: () => input.setValue("") }, "all").name("All regions");
-  info.textContent = HINT;
+  // A suggestion picked from the list is added at once: an input event that is not typing
+  // (Firefox), or a replacement (Chrome)
+  field.addEventListener("input", (event) => {
+    if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") add();
+  });
+  folder.$children.append(items, field, info);
+  const whole = folder
+    .add(state, "wholeDatasets")
+    .name("Whole datasets")
+    .onChange(showLines);
+  addHelp(
+    whole,
+    "Off: only the lines that cross the regions chosen are shown. On: every line of the datasets that cross them, also outside the regions.",
+  );
+  folder.add({ all: () => setChosen([]) }, "all").name("All regions");
+  showList();
 }
 
 function buildFilters(index: IrhIndex, regions: Region[] | null): void {
-  // The region first in the menu, setting the boxes of the datasets (made just after)
   let showDatasets: ((shown: (dataset: string) => boolean) => void) | null = null;
-  if (regions?.length) regionFilter(index, regions, (shown) => showDatasets?.(shown));
   // Datasets by their citation, e.g. "Cavitte et al. (2020)"; not in a private preview, which has
   // only the submitted dataset
   if (!SUBMISSION) {
@@ -2138,6 +2206,8 @@ function buildFilters(index: IrhIndex, regions: Region[] | null): void {
     const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
     showDatasets = checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
   }
+  // The regions, setting the boxes of the datasets
+  if (regions?.length) regionFilter(index, regions, showDatasets);
   // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
   const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
   const ages = [...new Set(index.features.map(ageKey))].sort((a, b) => rank(a) - rank(b) || (a as number) - (b as number));
