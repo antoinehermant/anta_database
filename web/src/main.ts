@@ -640,11 +640,15 @@ function animating(): boolean {
   return !strained && document.hasFocus() && performance.now() - lastInput < IDLE_MS;
 }
 
-// Guard of the GPU: when the animated frames come slower than STRAINED_MS on median (the GPU can't
-// keep up, and the desktop may soon freeze with it), the animations stop and the resolution drops,
-// with a message. They start again after a pause (RETRY_MS, while the page has the focus), and are
-// watched again: stopped again soon after, the next pause is twice as long (up to MAX_RETRY_MS)
-const STRAINED_MS = 100;
+// Guard of the GPU: when the animated frames come slower than STRAINED_MS on median, STRAINED_CHECKS
+// times in a row (the GPU can't keep up, and the desktop may soon freeze with it), what moves is
+// hidden (the aircraft, the animated flow lines; the sea and the eggs stand still) and the
+// resolution drops, with a message. They come back after a pause (RETRY_MS, while the page has the
+// focus), and are watched again: hidden again soon after, the next pause is twice as long (up to
+// MAX_RETRY_MS)
+const STRAINED_MS = 150; // about 7 images per second
+const STRAINED_CHECKS = 2; // of 30 frames each
+let strainedChecks = 0;
 const RETRY_MS = 30_000;
 const MAX_RETRY_MS = 5 * 60_000;
 const frameGaps: number[] = [];
@@ -658,15 +662,18 @@ function watchFrame(gap: number, animated: boolean): void {
   if (frameGaps.length < 30) return;
   const median = [...frameGaps].sort((a, b) => a - b)[15];
   frameGaps.length = 0;
-  if (median < STRAINED_MS) return;
+  strainedChecks = median < STRAINED_MS ? 0 : strainedChecks + 1;
+  if (strainedChecks < STRAINED_CHECKS) return;
+  strainedChecks = 0;
   const now = performance.now();
   retryMs = now - resumedAt < 2 * RETRY_MS ? Math.min(2 * retryMs, MAX_RETRY_MS) : RETRY_MS;
   strained = true;
   strainedAt = now;
   FULL_PIXEL_RATIO = MOVING_PIXEL_RATIO;
+  showAnimated();
   showError(
     new Error(
-      `The graphics card can't keep up (${Math.round(1000 / median)} images per second): the animations are paused and the resolution lowered. They start again in ${Math.round(retryMs / 1000)} s.`,
+      `The graphics card can't keep up (${Math.round(1000 / median)} images per second): the aircraft and the flow lines are hidden, and the resolution lowered. They come back in ${Math.round(retryMs / 1000)} s.`,
     ),
   );
 }
@@ -678,6 +685,15 @@ function resumeAfterStrain(now: number): void {
   resumedAt = now;
   frameGaps.length = 0;
   setPixelRatios();
+  showAnimated();
+  requestRender();
+}
+
+/** The layers that move, shown as set in the menu, but hidden while the guard holds. */
+function showAnimated(): void {
+  aircraft.group.visible = settings.aircraft && !strained;
+  if (flowLines) flowLines.mesh.visible = settings.velocity && settings.flowLines && !(strained && settings.animateFlow);
+  lastAircraftUpdate = lastFlowUpdate = performance.now();
   requestRender();
 }
 
@@ -1038,7 +1054,7 @@ function showVelocity(): void {
   if (on) loadDetail("surface").catch(showError);
   if (on && !velocity) loadVelocity().then(showVelocity).catch(showError);
   if (velocity) velocity.visible = on;
-  if (flowLines) flowLines.mesh.visible = on && settings.flowLines;
+  showAnimated();
   velocityOptions.show(on);
   if (on && velocity) {
     velocityLegend.show("Ice speed (m/a)", SPEED, speedTicks());
@@ -1699,7 +1715,7 @@ function updateLight(): void {
   shared.lightDir.value.set(Math.sin(az) * Math.cos(el), Math.cos(az) * Math.cos(el), Math.sin(el));
   requestRender();
 }
-aircraft.group.visible = settings.aircraft;
+aircraft.group.visible = settings.aircraft && !strained;
 sea.mesh.visible = settings.sea;
 if (!SUBMISSION && settings.eggs) sea.setClearing(ENDURANCE_AT[0], ENDURANCE_AT[1], ENDURANCE_CLEARING);
 updateLight();
@@ -1819,10 +1835,7 @@ velocityOptions.add(settings, "flowLines").name("Flow lines").onChange(showVeloc
 velocityOptions
   .add(settings, "animateFlow")
   .name("Animate flow")
-  .onChange(() => {
-    lastFlowUpdate = performance.now();
-    requestRender();
-  });
+  .onChange(showAnimated);
 velocityOptions.hide();
 layers
   .add(settings, "iceCores")
@@ -2015,7 +2028,6 @@ function queueFilter(): void {
   });
 }
 
-/** A sub-folder of checkboxes, all checked, with buttons to check or clear them all. */
 /** A folder of boxes, one per value; returns a function to tick the boxes of the values given. */
 function checkboxFolder<T>(title: string, items: [label: string, value: T][], hidden: Set<T>): (shown: (value: T) => boolean) => void {
   const folder = filters.addFolder(title).close();
@@ -2157,11 +2169,9 @@ if (miscFolder) {
     .add(settings, "aircraft")
     .name("Survey aircraft")
     .onChange((v: boolean) => {
-      aircraft.group.visible = v;
+      showAnimated();
       // The tracks are their flight paths
       if (v) loadTracks();
-      lastAircraftUpdate = performance.now();
-      requestRender();
     });
   miscFolder
     .add(settings, "sea")
