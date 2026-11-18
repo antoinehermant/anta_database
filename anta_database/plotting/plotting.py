@@ -11,6 +11,7 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patheffects as path_effects
 import colormaps as cmaps
+from anta_database.netcdf import DISTANCE, with_dist
 from contextlib import contextmanager
 from typing import Union, Dict, TYPE_CHECKING, Optional
 from tqdm import tqdm
@@ -752,8 +753,9 @@ class Plotting:
 
             ds = xr.open_dataset(full_path, engine="h5netcdf")
 
-            if "Distance" not in ds.variables:
-                print("Distance not in varibles, cannot plot along transect")
+            ds = with_dist(ds)
+            if DISTANCE not in ds.variables:
+                print(f"{DISTANCE} not in variables, cannot plot along transect")
                 return
 
             if elevation:
@@ -779,7 +781,7 @@ class Plotting:
                     continue
 
                 ax.scatter(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     ds.IRH_DEPTH.sel(IRH_AGE=age),
                     color=color,
                     s=marker_size,
@@ -790,7 +792,7 @@ class Plotting:
             if elevation:
                 if "BED_ELEV" in ds.variables:
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.BED_ELEV,
                         color="k",
                         s=marker_size,
@@ -800,7 +802,7 @@ class Plotting:
                 elif "ICE_THK" in ds.variables and "SURF_ELEV" in ds.variables:
                     ds["BED_ELEV"] = ds.SURF_ELEV - ds.ICE_THK
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.BED_ELEV,
                         color="k",
                         s=marker_size,
@@ -810,7 +812,7 @@ class Plotting:
                 else:
                     print("Cannot plot Bed Elevation from the variables in the file")
                 ax.scatter(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     ds.SURF_ELEV,
                     color="grey",
                     s=marker_size,
@@ -821,7 +823,7 @@ class Plotting:
             else:
                 if "ICE_THK" in ds.variables:
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.ICE_THK,
                         color="k",
                         s=marker_size,

@@ -29,7 +29,7 @@ import pandas as pd
 
 from anta_database import IndexDatabase
 from anta_database.bedmap.reconnect import fill
-from anta_database.compiling import CompileDatabase
+from anta_database.compiling import CompileDatabase, line_ids
 
 import processing_page  # this directory
 
@@ -133,6 +133,12 @@ def prepare(name: str, ref: str) -> Path:
     for old, new in COLUMNS.get(name, {}).items():
         header[header.index(old)] = new
     (out / "original_new_column_names.csv").write_text("\n".join([",".join(header), *columns[1:]]) + "\n")
+    # Line IDs set in the metadata (anta_database.compiling.line_ids), applied after the compilation
+    ids = out / line_ids.FILE
+    if f"{name}/{line_ids.FILE}" in git("ls-tree", "-r", "--name-only", ref).split():
+        ids.write_text(git("show", f"{ref}:{name}/{line_ids.FILE}"), encoding="utf-8")
+    else:
+        ids.unlink(missing_ok=True)
     settings = out / "compile_settings.json"
     if name in SETTINGS:
         settings.write_text(json.dumps(SETTINGS[name], indent=1, ensure_ascii=False) + "\n")
@@ -156,6 +162,8 @@ def main() -> None:
     (BUILD / "build_info.json").write_text(json.dumps({"anta_json": {"ref": args.metadata_ref, "commit": commit}}, indent=1) + "\n")
     dirs = [str(prepare(name, commit)) for name in args.datasets]
     CompileDatabase(dirs, var_attrs_json=str(VAR_ATTRS)).compile(cpus=args.cpus)
+    for d in dirs:
+        line_ids.apply(d)
     # Missing ice thickness, bed and surface elevation from the Bedmap line of the same traces
     filled = fill(str(BEDMAP), str(BUILD), args.datasets, max_median=MAX_MEDIAN, cpus=args.cpus)
     report = BUILD / "bedmap_fill.csv"

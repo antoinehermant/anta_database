@@ -27,6 +27,16 @@ SOURCES = {
 }
 SOURCE_FILL = -1
 
+# The along-track distance (m). Called Distance in v1 and before: with_dist() reads both
+DISTANCE = "DIST"
+
+
+def with_dist(ds: xr.Dataset) -> xr.Dataset:
+    """The dataset with its along-track distance as DIST, also in the files of v1 (Distance)."""
+    if "Distance" in ds.variables and DISTANCE not in ds.variables:
+        return ds.rename({"Distance": DISTANCE})
+    return ds
+
 
 def source_attrs(var: str) -> dict:
     """The attributes of <var>_SOURCE."""

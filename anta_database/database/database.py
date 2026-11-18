@@ -10,6 +10,7 @@ from typing import Union, List, Dict, Tuple, Optional, Generator
 from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
+from anta_database.netcdf import DISTANCE
 from anta_database.indexing.index_database import IndexDatabase, _texts
 from anta_database.cloud.manifest import (
     MANIFEST_NAME,
@@ -1207,8 +1208,10 @@ class Database:
                     "PSY": ds["PSY"][::downsampling_factor],
                 }
             )
-            if "Distance" in ds.keys():
-                df["Distance"] = ds["Distance"][::downsampling_factor]
+            # DIST, or Distance in the files of v1
+            dist = next((name for name in (DISTANCE, "Distance") if name in ds.keys()), None)
+            if dist:
+                df[DISTANCE] = ds[dist][::downsampling_factor]
 
             # The layers dated as asked: ages are not unique to one dating, across datasets
             asked = md["_query_params"]
@@ -1254,11 +1257,11 @@ class Database:
                 age_impl = list(age_impl)[0]
 
             if rolling_distance:
-                if "Distance" not in df.columns:
-                    print("Distance not in dataset, cannot do rolling mean on distance")
+                if DISTANCE not in df.columns:
+                    print(f"{DISTANCE} not in dataset, cannot do rolling mean on distance")
                 else:
                     df["bin"] = (
-                        np.floor(df["Distance"] / rolling_distance) * rolling_distance
+                        np.floor(df[DISTANCE] / rolling_distance) * rolling_distance
                     )
                     df = df.groupby("bin").mean().reset_index()
                     df.drop(columns=["bin"], inplace=True)

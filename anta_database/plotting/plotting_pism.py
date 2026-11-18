@@ -18,6 +18,7 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib import patheffects as path_effects
 import colormaps as cmaps
+from anta_database.netcdf import DISTANCE, with_dist
 from contextlib import contextmanager
 from typing import Union, Dict, TYPE_CHECKING, Optional
 from tqdm import tqdm
@@ -484,8 +485,9 @@ class PISMPlotting:
             X_pism, Y_pism = np.meshgrid(pism_ds.x, pism_ds.y)
             pism_points = np.column_stack((X_pism.flatten(), Y_pism.flatten()))
 
-            if "Distance" not in ds.variables:
-                print("Distance not in varibles, cannot plot along transect")
+            ds = with_dist(ds)
+            if DISTANCE not in ds.variables:
+                print(f"{DISTANCE} not in variables, cannot plot along transect")
                 plt.close()
                 return
 
@@ -527,7 +529,7 @@ class PISMPlotting:
                     continue
 
                 ax.scatter(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     ds.IRH_DEPTH.sel(IRH_AGE=age),
                     color=color,
                     s=marker_size,
@@ -551,7 +553,7 @@ class PISMPlotting:
                     pism_depth_interp = pism_usurf_interp - pism_depth_interp
 
                 ax.plot(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     pism_depth_interp,
                     linestyle="--",
                     color="k",
@@ -560,7 +562,7 @@ class PISMPlotting:
             if elevation:
                 if "BED_ELEV" in ds.variables:
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.BED_ELEV,
                         color="k",
                         s=marker_size,
@@ -571,7 +573,7 @@ class PISMPlotting:
                 elif "ICE_THK" in ds.variables and "SURF_ELEV" in ds.variables:
                     ds["BED_ELEV"] = ds.SURF_ELEV - ds.ICE_THK
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.BED_ELEV,
                         color="k",
                         s=marker_size,
@@ -582,7 +584,7 @@ class PISMPlotting:
                     print("Cannot plot Bed Elevation from the variables in the file")
                 if "SURF_ELEV" in ds.variables:
                     ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.SURF_ELEV,
                         color="darkred",
                         s=marker_size,
@@ -604,7 +606,7 @@ class PISMPlotting:
                 )
 
                 ax.plot(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     pism_bed_elev_interp,
                     color="gray",
                     linestyle="--",
@@ -612,7 +614,7 @@ class PISMPlotting:
                 )
 
                 ax.plot(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     pism_usurf_interp,
                     color="darkred",
                     linestyle="--",
@@ -631,7 +633,7 @@ class PISMPlotting:
             else:
                 if "ICE_THK" in ds.variables:
                     scatter = ax.scatter(
-                        ds.Distance / 1000,
+                        ds[DISTANCE] / 1000,
                         ds.ICE_THK,
                         color="k",
                         s=marker_size,
@@ -657,7 +659,7 @@ class PISMPlotting:
                 )
 
                 ax.plot(
-                    ds.Distance / 1000,
+                    ds[DISTANCE] / 1000,
                     pism_bed_depth_interp,
                     color="gray",
                     linestyle="--",

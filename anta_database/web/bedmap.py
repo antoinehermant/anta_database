@@ -14,7 +14,7 @@ else SURF_ELEV - ICE_THK where both are measured (for the view only: never store
         -o web/public/data/bedmap
 
 Lines with their own line ID (line ID flag "original") also get a profile, for the stratigraphy
-window of the viewer: the line along Distance with the surface, bed and ice thickness, at full
+window of the viewer: the line along DIST with the surface, bed and ice thickness, at full
 resolution when it fits in PROFILE_MAX_BYTES. Surveys stored as one line (no line IDs) have none:
 they are many profiles one after the other.
 
@@ -38,6 +38,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import xarray as xr
 
+from anta_database.netcdf import DISTANCE, with_dist
 from anta_database.web.irh import PROFILE_COLUMNS, Bedmap3Surface, _bbox, _profile, _runs, _write_gz
 
 DATASETS = ["BEDMAP1", "BEDMAP2", "BEDMAP3"]
@@ -121,7 +122,7 @@ def export_dataset(dataset_dir: str, surface: Optional[Bedmap3Surface], first_tr
             surf, thk, bed = _values(ds, "SURF_ELEV"), _values(ds, "ICE_THK"), _values(ds, "BED_ELEV")
             survey, line_id = ds.attrs["survey"], ds.attrs["line ID"]
             has_id = ds.attrs.get("line ID flag") == "original"
-            distance = _values(ds, "Distance")
+            distance = _values(with_dist(ds), DISTANCE)
         n = len(x)
         nan = np.full(n, np.nan)
         surf = nan.copy() if surf is None else surf

@@ -12,6 +12,7 @@ import json
 import ast
 from typing import Optional, Union
 
+from anta_database.firn import firn_text, summary as firn_summary
 from anta_database.netcdf import write
 
 
@@ -39,6 +40,16 @@ DATING_NOTE = (
 def _texts(values) -> list:
     """Strings of a file (h5py gives bytes), "" where missing."""
     return [v.decode() if isinstance(v, bytes) else ("" if v is None else str(v)) for v in values]
+
+
+def _dating_text(value) -> str:
+    """A dating field of raw_md.json as text, "" where not given. An IRH dated at two cores gives a
+    list, kept in the order of the metadata so the cores and chronologies match ("Vostok, EDC";
+    "WD2014, unknown"); "" when none of its items is known."""
+    missing = lambda v: v is None or (isinstance(v, float) and np.isnan(v))  # noqa: E731
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return "" if all(missing(v) for v in value) else ", ".join("unknown" if missing(v) else str(v) for v in value)
+    return "" if missing(value) else str(value)
 
 
 def _year_string(value) -> str:
@@ -135,12 +146,28 @@ class IndexDatabase:
         dataset = md_raw["dataset"].iloc[0]
         md_raw = md_raw.astype({f: object for f in fields})
         for f in fields:
-            md_raw[f] = md_raw[f].where(md_raw[f].notna(), "").astype(str)
+            md_raw[f] = md_raw[f].map(_dating_text)
         inconsistent = md_raw.groupby("IRH")[fields].nunique().gt(1).any(axis=1)
         if inconsistent.any():
             raise ValueError(f"Inconsistent dating for IRHs in {dataset}: {inconsistent[inconsistent].index.tolist()}")
         md_raw = md_raw.drop_duplicates(subset="IRH", keep="first").set_index("IRH").reindex(f_irh)
         return {f: md_raw[f].fillna("").astype(str).tolist() if f in fields else [""] * len(f_irh) for f in DATING}
+
+    @staticmethod
+    def _target_firn(f_irh: np.ndarray, md_raw: pd.DataFrame, h5_file: str) -> Union[list, None]:
+        """The firn correction in the depths of each IRH of a file (in the order of f_irh), as text:
+        from the compile settings of the dataset, else raw_md.json; None when the metadata has no
+        firn fields (v1)."""
+        if "firn correction applied" not in md_raw.columns:
+            return None
+        path = os.path.join(os.path.dirname(os.path.dirname(h5_file)), "compile_settings.json")
+        settings = json.load(open(path)) if os.path.exists(path) else {}
+        rows = md_raw.drop_duplicates(subset="IRH", keep="first").set_index("IRH")
+        texts = {
+            irh: firn_text(row.get("firn correction applied"), row.get("firn correction"), settings)
+            for irh, row in rows.iterrows()
+        }
+        return [texts.get(irh, "not known") for irh in f_irh]
 
     @staticmethod
     def _same_values(old, new) -> bool:
@@ -180,9 +207,14 @@ class IndexDatabase:
             old_ids = ds["IRH_ID"].values if "IRH_ID" in ds.variables else None
             age_attrs = ds["IRH_AGE"].attrs if "IRH_AGE" in ds.variables else {}
             old_dating = {f: _texts(np.atleast_1d(age_attrs[f])) for f in DATING if f in age_attrs}
+            depth_attrs = ds["IRH_DEPTH"].attrs if "IRH_DEPTH" in ds.variables else {}
+            old_firn = _texts(np.atleast_1d(depth_attrs["firn correction"])) if "firn correction" in depth_attrs else None
+            old_firn_line = ds.attrs.get("firn correction")
 
         ids, ages, uncs, youngest, oldest = self._target_ages(f_irh, md_dict[dataset], assign_age_df)
         dating = self._target_dating(f_irh, md_dict[dataset])
+        firn = self._target_firn(f_irh, md_dict[dataset], h5_file)
+        same_firn = firn is None or (old_firn == firn and old_firn_line == firn_summary(firn))
         result = {"file": h5_file, "dataset": dataset, "changes": []}
 
         assigned = old_ages is not None and old_uncs is not None
@@ -197,6 +229,7 @@ class IndexDatabase:
                 and self._same_values(old_range[0], youngest)
                 and self._same_values(old_range[1], oldest)
                 and old_dating == dating
+                and same_firn
             ):
                 result["status"] = "unchanged"
                 return result
@@ -232,6 +265,10 @@ class IndexDatabase:
             age_attrs.update(dating)
         ds["IRH_AGE"] = ("IRH", self._stored(ages), age_attrs)
         ds["IRH_AGE_UNC"] = ("IRH", self._stored(uncs), AGE_ATTRS["IRH_AGE_UNC"])
+        # The firn correction per IRH (raw_md.json gives it per layer), and of the line
+        if firn is not None and "IRH_DEPTH" in ds.variables:
+            ds["IRH_DEPTH"].attrs["firn correction"] = firn
+            ds.attrs["firn correction"] = firn_summary(firn)
         # The range only in the files of IRHs that have one
         ds = ds.drop_vars(["IRH_AGE_MIN", "IRH_AGE_MAX"], errors="ignore")
         if np.isfinite(youngest).any():

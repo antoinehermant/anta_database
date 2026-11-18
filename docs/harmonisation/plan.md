@@ -2,7 +2,7 @@
 
 Working document, started 2026-11-01. It records the decisions as they are taken, so that the
 manuscript (`../manuscript-brief.md`, and the ESSD draft) can be updated. **The steps to follow are in
-section 8, the remaining challenges and decisions in 8b.** Status of each item:
+section 8, the fixes left before the harmonisation in 8a, the remaining challenges and decisions in 8b.** Status of each item:
 - *Proposed*: a suggestion, not discussed yet;
 - *Agreed*: discussed and accepted;
 - *Open*: needs a decision or more data.
@@ -719,6 +719,88 @@ v2: the checks of `metadata-issues.md`, and copying v1 into `myAntADatabase` (A)
 | 4.2 | Docs chapter "Ages and harmonisation" | C, A checks |
 | 4.3 | Publish `v2/`, package 0.7.0 or 1.0.0, site. **In this order:** data, package, viewer | **A confirms each** |
 | 4.4 | Data DOI for the release, and the manuscript with its generated appendix (section 7) | A, C in the manuscript session |
+
+---
+
+## 8a. Before the harmonisation: the remaining fixes (2026-11-18)
+
+From this plan, `metadata-issues.md`, and the open issues of anta_json and 3d-antadatabase. **Goal:** a frozen v2
+build with complete metadata, which phase 2 starts from. Who: **A** = Antoine, **J** = Julien, **C** = Claude.
+
+### 1. Decisions (A, with J), they unblock the rest
+
+| # | Item | Proposal |
+|---|---|---|
+| F1 | anta_json #12: chronology names. J prefers `null` and a pointer to the paper over unofficial names (`Byrd-BB2001`); Jacobel uses two Byrd chronologies by depth | Keep `null` where no recognised name exists, and say which chronology in the `processing` note. Only the recognised names go in the list of the portal |
+| F2 | anta_json #2: Leysinger_Vieli_2011. J's answer: each layer has its core(s); the 3 layers dated at both cores take the middle of the two ages | Close: per layer works. Those 3 layers could become age ranges (min and max of the two datings), as for Napoleoni |
+| F3 | anta_json #13: Yan_2025 firn correction. J agrees to "unknown" | `null` already means "not known" in compile: close, or check the paper |
+| F4 | anta_json #9: line IDs given by the database (Winter `AWIxxx`) | A `line ID flag` value `assigned`, next to `original`, `not_provided` and `bedmap`, explained in the docs |
+| F5 | anta_json #4: Winter_2018, 25 AWI lines of 1997-2002 not filled from Bedmap (26-36 m apart, Bedmap2 at 146 m spacing). J: be more forgiving for old surveys | Allow a distance scaled on the Bedmap point spacing (e.g. half of it) instead of 10 m for every survey, then test the coverage on these 25 lines and the control datasets |
+| F6 | Cavitte_2020 depths below the bed (IRH 11 on `ASB_JKB1a_R09Ea`, up to 744 m; IRH 18 and 19 on `VCD_JKB1a_X08a`) | Keep as published, exclude them from the matching (S7), and list them in the processing page |
+| F7 | Lines with turns (anta_json #7, Bodart_2025b `W52`, Bodart_2021 `20181022_01_001_025`) | Accept for v2: the values are right, only a small piece is out of order. Solved later by the `segment` level (T9) |
+
+### 2. Metadata to fill in anta_json (J, A)
+
+- [ ] **Line IDs** (#9): Siegert_2004 `005`; Jacobel_2005 `US-ITASE-2001` and `US-ITASE-2002`; Wang_2023 without `IRH_`.
+- [ ] **Dating method** of Chung_2023 (2 IRHs) and Mulvaney_2023 (1 IRH).
+- [ ] **Chronology** of Jacobel, Siegert, Leysinger-Vieli and Muldoon (one layer), as decided in F1.
+- [ ] **Firn correction values per site**, where the papers give one (Winter, Bodart_2025a, Bodart_2025b, Muldoon), for the
+      depth test of 2.4.
+- [ ] **Beem_2021:** years (2016-2017, done), the project `PPT` that has no line, the wave speed of 167 m/us.
+
+### 3. Data and code fixes (C)
+
+- [ ] **anta_json #10, Cavitte_2020 missing data:** the fix of 2026-11-09 (`fix_cavitte.py`, 108,942 interpolated depths
+      removed) covers the 30 HiCARS lines `OIA_JKB2n_*` and IRH 1-20. Find what J still sees (IRH 21-26? MCoRDS
+      lines? or v1 in the public viewer), and fix it with the picks of M. Cavitte.
+- [ ] **anta_json #6, lines out of order:** the fix is in compile since 2026-11-10 (`order_by_files`). Check the five lines
+      in the v2 build, and close.
+- [ ] **Line ID flag `assigned`** (F4) in compile and the docs, and the line IDs of #9.
+- [ ] **Bedmap distance by survey** (F5), if decided: in `bedmap/reconnect.py`, then rerun the fill.
+- [ ] **Check in the v2 build and tick in `metadata-issues.md`:** no layers listed without values (v1 known issue);
+      Bodart_2021 OIB 20181022_01 thickness from Bedmap.
+- [ ] **`update_metadata.py`:** raw_md.json to the attributes of the `.nc` files, with a dry run, so a change in
+      anta_json needs no recompilation. Or rebuild with `build_v2.py` if a fix changes the values (#9, #10, F5).
+
+### 4. Viewer (C, 3d-antadatabase)
+
+- [ ] **#1, Yan_2025:** the profile window is longer than the isochrones. Find which data sets its extent (the surface
+      track or the Bedmap fill?) and limit it to the isochrones.
+- [ ] **#2:** J likes a different colour for the bed picked in the dataset and the bed taken from Bedmap (`*_SOURCE`). Do
+      it, then close.
+
+### 5. Freeze v2 (C, then A)
+
+1. Rebuild v2 from anta_json `main` (22 commits since the build of 2026-11-10, 59cafd3), with `build_v2.py --cpus 3`.
+2. `compare_v2.py`: every difference with the last build explained.
+3. Refresh the dev viewer and the processing page.
+4. Tag the anta_json commit: **the frozen input of phase 2.** Napoleoni_2026 (#3) joins at a rerun when it is
+   resubmitted, and so do other submissions (D3).
+
+### State on 2026-11-18
+
+- **Done:**
+  - F1 (#12 closed, `null`), F2 (Leysinger_Vieli_2011 ranges of the two cores; #2 closed), F3 (#13 closed);
+  - line IDs in `line_ids.json` of anta_json, applied by `anta_database/compiling/line_ids.py`, with the flag
+    `assigned` for Winter's `AWI...` lines (#9 closed);
+  - Chung and Mulvaney variable files without dating; Beem without `PPT` (#14 asks J);
+  - the firn correction per IRH (attribute of `IRH_DEPTH`, `anta_database/firn.py`);
+  - `update_metadata.py` run on the v2 build (anta_json 49939d6, tagged `v2-build-2026-11-18`);
+  - `Distance` renamed `DIST` in the v2 and Bedmap builds (`rename_dist.py`; the package reads both);
+  - `compare_v2.py`: all differences explained;
+  - dev viewer data re-exported and uploaded (2026-11-18).
+- **Opened:** #15 (high priority, the firn correction of Cavitte_2020), #16 (Cavitte layers below the bed, line
+  `ASB_JKB1a_R09Ea` to the coast).
+- **Waiting for A:**
+  - F5 (#4): the second Bedmap pass, across-track and same institute, proposed in the issue; a first try was reverted;
+  - #10: removing the interpolated Cavitte stretches of at least 2 km (found by their 0.1 m steps, 297,708 points
+    on 38 lines), proposed in the issue; it also explains #16;
+  - publishing the site (`./publish_site.sh`).
+- **Next:** the regions after the SCAR Composite Gazetteer, with a viewer filter (#8).
+
+**Not needed before the harmonisation:** the regions (#8, phase 3: J suggests the names of the SCAR Composite
+Gazetteer, as Chad Greene's `scarloc`, rather than our own outlines), `Distance` renamed `DIST` (phase 3),
+Winter IRH 1 and 5, and the Cavitte firn correction (both settled by the harmonisation itself).
 
 ---
 

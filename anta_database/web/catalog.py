@@ -32,6 +32,11 @@ EXTENT_KM = 3335
 NO_VALUES = {"", "nan", "none", "None"}
 
 
+def _text(value) -> str:
+    """A string attribute of a file (h5py may give bytes)."""
+    return value.decode() if isinstance(value, bytes) else str(value)
+
+
 def _clean(values) -> List[str]:
     return sorted({str(v) for v in values if v is not None and str(v) not in NO_VALUES})
 
@@ -55,7 +60,7 @@ def _scan_files(files: List[str]) -> Dict:
     n_points = 0
     for path in files:
         with h5py.File(path, "r") as f:
-            variables.update(k for k in f.keys() if k not in ("point", "IRH", "PSX", "PSY", "Distance", "IRH_AGE", "IRH_AGE_UNC", "IRH_AGE_MIN", "IRH_AGE_MAX"))
+            variables.update(k for k in f.keys() if k not in ("point", "IRH", "PSX", "PSY", "Distance", "DIST", "IRH_AGE", "IRH_AGE_UNC", "IRH_AGE_MIN", "IRH_AGE_MAX"))
             x = f["PSX"][:] / 1000
             y = f["PSY"][:] / 1000
             ok = np.isfinite(x) & np.isfinite(y)
@@ -67,14 +72,24 @@ def _scan_files(files: List[str]) -> Dict:
             uncs = f["IRH_AGE_UNC"][:] if "IRH_AGE_UNC" in f else [np.nan] * len(f["IRH"])
             mins = f["IRH_AGE_MIN"][:] if "IRH_AGE_MIN" in f else [np.nan] * len(f["IRH"])
             maxs = f["IRH_AGE_MAX"][:] if "IRH_AGE_MAX" in f else [np.nan] * len(f["IRH"])
-            for irh, age, unc, age_min, age_max in zip(f["IRH"][:], ages, uncs, mins, maxs):
+            # How a range was dated, and the cores ("Vostok, EDC")
+            attrs = f["IRH_AGE"].attrs if "IRH_AGE" in f else {}
+            datings = [_text(v) for v in np.atleast_1d(attrs.get("dating method", [""] * len(f["IRH"])))]
+            cores = [_text(v) for v in np.atleast_1d(attrs.get("ice core", [""] * len(f["IRH"])))]
+            for i, (irh, age, unc, age_min, age_max) in enumerate(zip(f["IRH"][:], ages, uncs, mins, maxs)):
                 ranged = np.isfinite(age_min) and np.isfinite(age_max)
+                dating = {}
+                if ranged:
+                    for key, values in (("dating", datings), ("ice_core", cores)):
+                        if i < len(values) and values[i]:
+                            dating[key] = values[i]
                 irhs.setdefault(int(irh), {
                     "irh": int(irh),
                     "age": float(age) if np.isfinite(age) else None,
                     "age_unc": float(unc) if np.isfinite(unc) else None,
                     # An age range (e.g. from an age model): age is then its middle
                     **({"age_min": float(age_min), "age_max": float(age_max)} if ranged else {}),
+                    **dating,
                 })
     # Occupied cells, as gaps between their flat indices (smaller json)
     flat = np.flatnonzero(cells)

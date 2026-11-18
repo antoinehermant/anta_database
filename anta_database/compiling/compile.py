@@ -18,8 +18,9 @@ from tqdm import tqdm
 from importlib.resources import files
 from scipy.spatial import cKDTree
 
+from anta_database.firn import firn_text
 from anta_database.compiling.lines import order_by_files, order_line, out_of_order, path_length, split_into_lines
-from anta_database.netcdf import SOURCE_VARIABLES, SOURCES, source_attrs, write
+from anta_database.netcdf import DISTANCE, SOURCE_VARIABLES, SOURCES, source_attrs, write
 
 # Lines were called flights before ground-based radar joined the database: the old
 # names of raw files and raw_md.json are still read as the new ones.
@@ -783,17 +784,9 @@ class CompileDatabase:
 
     @staticmethod
     def _firn(raw_md: pd.Series, settings: dict) -> str:
-        """The firn correction in the depths of the database: added by the compilation (the published
-        depths have none), or by the authors ("firn correction applied" and "firn correction" of
-        raw_md.json)."""
-        if settings.get("firn_correction"):
-            return f"{settings['firn_correction']:g} m, added by the compilation"
-        applied, value = raw_md.get("firn correction applied"), raw_md.get("firn correction")
-        if applied is None or (not isinstance(applied, bool) and pd.isna(applied)):
-            return "not known"
-        if not applied:
-            return "none"
-        return f"{value:g} m, by the authors" if value is not None and not pd.isna(value) else "by the authors, value not known"
+        """The firn correction in the depths of the database (anta_database.firn); the indexing then
+        writes it per IRH."""
+        return firn_text(raw_md.get("firn correction applied"), raw_md.get("firn correction"), settings)
 
     @staticmethod
     def _platform_attr(trace_md: pd.DataFrame) -> list:
@@ -1058,7 +1051,7 @@ class CompileDatabase:
     def compute_distances(self, h5_file: str) -> None:
         with h5py.File(h5_file, "a") as f:
             with xr.open_dataset(f, engine="h5netcdf") as ds:
-                if "Distance" not in ds.variables:
+                if DISTANCE not in ds.variables:
                     x = ds["PSX"].values
                     y = ds["PSY"].values
 
@@ -1068,7 +1061,7 @@ class CompileDatabase:
                     DISTs = np.sqrt(np.einsum("ij,ij->i", diff, diff))
                     cumulative_DIST = np.concatenate([[0], np.cumsum(DISTs)])
 
-                    ds["Distance"] = (["point"], cumulative_DIST)
+                    ds[DISTANCE] = (["point"], cumulative_DIST)
 
                     point_shape = len(ds.point.values)
                     if point_shape < 1e6:
@@ -1078,9 +1071,9 @@ class CompileDatabase:
                     else:
                         chunk_size_point = 10000
 
-                    ds["Distance"] = ds["Distance"].chunk({"point": chunk_size_point})
+                    ds[DISTANCE] = ds[DISTANCE].chunk({"point": chunk_size_point})
                     encoding = {
-                        "Distance": {
+                        DISTANCE: {
                             "zlib": True,
                             "complevel": 1,
                             "chunksizes": (chunk_size_point),

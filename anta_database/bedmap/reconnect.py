@@ -237,6 +237,8 @@ def _fill_line(job) -> Optional[dict]:
         "never from the gridded Bedmap products: "
         + ", ".join(f"{var} at {k} points" for var, k in filled.items())
     )
+    # The line IDs of the Bedmap lines the values come from, next to the line ID of the dataset
+    ds.attrs["bedmap line ID"] = [str(v) for v in lines.loc[m["lines"], "line_id"]]
     sentence = "Missing values taken from the Bedmap survey points of the same traces (<VAR>_SOURCE, BEDMAP_POINT_DIST, attribute reconnection)."
     if sentence not in str(ds.attrs.get("processing", "")):
         ds.attrs["processing"] = f"{ds.attrs.get('processing', '')} {sentence}".strip()

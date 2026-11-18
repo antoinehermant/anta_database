@@ -22,9 +22,9 @@ zone) is exported like an IRH, as features with "layer": "basal unit", no IRH nu
 and no age.
 
 Each track also has a profile, for the stratigraphy plot of the viewer: the line along
-Distance with the surface, bed and ice thickness, and the depth of each of its layers
+DIST with the surface, bed and ice thickness, and the depth of each of its layers
 (fetched when the line is clicked). It is at full resolution when it fits in
-PROFILE_MAX_BYTES (almost all lines), else averaged in the smallest bins along Distance
+PROFILE_MAX_BYTES (almost all lines), else averaged in the smallest bins along DIST
 that fit; tracks[].profile.resolution says which.
 
     python -m anta_database.web.irh /path/to/AntADatabase --bedmap bedmap3.nc \\
@@ -48,7 +48,9 @@ Output:
                              grid, depth m of each layer of tracks[].profile.layers), NaN
                              where missing, and a row of NaN (but the distance) at each gap.
                              grid: the values taken from the Bedmap3 grid at the point, not
-                             measured on the line (GRID_* bits; in bins, those of most points)
+                             measured on the line (GRID_* bits), and those taken from the
+                             Bedmap survey points of the same traces (SURVEY_* bits); in bins,
+                             those of most points
 """
 
 import argparse
@@ -61,6 +63,8 @@ from typing import Dict, List, Optional
 import numpy as np
 import xarray as xr
 
+from anta_database.netcdf import DISTANCE, with_dist
+
 DEFAULT_SPACING = 1000.0  # m, along-track averaging
 DEFAULT_MAX_GAP = 5000.0  # m, larger gaps between points break the line
 FDEPTH_SCALE = 10000  # fractional depths are stored as uint16 fraction × FDEPTH_SCALE
@@ -70,6 +74,8 @@ PROFILE_MAX_BYTES = 4_000_000
 PROFILE_COLUMNS = ["x", "y", "distance", "surface", "bed", "thickness"]
 # Column grid of the isochrone profiles: bits of the values from the Bedmap3 grid
 GRID_SURFACE, GRID_THICKNESS, GRID_BED = 1, 2, 4
+# and of the values from the Bedmap survey points of the same traces (<VAR>_SOURCE 1-3), not the dataset
+SURVEY_SURFACE, SURVEY_THICKNESS, SURVEY_BED = 8, 16, 32
 
 
 class Bedmap3Surface:
@@ -269,6 +275,13 @@ def export_dataset(
                 return ds[name].values.astype(np.float64) if name in ds else np.full(len(x), np.nan)
 
             surf, thk, bed = var("SURF_ELEV"), var("ICE_THK"), var("BED_ELEV")
+
+            # Values from the Bedmap survey points (anta_database.bedmap.reconnect), not the dataset
+            def from_survey(name):
+                source = f"{name}_SOURCE"
+                return np.isin(ds[source].values, (1, 2, 3)) if source in ds else np.zeros(len(x), bool)
+
+            surf_survey, thk_survey, bed_survey = from_survey("SURF_ELEV"), from_survey("ICE_THK"), from_survey("BED_ELEV")
             only = ~np.isfinite(surf) & np.isfinite(thk) & np.isfinite(bed)
             surf[only] = bed[only] + thk[only]
             only = ~np.isfinite(thk) & np.isfinite(surf) & np.isfinite(bed)
@@ -349,6 +362,16 @@ def export_dataset(
                 age_max = _scalar(sel.IRH_AGE_MAX.values) if "IRH_AGE_MAX" in sel else None
                 if age_min is None or age_max is None:
                     age_min = age_max = None
+                # Of a range: how it was dated, and the cores ("Vostok, EDC", in the order of the metadata)
+                dating = {}
+                if age_min is not None:
+                    i = list(ds.IRH.values).index(irh)
+                    for key, attr in (("dating", "dating method"), ("ice_core", "ice core")):
+                        values = np.atleast_1d(ds.IRH_AGE.attrs.get(attr, []))
+                        value = values[i] if len(values) > i else ""
+                        value = value.decode() if isinstance(value, bytes) else str(value)
+                        if value:
+                            dating[key] = value
                 md = irh_md.get(int(irh), {})
                 citation = citation or md.get("citation")
                 add_feature(depth, {
@@ -356,6 +379,7 @@ def export_dataset(
                     "age_ka": None if age is None else round(age / 1000, 2),
                     "age_unc_ka": None if age_unc is None else round(age_unc / 1000, 2),
                     **({} if age_min is None else {"age_min_ka": round(age_min / 1000, 2), "age_max_ka": round(age_max / 1000, 2)}),
+                    **dating,
                 }, md)
 
             # Basal unit: a layer without age (not an IRH, nor in IRH_NUM), same metadata as the IRHs
@@ -400,12 +424,16 @@ def export_dataset(
             # Where the surface, thickness and bed come from the Bedmap3 grid, as 0/1 columns
             # averaged like the others, then packed into the column grid
             bed_grid = ~bed_measured & (surf_grid | thk_grid)
-            flags = np.column_stack([surf_grid, thk_grid, bed_grid]).astype(np.float64)
-            distance = ds.Distance.values.astype(np.float64) if "Distance" in ds else np.cumsum(step)
+            # The bed elevation from survey points: picked there, or surface - thickness with one of them
+            bed_survey = (bed_measured & bed_survey) | (~bed_measured & ~bed_grid & (surf_survey | thk_survey))
+            flags = np.column_stack([surf_grid, thk_grid, bed_grid, surf_survey & ~surf_grid, thk_survey & ~thk_grid, bed_survey]).astype(np.float64)
+            ds = with_dist(ds)
+            distance = ds[DISTANCE].values.astype(np.float64) if DISTANCE in ds else np.cumsum(step)
             rows, resolution = _profile(distance, np.column_stack([x, y, surf, bed, thk, flags, *layer_depths]), max_gap)
-            bits = rows[:, 6:9]
-            grid = np.where(np.isnan(bits[:, 0]), np.nan, (bits >= 0.5) @ np.array([GRID_SURFACE, GRID_THICKNESS, GRID_BED]))
-            rows = np.column_stack([rows[:, :6], grid, rows[:, 9:]]).astype(np.float32)
+            bits = rows[:, 6:12]
+            weights = np.array([GRID_SURFACE, GRID_THICKNESS, GRID_BED, SURVEY_SURFACE, SURVEY_THICKNESS, SURVEY_BED])
+            grid = np.where(np.isnan(bits[:, 0]), np.nan, (bits >= 0.5) @ weights)
+            rows = np.column_stack([rows[:, :6], grid, rows[:, 12:]]).astype(np.float32)
             tracks[-1]["profile"]["resolution"] = resolution
             profiles.append(rows)
             for run in line_runs:

@@ -84,7 +84,7 @@ VAR_ATTRS = {
     "ICE_THK": ("m", "Ice thickness", "Thickness of the ice in meters"),
     "SURF_ELEV": ("m a.s.l.", "Surface elevation", "Elevation of the surface above sea level in meters"),
     "BED_ELEV": ("m a.s.l.", "Bedrock elevation", "Elevation of the bedrock above sea level in meters"),
-    "Distance": ("m", "Along_track distance", "Along-track distance along radar transect"),
+    "DIST": ("m", "Along_track distance", "Along-track distance along radar transect"),
 }
 TO_POLAR = Transformer.from_proj(
     "EPSG:4326",
@@ -256,7 +256,7 @@ def convert_survey(task: tuple) -> dict:
                 "PSX": ("point", x),
                 "PSY": ("point", y),
                 **{v: ("point", points[v].values.astype("float32")) for v in VALUES if points[v].notna().any()},
-                "Distance": ("point", distance),
+                "DIST": ("point", distance),
             },
             coords={"point": np.arange(len(points))},
             attrs={

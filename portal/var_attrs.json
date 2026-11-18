@@ -10,5 +10,5 @@
     {"variable": "IRH_AGE_UNC", "units": "years", "long_name": "IRH age uncertainty", "description": "Uncertainty on the age of IRHs from ice cores or models"},
     {"variable": "PSX", "units": "m", "long_name": "Polar Stereographic X", "description": "Polar Stereographic X coordinates (metres; EPSG: 3031)"},
     {"variable": "PSY", "units": "m", "long_name": "Polar Stereographic Y", "description": "Polar Stereographic Y coordinates (metres; EPSG: 3031)"},
-    {"variable": "Distance", "units": "m", "long_name": "Along_track distance", "description": "Along-track distance along radar transect"}
+    {"variable": "DIST", "units": "m", "long_name": "Along_track distance", "description": "Along-track distance along radar transect"}
 ]
