@@ -68,8 +68,10 @@ def _config() -> dict:
 @lru_cache(maxsize=1)
 def gazetteer() -> pd.DataFrame:
     """The places of the SCAR Composite Gazetteer: scar_id, name, names (all, "|"), feature_type,
-    lat, lon, x, y (m, EPSG:3031)."""
-    return pd.read_parquet(files("anta_database.data").joinpath(GAZETTEER))
+    lat, lon, x, y (m, EPSG:3031); feature_type None where the gazetteer gives none."""
+    gaz = pd.read_parquet(files("anta_database.data").joinpath(GAZETTEER))
+    gaz["feature_type"] = gaz["feature_type"].astype(object).where(gaz["feature_type"].notna(), None)
+    return gaz
 
 
 def place_radius_km(feature_type: Optional[str]) -> float:

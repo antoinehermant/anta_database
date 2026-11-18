@@ -54,7 +54,9 @@ def track_regions(track_xy: Dict[int, np.ndarray]) -> List[dict]:
 
     def place(region: R.Region, key, aliases) -> dict:
         r = region.radius_km * 1000
-        return {"key": key, "name": region.name, "kind": "place", "aliases": aliases, "type": region.feature_type,
+        # Places without a feature type in the gazetteer: NaN there, not valid JSON
+        kind = region.feature_type if isinstance(region.feature_type, str) else None
+        return {"key": key, "name": region.name, "kind": "place", "aliases": aliases, "type": kind,
                 "radius_km": region.radius_km, "box": [round(region.x - r), round(region.x + r), round(region.y - r), round(region.y + r)]}
 
     gaz = R.gazetteer()
@@ -82,5 +84,5 @@ def export_regions(track_xy: Dict[int, np.ndarray], path: str) -> int:
     """Write regions.json; the number of regions."""
     regions = track_regions(track_xy)
     with open(path, "w") as f:
-        json.dump({"source": R._config()["sources"], "regions": regions}, f, separators=(",", ":"))
+        json.dump({"source": R._config()["sources"], "regions": regions}, f, separators=(",", ":"), allow_nan=False)
     return len(regions)

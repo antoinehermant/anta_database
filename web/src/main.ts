@@ -2366,7 +2366,10 @@ filtersReady = irhIndex.then(async (index) => {
   tracks.init(IRH_URL, index);
   trackBed.init(IRH_URL, index);
   // Not in a private preview, which has only its dataset
-  const regions = index.regions && !SUBMISSION ? await loadRegions(IRH_URL, index.regions).catch(() => null) : null;
+  const regions = index.regions && !SUBMISSION ? await loadRegions(IRH_URL, index.regions).catch((error) => {
+        console.error("Regions of the filter:", error);
+        return null;
+      }) : null;
   buildFilters(index, regions);
   filtersBuilt = true;
   restoreSettings(filters, lastFilters);
