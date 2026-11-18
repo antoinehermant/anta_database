@@ -597,6 +597,7 @@ controls.addEventListener("change", () => {
 });
 window.addEventListener("resize", () => {
   setPixelRatios();
+  if (strained) FULL_PIXEL_RATIO = MOVING_PIXEL_RATIO;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -641,10 +642,16 @@ function animating(): boolean {
 
 // Guard of the GPU: when the animated frames come slower than STRAINED_MS on median (the GPU can't
 // keep up, and the desktop may soon freeze with it), the animations stop and the resolution drops,
-// with a message. The animations come back with a reload.
+// with a message. They start again after a pause (RETRY_MS, while the page has the focus), and are
+// watched again: stopped again soon after, the next pause is twice as long (up to MAX_RETRY_MS)
 const STRAINED_MS = 100;
+const RETRY_MS = 30_000;
+const MAX_RETRY_MS = 5 * 60_000;
 const frameGaps: number[] = [];
 let strained = false;
+let strainedAt = 0;
+let resumedAt = -Infinity;
+let retryMs = RETRY_MS;
 function watchFrame(gap: number, animated: boolean): void {
   if (strained || !animated || gap > 2000) return; // a gap of seconds: a tab in the background
   frameGaps.push(gap);
@@ -652,9 +659,26 @@ function watchFrame(gap: number, animated: boolean): void {
   const median = [...frameGaps].sort((a, b) => a - b)[15];
   frameGaps.length = 0;
   if (median < STRAINED_MS) return;
+  const now = performance.now();
+  retryMs = now - resumedAt < 2 * RETRY_MS ? Math.min(2 * retryMs, MAX_RETRY_MS) : RETRY_MS;
   strained = true;
+  strainedAt = now;
   FULL_PIXEL_RATIO = MOVING_PIXEL_RATIO;
-  showError(new Error(`The graphics card can't keep up (${Math.round(1000 / median)} images per second): the animations are stopped and the resolution lowered. Reload the page to start them again.`));
+  showError(
+    new Error(
+      `The graphics card can't keep up (${Math.round(1000 / median)} images per second): the animations are paused and the resolution lowered. They start again in ${Math.round(retryMs / 1000)} s.`,
+    ),
+  );
+}
+
+/** After the pause of the guard: the animations and the full resolution back. */
+function resumeAfterStrain(now: number): void {
+  if (!strained || now - strainedAt < retryMs || !document.hasFocus()) return;
+  strained = false;
+  resumedAt = now;
+  frameGaps.length = 0;
+  setPixelRatios();
+  requestRender();
 }
 
 let lastFrame = 0;
@@ -670,6 +694,7 @@ renderer.setAnimationLoop((time: number) => {
   updateEdgeMove(performance.now());
   keyNavigation.update(Math.min(0.1, (time - lastFrame) / 1000));
   watchFrame(time - lastFrame, animatedLastFrame);
+  resumeAfterStrain(performance.now());
   lastFrame = time;
   controls.update();
   updateSnowVeil();
@@ -1991,7 +2016,8 @@ function queueFilter(): void {
 }
 
 /** A sub-folder of checkboxes, all checked, with buttons to check or clear them all. */
-function checkboxFolder<T>(title: string, items: [label: string, value: T][], hidden: Set<T>): void {
+/** A folder of boxes, one per value; returns a function to tick the boxes of the values given. */
+function checkboxFolder<T>(title: string, items: [label: string, value: T][], hidden: Set<T>): (shown: (value: T) => boolean) => void {
   const folder = filters.addFolder(title).close();
   const state: Record<string, boolean> = {};
   const all = (on: boolean) => () => {
@@ -2009,6 +2035,7 @@ function checkboxFolder<T>(title: string, items: [label: string, value: T][], hi
         queueFilter();
       });
   });
+  return (shown) => boxes.forEach((box, i) => box.setValue(shown(items[i][1])));
 }
 
 /** For matching the names of regions: no case, accents or double spaces. */
@@ -2016,13 +2043,18 @@ const normalise = (name: string) =>
   name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * Region: the lines in an ice sheet, an IMBIE basin, or at a place of the SCAR Composite Gazetteer
- * (within a radius), typed or picked from the list by any of its names (anta_database.regions).
+ * Region: an ice sheet, an IMBIE basin, or a place of the SCAR Composite Gazetteer (lines within a
+ * radius), typed or picked from the suggestions by any of its names (anta_database.regions).
+ * Choosing one ticks, in the Datasets folder, only the datasets with lines there, and flies to it;
+ * "Only its lines" also hides their lines elsewhere. All regions ticks every dataset again.
+ * showDatasets: ticks the boxes of the Datasets folder (null in a private preview, without it)
  */
-function regionFilter(index: IrhIndex, regions: Region[]): void {
+function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown: (dataset: string) => boolean) => void) | null): void {
   const label = (r: Region) => (r.key ? `${r.name} (${r.key})` : r.name);
   const describe = (r: Region) =>
     r.kind === "place" ? `${r.type ?? "Place"}, lines within ${r.radius_km} km` : r.kind === "basin" ? "IMBIE basin" : "Ice sheet";
+  const datasetsOf = (r: Region) => new Set(r.tracks.map((t) => index.tracks[t].dataset));
+  const count = (n: number, what: string) => `${n} ${what}${n > 1 ? "s" : ""}`;
   const byName = new Map<string, Region>();
   for (const r of regions) byName.set(normalise(label(r)), r);
   for (const r of regions) {
@@ -2033,48 +2065,66 @@ function regionFilter(index: IrhIndex, regions: Region[]): void {
   for (const r of regions) {
     const option = document.createElement("option");
     option.value = label(r);
-    option.label = `${describe(r)}: ${r.tracks.length} line${r.tracks.length > 1 ? "s" : ""}`;
+    option.label = `${describe(r)}: ${count(datasetsOf(r).size, "dataset")}, ${count(r.tracks.length, "line")}`;
     list.append(option);
   }
   document.body.append(list);
 
+  const HINT = "All the datasets. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
   const folder = filters.addFolder("Region").close();
-  const state = { region: "" };
+  const state = { region: "", onlyLines: false };
   const info = document.createElement("div");
   info.className = "region-info";
+  let region: Region | undefined;
+  const showLines = () => {
+    isochrones.regionLines =
+      region && state.onlyLines ? new Set(region.tracks.map((t) => lineKey(index.tracks[t].dataset, index.tracks[t].line_id))) : null;
+    queueFilter();
+  };
   const input = folder
     .add(state, "region")
     .name("Name")
     .onFinishChange((value: string) => {
-      const region = value.trim() ? byName.get(normalise(value)) : undefined;
-      isochrones.regionLines = region
-        ? new Set(region.tracks.map((t) => lineKey(index.tracks[t].dataset, index.tracks[t].line_id)))
-        : null;
+      region = value.trim() ? byName.get(normalise(value)) : undefined;
       info.textContent = region
-        ? `${region.name}: ${describe(region)}, ${region.tracks.length} line${region.tracks.length > 1 ? "s" : ""}`
+        ? `${region.name}: ${describe(region)}, ${count(datasetsOf(region).size, "dataset")}, ${count(region.tracks.length, "line")}`
         : value.trim()
-          ? "No line in a region of this name: all the lines are shown"
-          : "All the lines. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
-      queueFilter();
-      if (region && !restoringSettings) frameBox(region.box, 1500);
+          ? "No line in a region of this name: the datasets are left as they are"
+          : HINT;
+      showLines();
+      // Restoring the settings: the boxes of the datasets come back as they were left
+      if (restoringSettings || (value.trim() && !region)) return;
+      if (region) {
+        const inside = datasetsOf(region);
+        showDatasets?.((dataset) => inside.has(dataset));
+        frameBox(region.box, 1500);
+      } else showDatasets?.(() => true);
     });
   const field = input.domElement.querySelector("input")!;
   field.setAttribute("list", list.id);
   field.placeholder = "Dome C, WSB, Dronning Maud Land...";
+  // A suggestion picked from the list applies at once (the field otherwise waits for Enter or
+  // a click away): an input event that is not typing (Firefox), or a replacement (Chrome)
+  field.addEventListener("input", (event) => {
+    if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") field.blur();
+  });
   folder.$children.appendChild(info);
+  folder.add(state, "onlyLines").name("Only its lines").onChange(showLines);
   folder.add({ all: () => input.setValue("") }, "all").name("All regions");
-  info.textContent = "All the lines. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
+  info.textContent = HINT;
 }
 
 function buildFilters(index: IrhIndex, regions: Region[] | null): void {
-  if (regions?.length) regionFilter(index, regions);
+  // The region first in the menu, setting the boxes of the datasets (made just after)
+  let showDatasets: ((shown: (dataset: string) => boolean) => void) | null = null;
+  if (regions?.length) regionFilter(index, regions, (shown) => showDatasets?.(shown));
   // Datasets by their citation, e.g. "Cavitte et al. (2020)"; not in a private preview, which has
   // only the submitted dataset
   if (!SUBMISSION) {
     const labels = new Map<string, string>();
     for (const f of index.features) if (!labels.has(f.dataset)) labels.set(f.dataset, f.citation ?? f.dataset);
     const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
-    checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
+    showDatasets = checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
   }
   // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
   const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
