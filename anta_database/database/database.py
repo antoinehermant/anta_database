@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from anta_database.plotting.plotting import Plotting
 from anta_database.netcdf import DISTANCE
+from anta_database import regions
 from anta_database.indexing.index_database import IndexDatabase, _texts
 from anta_database.cloud.manifest import (
     MANIFEST_NAME,
@@ -125,6 +126,8 @@ class Database:
             "chronology": [],
         }
         self._columns = None
+        self._tracks = None  # the thinned tracks of the lines, for the places (_line_tracks)
+        self._excluded_radius = None
 
         if sync:
             try:
@@ -233,6 +236,93 @@ class Database:
                     f"This database has no {name} (v1): update it with db.sync() to filter by {name}"
                 )
 
+    def _region_condition(self, names, radius: Optional[float] = None) -> Tuple[str, List[str]]:
+        """SQL condition (on d.id) of the lines in any of the regions names, and its parameters.
+        A name with % is matched as before (LIKE) against the ice sheets and IMBIE codes of the index."""
+        in_regions = (
+            "d.id IN (SELECT dr2.dataset_id FROM dataset_regions dr2 JOIN regions r2 ON dr2.region_id = r2.id WHERE {})"
+        )
+        parts, params = [], []
+        for name in [names] if isinstance(names, (str, int)) else names:
+            if "%" in str(name):
+                parts.append(in_regions.format("r2.region LIKE ? OR r2.IMBIE_basin LIKE ?"))
+                params += [name, name]
+                continue
+            region = regions.resolve(name, radius)
+            if region.kind == "ice sheet":
+                parts.append(in_regions.format("r2.region = ?"))
+                params.append(region.code)
+            elif region.kind == "basin":
+                parts.append(in_regions.format("r2.IMBIE_basin = ?"))
+                params.append(region.code)
+            else:
+                ids = regions.lines_at(region, self._line_tracks())
+                parts.append(f"d.id IN ({', '.join(map(str, ids))})" if ids else "0")
+        return "(" + " OR ".join(parts) + ")", params
+
+    def _line_tracks(self) -> Dict[int, np.ndarray]:
+        """The thinned track of each line (index table line_tracks), by its id in the index. An index
+        without them (v1) takes them from the files, which must then be downloaded."""
+        if self._tracks is not None:
+            return self._tracks
+        conn = self._connect()
+        try:
+            has_table = conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'line_tracks'").fetchone()
+            if has_table:
+                rows = conn.execute("SELECT dataset_id, xy FROM line_tracks").fetchall()
+                self._tracks = {i: np.frombuffer(xy, np.float32).reshape(-1, 2) for i, xy in rows}
+                return self._tracks
+            paths = conn.execute("SELECT id, file_path FROM datasets").fetchall()
+        finally:
+            conn.close()
+        tracks = {}
+        for i, path in tqdm(paths, desc="Reading the tracks of the lines", disable=self._disable_tqdm):
+            full = os.path.join(self._db_dir, path)
+            if not os.path.exists(full):
+                if "BEDMAP" in path and not self._include_BM:
+                    continue
+                raise FileNotFoundError(
+                    f"This index has no tracks of the lines, to find the places they pass, and {full} is not here: "
+                    "update the database with db.sync()"
+                )
+            with h5py.File(full, "r") as f:
+                tracks[i] = regions.thin_track(f["PSX"][:], f["PSY"][:])
+        self._tracks = tracks
+        return tracks
+
+    def regions(self, kind: Optional[str] = None) -> pd.DataFrame:
+        """
+        The regions with a short name, for query(region=...) and filter_out(region=...): the ice sheets
+        (EAST, WEST, AP), the IMBIE basins (DML, WL, ASE...; their codes are aliases), and short names of
+        places (DC, WSB, EDML...). kind: "ice sheet", "basin" or "place".
+
+        Any place of the SCAR Composite Gazetteer of Antarctica can be queried too, by its name or SCAR
+        ID: see places(). A line is at a place when it passes within the radius of its point (by its
+        feature type, or radius= of the query, in km).
+        """
+        return regions.regions_table(kind)
+
+    def places(self, search: Optional[str] = None, feature_type: Optional[str] = None, lines: bool = True) -> pd.DataFrame:
+        """
+        The places of the SCAR Composite Gazetteer of Antarctica whose names contain search (without case
+        or accents), e.g. places("vostok"), or of one feature type ("Dome", "Ice rise", "Glacier"...).
+        lines: count the lines of this database at each place (within radius_km), and sort by it.
+        """
+        df = regions.places_table(search, feature_type)
+        if lines and len(df) <= 5000:
+            tracks = self._line_tracks()
+            if not self._include_BM:
+                conn = self._connect()
+                try:
+                    bedmap = {i for (i,) in conn.execute(
+                        "SELECT d.id FROM datasets d JOIN sources s ON d.dataset = s.id WHERE s.name LIKE '%BEDMAP%'")}
+                finally:
+                    conn.close()
+                tracks = {i: xy for i, xy in tracks.items() if i not in bedmap}
+            df["lines"] = [len(regions.lines_at(regions.resolve(f"SCAR {i}"), tracks)) for i in df.scar_id]
+            df = df.sort_values("lines", ascending=False, kind="stable").reset_index(drop=True)
+        return df
+
     def sync(self, url: Optional[str] = None, dry_run: bool = False, stats: bool = True) -> Dict:
         """
         Download the published AntADatabase into this database directory, or update it.
@@ -259,6 +349,7 @@ class Database:
         dating_method: Optional[Union[str, List[str]]] = None,
         ice_core: Optional[Union[str, List[str]]] = None,
         chronology: Optional[Union[str, List[str]]] = None,
+        radius: Optional[float] = None,
     ) -> Tuple[str, List[Union[str, int]]]:
         """
         Helper method to build the SQL query and parameters for filtering.
@@ -368,8 +459,6 @@ class Database:
             (dataset, "s.name"),
             (acquisition_year, "d.acq_year"),
             (line, "d.line_id"),
-            (region, "r.region"),
-            (IMBIE_basin, "r.IMBIE_basin"),
             (dating_method, "da.dating_method"),
             (ice_core, "da.ice_core"),
             (chronology, "da.chronology"),
@@ -467,8 +556,6 @@ class Database:
             ("dataset", "s.name"),
             ("acquisition_year", "d.acq_year"),
             ("line_id", "d.line_id"),
-            ("region", "r.region"),
-            ("IMBIE_basin", "r.IMBIE_basin"),
             ("dating_method", "da.dating_method"),
             ("ice_core", "da.ice_core"),
             ("chronology", "da.chronology"),
@@ -578,6 +665,18 @@ class Database:
             conditions.append("(d.platform IS NULL OR d.platform NOT LIKE ?)")
             params.append(f"%{plat}%")
 
+        # Regions of any kind, by any name (anta_database.regions): the line is in one of them
+        for names, rad, negate in (
+            (region, radius, False),
+            (IMBIE_basin, None, False),
+            (self._excluded["region"], self._excluded_radius, True),
+            (self._excluded["IMBIE_basin"], None, True),
+        ):
+            if names:
+                condition, values = self._region_condition(names, rad)
+                conditions.append(f"NOT {condition}" if negate else condition)
+                params.extend(values)
+
         if not self._include_BM:
             conditions.append("s.name NOT LIKE ?")
             params.append("%BEDMAP%")
@@ -651,9 +750,11 @@ class Database:
         dating_method: Optional[Union[str, List[str]]] = None,
         ice_core: Optional[Union[str, List[str]]] = None,
         chronology: Optional[Union[str, List[str]]] = None,
+        radius: Optional[float] = None,
     ) -> None:
         """
         Add values to exclude from the query results.
+        region: as in query(), with radius (km) for the places.
         Example: filter_out(dataset='Cavitte', project='OldProject')
         platform: "airborne" or "ground-based". dating_method: "ice-core" or "modelled".
         flight_id is deprecated, use line_id.
@@ -686,6 +787,7 @@ class Database:
                     self._excluded[field] = [value]
             else:
                 self._excluded[field] = []
+        self._excluded_radius = radius
 
     def _get_file_metadata(self, file_path) -> Dict:
         """
@@ -825,8 +927,13 @@ class Database:
         dating_method: Optional[Union[str, List[str]]] = None,
         ice_core: Optional[Union[str, List[str]]] = None,
         chronology: Optional[Union[str, List[str]]] = None,
+        radius: Optional[float] = None,
     ) -> "MetadataResult":
         """
+        region: ice sheets, IMBIE basins or places, by any of their names (db.regions(), db.places()):
+        "EAST", "WAIS", "DML", "Cp-D", "DC", "Dome C", "Wilkes Subglacial Basin", "SCAR 2550"... A list
+        gives the lines in any of them. A line is at a place when it passes within radius (km) of it,
+        by default by its feature type (75 km for a dome). IMBIE_basin is the older name of region.
         platform: "airborne" or "ground-based" (radar on an aircraft, or on the ground).
         dating_method: how the layers were dated, "ice-core" or "modelled"; ice_core and
         chronology: the core and the chronology that date them (e.g. "EDC", "AICC2012").
@@ -873,6 +980,7 @@ class Database:
             dating_method=dating_method,
             ice_core=ice_core,
             chronology=chronology,
+            radius=radius,
         )
 
         conn = self._connect()
@@ -912,6 +1020,7 @@ class Database:
                 "dating_method": dating_method,
                 "ice_core": ice_core,
                 "chronology": chronology,
+                "radius": radius,
             },
             "_filter_params": {
                 "dataset": self._excluded["dataset"],
@@ -1100,7 +1209,7 @@ class Database:
         region = query_params.get("region")
         basin = query_params.get("IMBIE_basin")
         radar = query_params.get("radar_instrument")
-        new_filters = {f: query_params.get(f) for f in ("platform", *DATING_FIELDS)}
+        new_filters = {f: query_params.get(f) for f in ("platform", *DATING_FIELDS, "radius")}
 
         select_clause = "d.file_path"
         query, params = self._build_query_and_params(

@@ -796,7 +796,14 @@ build with complete metadata, which phase 2 starts from. Who: **A** = Antoine, *
   - #10: removing the interpolated Cavitte stretches of at least 2 km (found by their 0.1 m steps, 297,708 points
     on 38 lines), proposed in the issue; it also explains #16;
   - publishing the site (`./publish_site.sh`).
-- **Next:** the regions after the SCAR Composite Gazetteer, with a viewer filter (#8).
+- **Done since:** F5 second pass (15 of 24 Winter lines filled, comment on #4). Regions (#8), first version:
+  `region=` takes the ice sheets, the IMBIE basins by short name or code, and any of the 20,154 places of
+  the SCAR Composite Gazetteer (`anta_database/regions.py`, `data/regions.json`, `data/scar_gazetteer.parquet`),
+  a place by a radius per feature type or `radius=`; `db.regions()`, `db.places()`. The index keeps a
+  thinned track per line (table `line_tracks`, 1 km); a v1 index reads them from the files. The viewer gets
+  `regions.json` (regions with lines) and a Region filter with suggestions, which frames the region.
+- **Next for the regions:** check the short names of the basins with Julien; the download page and the
+  docs of the site with the same names; Ridge B (not in the gazetteer) and other places to add.
 
 **Not needed before the harmonisation:** the regions (#8, phase 3: J suggests the names of the SCAR Composite
 Gazetteer, as Chad Greene's `scarloc`, rather than our own outlines), `Distance` renamed `DIST` (phase 3),

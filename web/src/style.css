@@ -371,6 +371,14 @@ body:has(#sidebar:not(.closed)) #legends {
   border-top: 1px solid var(--widget-hover);
 }
 
+/* What the region filter shows (main.ts, regionFilter) */
+#gui .region-info {
+  padding: 2px var(--padding) 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.8;
+}
+
 #gui .lil-gui .lil-controller.lil-boolean input {
   accent-color: var(--accent);
 }

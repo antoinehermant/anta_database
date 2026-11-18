@@ -17,7 +17,7 @@ import {
   type Grid,
   type TerrainMeta,
 } from "./terrain";
-import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, loadIndex, TrackBed, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Track } from "./irh";
+import { ageKey, BASAL_UNIT_COLOR, COLOR_BY, isBasalUnit, Isochrones, lineKey, loadIndex, loadRegions, TrackBed, Tracks, type AgeKey, type ColorBy, type IrhIndex, type Feature, type Region, type Track } from "./irh";
 import { closer, type Hit, type LineLayer } from "./lines";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -865,7 +865,7 @@ function loadTracks(): void {
     .then(() => {
       legs = null;
       tracks.lines.setLineWidth(Math.max(1, settings.lineWidth - 1));
-      tracks.applyFilter(isochrones.hiddenDatasets);
+      tracks.applyFilter(isochrones);
       pointerMoved = true;
       requestRender();
     })
@@ -1898,7 +1898,7 @@ function loadTrackBed(): void {
     .then(() => trackBed.load(isochrones.datasetsNotHidden()))
     .then(() => {
       trackBed.setBedRange(settings.bedRange);
-      trackBed.applyFilter(isochrones.hiddenDatasets);
+      trackBed.applyFilter(isochrones);
       pointerMoved = true;
       requestRender();
     })
@@ -1978,7 +1978,7 @@ function queueFilter(): void {
   requestAnimationFrame(() => {
     filterQueued = false;
     isochrones.applyFilter();
-    tracks.applyFilter(isochrones.hiddenDatasets);
+    tracks.applyFilter(isochrones);
     loadIsochrones();
     loadTracks();
     loadTrackBed();
@@ -2011,7 +2011,63 @@ function checkboxFolder<T>(title: string, items: [label: string, value: T][], hi
   });
 }
 
-function buildFilters(index: IrhIndex): void {
+/** For matching the names of regions: no case, accents or double spaces. */
+const normalise = (name: string) =>
+  name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Region: the lines in an ice sheet, an IMBIE basin, or at a place of the SCAR Composite Gazetteer
+ * (within a radius), typed or picked from the list by any of its names (anta_database.regions).
+ */
+function regionFilter(index: IrhIndex, regions: Region[]): void {
+  const label = (r: Region) => (r.key ? `${r.name} (${r.key})` : r.name);
+  const describe = (r: Region) =>
+    r.kind === "place" ? `${r.type ?? "Place"}, lines within ${r.radius_km} km` : r.kind === "basin" ? "IMBIE basin" : "Ice sheet";
+  const byName = new Map<string, Region>();
+  for (const r of regions) byName.set(normalise(label(r)), r);
+  for (const r of regions) {
+    for (const name of [r.key, r.name, ...r.aliases]) if (name && !byName.has(normalise(name))) byName.set(normalise(name), r);
+  }
+  const list = document.createElement("datalist");
+  list.id = "region-names";
+  for (const r of regions) {
+    const option = document.createElement("option");
+    option.value = label(r);
+    option.label = `${describe(r)}: ${r.tracks.length} line${r.tracks.length > 1 ? "s" : ""}`;
+    list.append(option);
+  }
+  document.body.append(list);
+
+  const folder = filters.addFolder("Region").close();
+  const state = { region: "" };
+  const info = document.createElement("div");
+  info.className = "region-info";
+  const input = folder
+    .add(state, "region")
+    .name("Name")
+    .onFinishChange((value: string) => {
+      const region = value.trim() ? byName.get(normalise(value)) : undefined;
+      isochrones.regionLines = region
+        ? new Set(region.tracks.map((t) => lineKey(index.tracks[t].dataset, index.tracks[t].line_id)))
+        : null;
+      info.textContent = region
+        ? `${region.name}: ${describe(region)}, ${region.tracks.length} line${region.tracks.length > 1 ? "s" : ""}`
+        : value.trim()
+          ? "No line in a region of this name: all the lines are shown"
+          : "All the lines. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
+      queueFilter();
+      if (region && !restoringSettings) frameBox(region.box, 1500);
+    });
+  const field = input.domElement.querySelector("input")!;
+  field.setAttribute("list", list.id);
+  field.placeholder = "Dome C, WSB, Dronning Maud Land...";
+  folder.$children.appendChild(info);
+  folder.add({ all: () => input.setValue("") }, "all").name("All regions");
+  info.textContent = "All the lines. Type an ice sheet, an IMBIE basin or a place of the SCAR gazetteer";
+}
+
+function buildFilters(index: IrhIndex, regions: Region[] | null): void {
+  if (regions?.length) regionFilter(index, regions);
   // Datasets by their citation, e.g. "Cavitte et al. (2020)"; not in a private preview, which has
   // only the submitted dataset
   if (!SUBMISSION) {
@@ -2245,11 +2301,13 @@ const tutorial = new Tutorial([
 
 // Start: quick preview, then the detailed terrain of the layers shown
 const loading = document.getElementById("loading")!;
-filtersReady = irhIndex.then((index) => {
+filtersReady = irhIndex.then(async (index) => {
   isochrones.init(IRH_URL, index);
   tracks.init(IRH_URL, index);
   trackBed.init(IRH_URL, index);
-  buildFilters(index);
+  // Not in a private preview, which has only its dataset
+  const regions = index.regions && !SUBMISSION ? await loadRegions(IRH_URL, index.regions).catch(() => null) : null;
+  buildFilters(index, regions);
   filtersBuilt = true;
   restoreSettings(filters, lastFilters);
 });
@@ -2296,7 +2354,7 @@ if (LESSON) {
             tracks.lines.setHidden((t) => tracks.tracks[t]?.line_id !== track.line_id);
           } else {
             isochrones.applyFilter();
-            tracks.applyFilter(isochrones.hiddenDatasets);
+            tracks.applyFilter(isochrones);
           }
           requestRender();
         },

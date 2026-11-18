@@ -63,6 +63,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import xarray as xr
 
+from anta_database.web.regions import export_regions
 from anta_database.netcdf import DISTANCE, with_dist
 
 DEFAULT_SPACING = 1000.0  # m, along-track averaging
@@ -521,7 +522,8 @@ def export_irh(
         bbox = _bbox([os.path.join(database_dir, d) for d in datasets]) if crop else None
         surface = Bedmap3Surface(bedmap_path, bbox)
 
-    index = {"format": 1, "datasets": {}, "features": [], "tracks": []}
+    index = {"format": 1, "datasets": {}, "features": [], "tracks": [], "regions": "regions.json"}
+    track_xy: Dict[int, List[np.ndarray]] = {}  # the vertices of each track (m), for the regions
     for dataset in datasets:
         out = export_dataset(
             os.path.join(database_dir, dataset), surface, len(index["features"]), spacing, max_gap
@@ -531,6 +533,8 @@ def export_irh(
             continue
         # Track ids are global, like feature ids
         out["track_runs"][:, 0] += len(index["tracks"])
+        for track, start, count in out["track_runs"]:
+            track_xy.setdefault(int(track), []).append(out["track_vertices"][start : start + count, :2] * 1000.0)
         out["bed_runs"][:, 0] += len(index["tracks"])
         files = {
             "vertices": (f"{dataset}.bin.gz", out["vertices"]),
@@ -561,6 +565,8 @@ def export_irh(
             f"{len(out['vertices'])} vertices, {len(out['tracks'])} tracks"
         )
 
+    n = export_regions({t: np.concatenate(v) for t, v in track_xy.items()}, os.path.join(output_dir, "regions.json"))
+    print(f"{n} regions with lines")
     with open(os.path.join(output_dir, "irh.json"), "w") as f:
         json.dump(index, f, indent=0)
     return index

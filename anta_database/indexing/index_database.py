@@ -14,6 +14,7 @@ from typing import Optional, Union
 
 from anta_database.firn import firn_text, summary as firn_summary
 from anta_database.netcdf import write
+from anta_database.regions import thin_track
 
 
 AGE_ATTRS = {
@@ -573,6 +574,15 @@ class IndexDatabase:
                 )
             """)
 
+        # The track of each line, thinned (anta_database.regions.thin_track): the places it passes
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS line_tracks (
+                dataset_id INTEGER PRIMARY KEY,
+                xy BLOB,
+                FOREIGN KEY (dataset_id) REFERENCES datasets (id)
+                )
+            """)
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS dataset_regions (
                 dataset_id INTEGER,
@@ -674,6 +684,7 @@ class IndexDatabase:
                     age_uncs = None
 
                 basin_mapping = json.loads(ds.attrs["IMBIE_basins"])
+                track = thin_track(ds["PSX"][:], ds["PSY"][:])
                 processing = ds.attrs.get("processing", "")
 
             relative_file_path = f"{dataset}/nc/{file_name}"
@@ -693,6 +704,7 @@ class IndexDatabase:
                 (relative_file_path, dataset_id, str(acq_year), line_id, platform),
             )
             dataset_row_id = cursor.lastrowid
+            cursor.execute("INSERT INTO line_tracks (dataset_id, xy) VALUES (?, ?)", (dataset_row_id, track.tobytes()))
 
             # Insert projects and link to dataset
             for project in projects:

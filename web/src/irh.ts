@@ -63,6 +63,34 @@ export interface IrhIndex {
   datasets: Record<string, DatasetFiles>;
   features: Feature[];
   tracks: Track[];
+  regions?: string; // regions.json, missing in exports before 2026-11-18
+}
+
+/** A region of the filter (anta_database.web.regions): an ice sheet, an IMBIE basin or a place of the
+ * SCAR Composite Gazetteer, with the tracks (indices in IrhIndex.tracks) that enter it. */
+export interface Region {
+  key: string | null; // short name: "DC", "WSB", "DML", "EAST"
+  name: string;
+  kind: "ice sheet" | "basin" | "place";
+  aliases: string[];
+  type?: string; // feature type of a place: "Dome", "Glacier"
+  radius_km?: number; // of a place: the lines within it
+  box: number[]; // xmin, xmax, ymin, ymax (m)
+  tracks: number[];
+}
+
+export async function loadRegions(baseUrl: string, file: string): Promise<Region[]> {
+  const response = await fetchData(`${baseUrl}/${file}`);
+  if (!response.ok) throw new Error(`${baseUrl}/${file} not found`);
+  return (await response.json()).regions;
+}
+
+/** The key of a line, the same for its isochrones and its track. */
+export const lineKey = (dataset: string, lineId: string): string => `${dataset}\u0001${lineId}`;
+
+/** Which lines are shown, with the filters. */
+export interface LineFilter {
+  lineHidden(dataset: string, lineId: string): boolean;
 }
 
 export async function loadIndex(baseUrl: string): Promise<IrhIndex> {
@@ -158,6 +186,12 @@ export class Isochrones {
   // Filters
   readonly hiddenDatasets = new Set<string>();
   readonly hiddenAges = new Set<AgeKey>();
+  /** The lines of the region chosen (lineKey), or null for all. */
+  regionLines: Set<string> | null = null;
+
+  lineHidden(dataset: string, lineId: string): boolean {
+    return this.hiddenDatasets.has(dataset) || (this.regionLines !== null && !this.regionLines.has(lineKey(dataset, lineId)));
+  }
 
   get group(): THREE.Group {
     return this.lines.group;
@@ -178,14 +212,15 @@ export class Isochrones {
   shownDatasets(): string[] {
     const shown = new Set<string>();
     for (const f of this.features) {
-      if (!this.hiddenDatasets.has(f.dataset) && !this.hiddenAges.has(ageKey(f))) shown.add(f.dataset);
+      if (!this.lineHidden(f.dataset, f.line_id) && !this.hiddenAges.has(ageKey(f))) shown.add(f.dataset);
     }
     return [...shown];
   }
 
-  /** Datasets not filtered out by name: the tracks don't depend on the ages. */
+  /** Datasets not filtered out by name or region: the tracks don't depend on the ages. */
   datasetsNotHidden(): string[] {
-    return Object.keys(this.index!.datasets).filter((name) => !this.hiddenDatasets.has(name));
+    const inRegion = this.regionLines === null ? null : new Set(this.index!.tracks.filter((t) => !this.lineHidden(t.dataset, t.line_id)).map((t) => t.dataset));
+    return Object.keys(this.index!.datasets).filter((name) => !this.hiddenDatasets.has(name) && (inRegion === null || inRegion.has(name)));
   }
 
   /** Fetch datasets, each once; done when they are all there. */
@@ -313,14 +348,14 @@ export class Isochrones {
 
   /** Whether a basal unit is shown (not filtered out). */
   showsBasalUnit(): boolean {
-    return this.features.some((f) => isBasalUnit(f) && !this.hiddenDatasets.has(f.dataset) && !this.hiddenAges.has("basal unit"));
+    return this.features.some((f) => isBasalUnit(f) && !this.lineHidden(f.dataset, f.line_id) && !this.hiddenAges.has("basal unit"));
   }
 
-  /** Show only the isochrones of the datasets and ages not hidden. */
+  /** Show only the isochrones of the datasets, region and ages not hidden. */
   applyFilter(): void {
     this.lines.setHidden((f) => {
       const feature = this.features[f];
-      return !feature || this.hiddenDatasets.has(feature.dataset) || this.hiddenAges.has(ageKey(feature));
+      return !feature || this.lineHidden(feature.dataset, feature.line_id) || this.hiddenAges.has(ageKey(feature));
     });
   }
 }
@@ -388,9 +423,9 @@ export class Tracks {
     });
   }
 
-  /** Show only the tracks of the datasets not hidden. */
-  applyFilter(hiddenDatasets: Set<string>): void {
-    this.lines.setHidden((t) => !this.tracks[t] || hiddenDatasets.has(this.tracks[t].dataset));
+  /** Show only the tracks of the lines not hidden. */
+  applyFilter(filter: LineFilter): void {
+    this.lines.setHidden((t) => !this.tracks[t] || filter.lineHidden(this.tracks[t].dataset, this.tracks[t].line_id));
   }
 
   point(segment: number, end: 0 | 1): TrackPoint {
@@ -453,9 +488,9 @@ export class TrackBed {
     for (const part of this.lines.parts) this.recolor(part);
   }
 
-  /** Show only the datasets not hidden. */
-  applyFilter(hiddenDatasets: Set<string>): void {
-    this.lines.setHidden((t) => !this.index?.tracks[t] || hiddenDatasets.has(this.index.tracks[t].dataset));
+  /** Show only the lines not hidden. */
+  applyFilter(filter: LineFilter): void {
+    this.lines.setHidden((t) => !this.index?.tracks[t] || filter.lineHidden(this.index.tracks[t].dataset, this.index.tracks[t].line_id));
   }
 
   /** Bed elevation (m) at a hovered point. */
