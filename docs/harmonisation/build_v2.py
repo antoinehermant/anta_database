@@ -48,6 +48,9 @@ Siegert_2004 Wang_2023 Winter_2018 Yan_2025""".split()
 # The Bedmap survey of the same flights, but not of the same traces (34 m apart on median, more than
 # MAX_MEDIAN of reconnect.py): BEDMAP1 has the SPRI lines of 1971-1979 in short pieces
 MAX_MEDIAN = {"Siegert_2004": 50.0}
+# Second pass across the track (reconnect.py) for the refused lines: the AWI flights of 1997-2002 in
+# Winter_2018, whose positions are scattered by some 15 m around the Bedmap2 line (anta_json#4)
+CROSS_TRACK = ["Winter_2018"]
 
 # What the compilation does to the raw files (compile.py, SETTINGS_FILE), as in v1
 SETTINGS = {
@@ -165,7 +168,8 @@ def main() -> None:
     for d in dirs:
         line_ids.apply(d)
     # Missing ice thickness, bed and surface elevation from the Bedmap line of the same traces
-    filled = fill(str(BEDMAP), str(BUILD), args.datasets, max_median=MAX_MEDIAN, cpus=args.cpus)
+    filled = fill(str(BEDMAP), str(BUILD), args.datasets, max_median=MAX_MEDIAN, cross_track=CROSS_TRACK,
+                  cpus=args.cpus)
     report = BUILD / "bedmap_fill.csv"
     if report.exists() and set(args.datasets) != set(DATASETS):
         filled = pd.concat([pd.read_csv(report).query("dataset not in @args.datasets"), filled])
