@@ -977,6 +977,16 @@ body:has(#sidebar:not(.closed)) #legends {
   overflow-y: auto;
 }
 
+.egg-panel.egg-complete {
+  animation: egg-glow 1.6s ease-out;
+}
+
+@keyframes egg-glow {
+  from {
+    box-shadow: 0 0 0 0 #ffd95e, 0 0 30px 8px #ffd95e;
+  }
+}
+
 .egg-panel ul {
   margin: 0 0 12px;
   padding-left: 18px;

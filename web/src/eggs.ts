@@ -1152,6 +1152,22 @@ export interface BedUniforms {
 }
 
 /**
+ * Shade a loaded model like the other eggs, without the lights of the scene: its materials as a
+ * matcap with their textures and relief, the glowing ones (windows, lamps) as flat colour.
+ */
+function unlit(model: THREE.Object3D, metal: THREE.Texture): void {
+  model.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const m = object.material as THREE.MeshStandardMaterial;
+    const glowing = m.emissiveMap !== null || m.emissive.getHex() !== 0;
+    const common = { map: m.map, side: m.side, transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest };
+    object.material = glowing
+      ? new THREE.MeshBasicMaterial({ ...common, map: m.map ?? m.emissiveMap, color: m.map ? "#ffffff" : m.emissive })
+      : new THREE.MeshMatcapMaterial({ ...common, matcap: metal, color: m.color, normalMap: m.normalMap });
+  });
+}
+
+/**
  * Put the vertices of a material on the bed mesh: the height of the bed under
  * each vertex (in the world), on the same triangles as the mesh, is added to
  * its z, so the object lies on the bed whatever its relief.
@@ -2080,15 +2096,7 @@ export class EasterEggs {
         const size = model.userData.size as THREE.Vector3;
         model.scale.setScalar(1 / Math.max(size.x, size.z));
         model.position.z = -0.5 * size.y * model.scale.z;
-        const metal = matcap("#d8dde3", "#2a2e33", "#ffffff");
-        model.traverse((object) => {
-          if (!(object instanceof THREE.Mesh)) return;
-          const m = object.material as THREE.MeshStandardMaterial;
-          const glowing = m.emissiveMap !== null || m.emissive.getHex() !== 0;
-          object.material = glowing
-            ? new THREE.MeshBasicMaterial({ map: m.map ?? m.emissiveMap, color: m.map ? "#ffffff" : m.emissive, side: m.side })
-            : new THREE.MeshMatcapMaterial({ matcap: metal, map: m.map, normalMap: m.normalMap, side: m.side });
-        });
+        unlit(model, matcap("#d8dde3", "#2a2e33", "#ffffff"));
         this.vessel.clear();
         this.vessel.add(model);
         this.onLoaded?.();
@@ -2102,6 +2110,9 @@ export class EasterEggs {
     const kinds = Object.keys(TRAIN_MODELS) as (keyof typeof TRAIN_MODELS)[];
     Promise.all(kinds.map((kind) => EasterEggs.loadModel(TRAIN_MODELS[kind])))
       .then((models) => {
+        // Shaded without the lights of the scene (there are some only with the ice cores on)
+        const metal = matcap("#ffffff", "#3a3f46", "#ffffff");
+        for (const model of models) unlit(model, metal);
         const byKind = Object.fromEntries(kinds.map((kind, i) => [kind, models[i]]));
         this.cars.forEach((car, k) => {
           const model = byKind[TRAIN_MAKEUP[k]].clone();

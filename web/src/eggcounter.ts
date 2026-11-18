@@ -97,7 +97,7 @@ export class EggCounter {
     const close = button("close", "×", "Close", () => this.toggle(false));
     const eggs = this.eggs.filter((egg) => this.found.has(egg.id));
     const left = this.eggs.length - eggs.length;
-    heading.textContent = `Eggs found: ${eggs.length}/${this.eggs.length}`;
+    heading.textContent = left === 0 ? "Congratulations!" : `Eggs found: ${eggs.length}/${this.eggs.length}`;
     const text = document.createElement("p");
     if (eggs.length === 0) {
       // Bold between ** **, the rest as text
@@ -126,7 +126,10 @@ export class EggCounter {
         return item;
       }),
     );
-    text.textContent = left === 0 ? "You found them all!" : `${left} more to find.`;
+    text.textContent =
+      left === 0
+        ? `You found all ${eggs.length} eggs hidden in Antarctica, on the ice, on the bed and in the ocean. Well done, explorer!`
+        : `${left} more to find.`;
     const buttons = document.createElement("div");
     buttons.className = "buttons";
     buttons.append(button("", "Reset counter", "Forget the eggs found, and start again", () => this.reset()));
@@ -150,6 +153,7 @@ export class EggCounter {
 
   /** Collect an egg clicked at a point of the window (px). */
   collect(id: string, title: string, x: number, y: number): void {
+    const last = !this.found.has(id) && this.eggs.every((egg) => egg.id === id || this.found.has(egg.id));
     this.found.add(id);
     try {
       localStorage.setItem(KEY, JSON.stringify([...this.found]));
@@ -163,6 +167,7 @@ export class EggCounter {
       this.el.classList.add("named");
       clearTimeout(this.nameTimer);
       this.nameTimer = window.setTimeout(() => this.el.classList.remove("named"), NAME_MS);
+      if (last) this.celebrate();
     };
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       done();
@@ -192,8 +197,22 @@ export class EggCounter {
     }, FLIGHT_MS);
   }
 
-  /** A ring and a few sparks around the place of the click. */
-  private burst(x: number, y: number): void {
+  /** The last egg found: the window opens with a congratulation, and sparks fly from the counter. */
+  private celebrate(): void {
+    this.toggle(true);
+    this.panel.classList.add("egg-complete");
+    window.setTimeout(() => this.panel.classList.remove("egg-complete"), 1600);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const at = this.el.getBoundingClientRect();
+    for (let k = 0; k < 4; k++)
+      window.setTimeout(
+        () => this.burst(at.left + at.width / 2 - 40 * k, at.top - 30 - 50 * (k % 2), 2),
+        250 * k,
+      );
+  }
+
+  /** A ring and a few sparks around the place of the click (scale: the size of the burst). */
+  private burst(x: number, y: number, scale = 1): void {
     const SPARKS = 8;
     for (let k = 0; k <= SPARKS; k++) {
       const part = document.createElement("span");
@@ -204,8 +223,8 @@ export class EggCounter {
       const a = (k / SPARKS) * 2 * Math.PI;
       const end =
         k === SPARKS
-          ? "translate(-50%, -50%) scale(1)"
-          : `translate(calc(${34 * Math.cos(a)}px - 50%), calc(${34 * Math.sin(a)}px - 50%)) scale(0.3)`;
+          ? `translate(-50%, -50%) scale(${scale})`
+          : `translate(calc(${34 * scale * Math.cos(a)}px - 50%), calc(${34 * scale * Math.sin(a)}px - 50%)) scale(0.3)`;
       part.animate(
         [
           { transform: k === SPARKS ? "translate(-50%, -50%) scale(0.1)" : "translate(-50%, -50%)", opacity: 1 },
