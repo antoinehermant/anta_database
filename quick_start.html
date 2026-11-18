@@ -573,12 +573,12 @@ document.write(`
 <td><p><code class="docutils literal notranslate"><span class="pre">'10000'</span></code>, <code class="docutils literal notranslate"><span class="pre">'37500-38500'</span></code>, <code class="docutils literal notranslate"><span class="pre">'&gt;90000'</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">region</span></code></p></td>
-<td><p>Geographic region(s)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">'EAIS'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WAIS'</span></code></p></td>
+<td><p>Ice sheet(s), IMBIE basin(s) or place(s) of the SCAR gazetteer, by any of their names</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'EAST'</span></code>, <code class="docutils literal notranslate"><span class="pre">'DML'</span></code>, <code class="docutils literal notranslate"><span class="pre">'G-H'</span></code>, <code class="docutils literal notranslate"><span class="pre">'DC'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Wilkes</span> <span class="pre">Subglacial</span> <span class="pre">Basin'</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IMBIE_basin</span></code></p></td>
-<td><p>IMBIE basin(s)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">'G-H'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Ap-B'</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">radius</span></code></p></td>
+<td><p>For a place: the lines passing within this distance (km), instead of the default of its type</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">50</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">var</span></code></p></td>
 <td><p>Variable(s) of interest</p></td>
@@ -597,6 +597,13 @@ document.write(`
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">-</span></code> for ranges (e.g., <code class="docutils literal notranslate"><span class="pre">acquisition_year='2000-2010'</span></code>)</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">%</span></code> for regex patterns (e.g., <code class="docutils literal notranslate"><span class="pre">line_id='%WSB%'</span></code> for any ID containing ‘WSB’)</p></li>
 </ul>
+<p><strong>Regions:</strong> <code class="docutils literal notranslate"><span class="pre">db.regions()</span></code> lists the ice sheets (<code class="docutils literal notranslate"><span class="pre">EAST</span></code>, <code class="docutils literal notranslate"><span class="pre">WEST</span></code>, <code class="docutils literal notranslate"><span class="pre">AP</span></code>), the IMBIE basins with their short
+names (<code class="docutils literal notranslate"><span class="pre">DML</span></code>, <code class="docutils literal notranslate"><span class="pre">WL</span></code>, <code class="docutils literal notranslate"><span class="pre">ASE</span></code>…; the IMBIE codes such as <code class="docutils literal notranslate"><span class="pre">'G-H'</span></code> still work), and short names of places (<code class="docutils literal notranslate"><span class="pre">DC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">EDML</span></code>, <code class="docutils literal notranslate"><span class="pre">WSB</span></code>…). Any of the 20,000 places of the
+<a class="reference external" href="https://data.aad.gov.au/aadc/gaz/scar/">SCAR Composite Gazetteer of Antarctica</a> can be queried by name
+too: <code class="docutils literal notranslate"><span class="pre">db.places('vostok')</span></code> finds them, with the number of lines at each. A line is at a place when it passes
+within a radius of its point: 75 km for a dome, 300 km for a subglacial basin, 30 km for a glacier…
+(<code class="docutils literal notranslate"><span class="pre">radius=</span></code> changes it). <code class="docutils literal notranslate"><span class="pre">IMBIE_basin=</span></code> is the older name of <code class="docutils literal notranslate"><span class="pre">region=</span></code>.</p>
 </section>
 <section id="query-examples">
 <h3>Query Examples<a class="headerlink" href="#query-examples" title="Link to this heading">#</a></h3>
@@ -614,8 +621,12 @@ document.write(`
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">age</span><span class="o">=</span><span class="s1">&#39;&gt;90000&#39;</span><span class="p">)</span>  <span class="c1"># Ages older than 90,000 years</span>
 
 <span class="c1"># Geographic queries</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">IMBIE_basin</span><span class="o">=</span><span class="s1">&#39;G-H&#39;</span><span class="p">)</span>  <span class="c1"># Data crossing the G-H basin</span>
-<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s1">&#39;EAIS&#39;</span><span class="p">)</span>  <span class="c1"># East Antarctic Ice Sheet</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s1">&#39;EAST&#39;</span><span class="p">)</span>  <span class="c1"># East Antarctic Ice Sheet (or &#39;EAIS&#39;)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s1">&#39;ASE&#39;</span><span class="p">)</span>  <span class="c1"># Amundsen Sea Embayment, the IMBIE basin G-H (or &#39;G-H&#39;)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s1">&#39;Dome C&#39;</span><span class="p">)</span>  <span class="c1"># Lines within 75 km of Dome C (or &#39;DC&#39;)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s1">&#39;Dome C&#39;</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>  <span class="c1"># Within 20 km</span>
+<span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;WSB&#39;</span><span class="p">,</span> <span class="s1">&#39;Talos Dome&#39;</span><span class="p">])</span>  <span class="c1"># In any of them</span>
+<span class="n">db</span><span class="o">.</span><span class="n">places</span><span class="p">(</span><span class="s1">&#39;dome&#39;</span><span class="p">)</span>  <span class="c1"># Places of the SCAR gazetteer, with their lines</span>
 
 <span class="c1"># Variable queries</span>
 <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">var</span><span class="o">=</span><span class="s1">&#39;ICE_THK&#39;</span><span class="p">)</span>  <span class="c1"># Datasets with ice thickness</span>
@@ -653,15 +664,15 @@ document.write(`
 
   - radar_instrument: AWI-UWB, EMR
 
-  - line_id: 20033141, 19972409, 20022116, 20023109, 19983101, 20181226_01_008, 112119, AWI993112, 20231211_01_021, 19993134, 19983406, 20023119, AWI993131, AWI993113, AWI023149, 20231129_01_015, 20231129_01_006, 20033143, 20113119, 20181226_01_010, 20181227_02_006, 19973310, 20231211_02_011, 19993131, 19972405, [ ... ] , 20181227_02_012, 19983408, 20231211_01_022, 19972408, AWI023154, 19993120, 20181222_01_005, 20231129_01_017, 20181222_01_006, AWI993132, 20181226_03_004, 20181227_03_004, 20231211_01_008, AWI973208, 19972404, 20231211_02_013, 20173004, 20181227_03_008, 20181222_01_002, 20023149, 20022104, 20181226_01_001, 19993026, 20181227_02_015, 19993106 (found 219, displayed 50)
+  - line_id: 20231211_02_001, 20181222_01_001, AWI993113, 20231129_01_004, 20231211_02_019, 20181222_01_002, 20231211_02_020, 20231211_02_004, 20022106, 20022107, 20231211_01_020, 20013012, AWI033141, 19972304, 19983202, 20181226_02_008, 20181226_01_006, 20231211_02_011, 19993122, 20022116, 20023109, 20023152, AWI993132, 20231211_02_008, 20181227_02_004, [ ... ] , 19993134, 20231211_01_018, AWI973304, 19983407, 19972206, 20023120, 20231129_01_007, 20231211_01_013, 20231211_02_002, 20181226_01_003, 20231129_01_016, 19972406, AWI023151, 20181226_02_010, 20033138, 19993120, 20181226_01_011, 20231129_01_018, AWI983101, 19983401, 20231211_01_015, 20231211_01_009, 19973310, 20181227_02_007, 19993137 (found 219, displayed 50)
 
   - reference: Franke et al. (2025), Winter et al. (2018)
   - dataset DOI: https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.1594/PANGAEA.895528
   - article DOI: https://doi.org/10.5194/tc-19-1153-2025, https://doi.org/10.5194/essd-11-1069-2019
 
   - database: /home/anthe/data/isochrones/AntADatabase//AntADatabase.db
-  - query params: {&#39;dataset&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;], &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: &#39;38100&#39;, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
-  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
+  - query params: {&#39;dataset&#39;: [&#39;Franke_2025&#39;, &#39;Winter_2018&#39;], &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: &#39;38100&#39;, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None, &#39;platform&#39;: None, &#39;dating_method&#39;: None, &#39;ice_core&#39;: None, &#39;chronology&#39;: None, &#39;radius&#39;: None}
+  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: [], &#39;platform&#39;: [], &#39;dating_method&#39;: [], &#39;ice_core&#39;: [], &#39;chronology&#39;: []}
 </pre></div>
 </div>
 </div>
@@ -700,15 +711,15 @@ document.write(`
 
   - radar_instrument: AWI-UWB, CORDS, DELORES, EMR, HICARS, LDC-VHF, MCORDS, PASIN, SPRI-NSF-TUD-radar, St-Olaf-Impulse-Radar, ULUR, nan
 
-  - line_id: c12a, W64, CORDS1, 19983418, PNV19___, ICP7_JKB2n_EDMC02a, THW_SJB2_X13b, 2014-01-23-201040_COMB_INT_COH4, THW_SJB2_GLAS0116a, B5, c11a, THW_SJB2_X57c, 2014-01-20-091116_COMB_INT_COH4p2, B28, AWI083115, LSE_GCX0e_Y45a, 19983406, B20, AWI993131, SPC_GCX0e_Y93a, IRH_20172039, 20181226_01_010, 20241214_02, BV34B-BV34E_proc2, PNH21BTOE, [ ... ] , WSB_JKB1a_R36a, 19983408, BH24B10-RAID2_proc2, THW_SJB2_Y55b, BH45B-BH45E_proc, 19993120, THW_SJB2_X33a, PNH15B-DC_proc2, PNV05BTOE, A67_DLRSAR_9MI, THW_SJB2_X79a, AWI973208, 20231211_02_013, THW_SJB2_Y53b, ROUTE4_proc2, c27a, W62, B16, CAT-ROUTE-DC_proc2, A11ADLRSAR_9MI_11, THW_SJB2_Y41d, 2014-01-22-093246_COMB_INT_COH4p3, 2014-12-23-P1_COMB_INT_COH4P8, THW_SJB2_Y41b, 19993106 (found 1005, displayed 50)
+  - line_id: 20231211_02_001, 20181222_01_001, BV23E-BV23B5_proc2, RAID2-BV42B_proc2, 2014-01-22-131844_COMB_INT_COH4, 2014-01-22-200443_COMB_INT_COH4, c25b, W56, HRB7-SUBCAMP_proc2, 20181222_01_002, THW_SJB2_X11a, c10a, OIA_JKB2n_Y64a, 2014-01-22-163009_COMB_INT_COH4p1, BH24E-BH24B10_proc2, BV44E-BV44B_proc2, THW_SJB2_Y21b, PEL_GCX0d_R43a, 19983202, 20181226_02_008, THW_SJB2_X39a, B14, 19993122, Leysinger_Vieli_2011_5, THW_SJB2_X69a, [ ... ] , c11a, RAID2-BV48E_proc2, 2014-01-23-153448_COMB_INT_COH4p1, 2014-12-23-P1_COMB_INT_COH4P13, B19, AV04E-AV04B_proc2, IRH_20172032, c09b, 20181226_01_003, PNH1E-PNH1B_proc2, SPC_GCX0d_Y79a, B25, 19972406, 20181226_02_010, c15d, PNV07ETOB, 099035bst10, THW_SJB2_Y35a, ROUTE5_proc2, AWI983101, 2014-12-21-P1_COMB_INT_COH4P4, 20231211_01_009, THW_SJB2_X33a, OIA_JKB2n_Y75a, W43A (found 1005, displayed 50)
 
   - reference: Ashmore et al. (2020), Beem et al. (2021), Bodart et al. (2021), Bodart and Sutter (2025a), Bodart and Sutter (2025b), Cavitte et al. (2020), Chung et al. (2023), Franke et al. (2025), Jacobel and Welch (2005), Leysinger-Vieli et al. (2011), Muldoon et al. (2023), Mulvaney et al. (2023), Napoleoni et al. (2026a,b), Sanderson et al. (2024), Siegert and Payne (2004), Wang et al. (2023), Winter et al. (2018), Yan et al. (2025)
   - dataset DOI: https://doi.org/10.5281/zenodo.4945301, https://doi.org/10.15784/601437, https://doi.org/10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB, https://doi.org/10.5281/zenodo.17348976, https://doi.org/10.5281/zenodo.17348094, https://doi.org/10.15784/601411, https://doi.pangaea.de/10.1594/PANGAEA.957176, https://doi.org/10.1594/PANGAEA.973266, https://doi.org/10.7265/N5R20Z9T, https://doi.org/10.5281/zenodo.15516203, https://doi.org/10.15784/601673, https://doi.pangaea.de/10.1594/PANGAEA.963470, https://doi.org/10.5194/tc-20-2793-2026-supplement, https://doi.org/10.5285/cfafb639-991a-422f-9caa-7793c195d316, https://onlinelibrary.wiley.com/doi/10.1002/esp.1238, https://doi.org/10.1594/PANGAEA.958462, https://doi.org/10.1594/PANGAEA.895528, https://doi.org/10.5281/zenodo.14962526
   - article DOI: https://doi.org/10.1029/2019GL086663, https://doi.org/10.5194/tc-15-1719-2021, https://doi.org/10.1029/2020JF005927, https://doi.org/10.5194/tc-20-1379-2026, https://doi.org/10.5194/essd-13-4759-2021, https://doi.org/10.5194/tc-17-3461-2023, https://doi.org/10.5194/tc-19-1153-2025, https://doi.org/10.1029/2003GL017210, https://doi.org/10.1029/2010JF001785, https://doi.org/10.1093/climatesystem/dzy004, https://doi.org/10.5194/tc-20-2793-2026, https://doi.org/10.1017/jog.2024.60, https://doi.org/10.1029/2004GL020290, https://doi.org/10.5194/tc-17-4297-2023, https://doi.org/10.5194/essd-11-1069-2019, https://doi.org/10.1017/jog.2025.15
 
   - database: /home/anthe/data/isochrones/AntADatabase//AntADatabase.db
-  - query params: {&#39;dataset&#39;: None, &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: None, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None}
-  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: []}
+  - query params: {&#39;dataset&#39;: None, &#39;institute&#39;: None, &#39;project&#39;: None, &#39;acquisition_year&#39;: None, &#39;age&#39;: None, &#39;var&#39;: None, &#39;line_id&#39;: None, &#39;region&#39;: None, &#39;IMBIE_basin&#39;: None, &#39;radar_instrument&#39;: None, &#39;platform&#39;: None, &#39;dating_method&#39;: None, &#39;ice_core&#39;: None, &#39;chronology&#39;: None, &#39;radius&#39;: None}
+  - filter params: {&#39;dataset&#39;: [], &#39;institute&#39;: [], &#39;project&#39;: [], &#39;acquisition_year&#39;: [], &#39;age&#39;: [], &#39;var&#39;: [], &#39;line_id&#39;: [], &#39;region&#39;: [], &#39;IMBIE_basin&#39;: [], &#39;radar_instrument&#39;: [], &#39;platform&#39;: [], &#39;dating_method&#39;: [], &#39;ice_core&#39;: [], &#39;chronology&#39;: []}
 </pre></div>
 </div>
 </div>
