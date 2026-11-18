@@ -29,6 +29,9 @@ export interface Feature {
   /** An age range (e.g. from an age model): age_ka is then its middle */
   age_min_ka?: number;
   age_max_ka?: number;
+  /** Of a range: how it was dated ("modelled", "ice-core"), and the cores ("Vostok, EDC") */
+  dating?: string;
+  ice_core?: string;
   citation: string | null;
   doi_dataset: string | null;
   doi_article: string | null;

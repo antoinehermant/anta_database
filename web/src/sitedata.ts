@@ -26,6 +26,15 @@ export interface Irh {
   /** An age range (e.g. from an age model): age is then its middle */
   age_min?: number;
   age_max?: number;
+  /** Of a range: how it was dated ("modelled", "ice-core"), and the cores ("Vostok, EDC") */
+  dating?: string;
+  ice_core?: string;
+}
+
+/** What an age range comes from: "model range", or the cores it was dated at ("Vostok – EDC"). */
+export function rangeSource(range: { dating?: string; ice_core?: string }): string {
+  if (range.ice_core && range.dating !== "modelled") return range.ice_core.split(", ").join(" – ");
+  return "model range";
 }
 
 export interface CatalogDataset {

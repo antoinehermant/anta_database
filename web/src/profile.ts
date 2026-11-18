@@ -78,6 +78,12 @@ const COLUMNS = 6; // x, y, distance, surface, bed, thickness
 const GRID_SURFACE = 1;
 const GRID_THICKNESS = 2;
 const GRID_BED = 4;
+// and values from the Bedmap survey points of the same traces, not the dataset
+const SURVEY_SURFACE = 8;
+const SURVEY_THICKNESS = 16;
+const SURVEY_BED = 32;
+const SURVEY_NOTE = "From the Bedmap survey point of the same radar trace, not the dataset.";
+const SURVEY_LABEL = "Bed from Bedmap survey points";
 const GRID_NOTE = "Bedmap3 grid filling (500 m): the line has no value here.";
 const GRID_LABEL = "Bedmap3 grid filling";
 const MARGIN = { left: 60, right: 14, top: 12, bottom: 38 };
@@ -85,10 +91,18 @@ const BED_FILL = "#8a6a4b";
 const BED_LINE = "#5b4430";
 // Bed from the Bedmap3 grid: hatched and lighter, its line dashed
 const GRID_BED_FILL = "rgba(138, 106, 75, 0.35)";
+// Bed from the Bedmap survey points of the same traces: another colour than the bed of the dataset
+const SURVEY_BED_FILL = "#6e7752";
+const SURVEY_BED_LINE = "#454d30";
+// Under every layer of the plot, for contrast (the hovered one glows instead)
+const LAYER_HALO = "rgba(255, 255, 255, 0.45)";
 const GRID_DASH = [6, 4];
 const ICE_FILL = "rgba(160, 200, 235, 0.22)";
 const SURFACE_LINE = "#5d9fd6";
 const HOVER_PX = 10;
+
+/** Where a value of the surface or the bed comes from. */
+type Source = "data" | "grid" | "survey";
 
 /** Round values between min and max, about count of them. */
 function niceTicks(min: number, max: number, count: number): number[] {
@@ -467,6 +481,15 @@ export class ProfilePanel {
     return (grid & (this.mode === "Elevation" ? GRID_BED : GRID_THICKNESS)) > 0;
   }
 
+  /** Whether the value of a series at a row comes from Bedmap survey points, in the units of the mode. */
+  private fromSurvey(series: Series, row: number): boolean {
+    if (this.gridColumn < 0 || series.kind === "layer") return false;
+    const grid = this.value(row, this.gridColumn);
+    if (!(grid > 0)) return false;
+    if (series.kind === "surface") return this.mode === "Elevation" && (grid & SURVEY_SURFACE) > 0;
+    return (grid & (this.mode === "Elevation" ? SURVEY_BED : SURVEY_THICKNESS)) > 0;
+  }
+
   /** Whether any value of the line comes from the Bedmap3 grid. */
   private anyGrid(): boolean {
     if (this.gridColumn < 0) return false;
@@ -635,16 +658,18 @@ export class ProfilePanel {
       }
     };
     const sampleDistance = (k: number) => this.value(samples[k], 2);
-    // The runs of a series cut where it switches between measured and Bedmap3 grid; the pieces
-    // share their end sample, so the line stays joined
-    const pieces = (series: Series): [number, number, boolean][] => {
-      const out: [number, number, boolean][] = [];
+    // The runs of a series cut where its source changes: the dataset, the Bedmap3 grid, or (for
+    // the bed) the Bedmap survey points; the pieces share their end sample, so the line stays joined
+    const sourceOf = (series: Series, row: number): Source =>
+      this.fromGrid(series, row) ? "grid" : series.kind === "bed" && this.fromSurvey(series, row) ? "survey" : "data";
+    const pieces = (series: Series): [number, number, Source][] => {
+      const out: [number, number, Source][] = [];
       for (const [a, b] of runs(series)) {
         let start = a;
         for (let k = a + 1; k <= b + 1; k++) {
-          const grid = this.fromGrid(series, samples[start]);
-          if (k > b || this.fromGrid(series, samples[k]) !== grid) {
-            out.push([start, k > b ? b : k, grid]);
+          const source = sourceOf(series, samples[start]);
+          if (k > b || sourceOf(series, samples[k]) !== source) {
+            out.push([start, k > b ? b : k, source]);
             start = k;
           }
         }
@@ -668,19 +693,22 @@ export class ProfilePanel {
     // Bed, filled down to the bottom of the plot; hatched and dashed where from the Bedmap3 grid
     // Whether a piece filled from the Bedmap3 grid is drawn, at least 2 px wide (for the legend)
     let gridShown = false;
+    let surveyShown = false;
     const shown = (a: number, b: number) => Math.abs(px(sampleDistance(b)) - px(sampleDistance(a))) >= 2;
-    for (const [a, b, grid] of pieces(bed)) {
+    for (const [a, b, source] of pieces(bed)) {
+      const grid = source === "grid";
       if (grid && shown(a, b)) gridShown = true;
+      if (source === "survey" && shown(a, b)) surveyShown = true;
       ctx.beginPath();
       path(bed, a, b);
       ctx.lineTo(px(sampleDistance(b)), bottom);
       ctx.lineTo(px(sampleDistance(a)), bottom);
       ctx.closePath();
-      ctx.fillStyle = grid ? this.hatchPattern(ctx) : BED_FILL;
+      ctx.fillStyle = grid ? this.hatchPattern(ctx) : source === "survey" ? SURVEY_BED_FILL : BED_FILL;
       ctx.fill();
       ctx.beginPath();
       path(bed, a, b);
-      ctx.strokeStyle = BED_LINE;
+      ctx.strokeStyle = source === "survey" ? SURVEY_BED_LINE : BED_LINE;
       ctx.lineWidth = 1.5;
       ctx.setLineDash(grid ? GRID_DASH : []);
       ctx.stroke();
@@ -689,7 +717,8 @@ export class ProfilePanel {
     const stroke = (series: Series, color: string, width: number) => {
       for (const dashed of [false, true]) {
         ctx.beginPath();
-        for (const [a, b, grid] of pieces(series)) {
+        for (const [a, b, source] of pieces(series)) {
+          const grid = source === "grid";
           if (grid !== dashed) continue;
           path(series, a, b);
           if (grid && series.kind === "surface" && shown(a, b)) gridShown = true;
@@ -703,14 +732,24 @@ export class ProfilePanel {
     };
     stroke(surface, SURFACE_LINE, 1.5);
     const hovered = this.hover?.series;
-    this.layers.forEach((feature, index) => {
-      const isHovered = hovered?.kind === "layer" && hovered.index === index;
-      if (!isHovered) stroke({ kind: "layer", index }, this.options.colorOf(feature), 1.6);
+    const isHovered = (index: number) => hovered?.kind === "layer" && hovered.index === index;
+    // A light halo under the layers, all before the lines so it never covers a neighbour: the dark
+    // colours of the oldest layers then stand out from the background
+    this.layers.forEach((_, index) => {
+      if (!isHovered(index)) stroke({ kind: "layer", index }, LAYER_HALO, 3.4);
     });
+    this.layers.forEach((feature, index) => {
+      if (!isHovered(index)) stroke({ kind: "layer", index }, this.options.colorOf(feature), 1.6);
+    });
+    // The hovered line glows white, as in 3D, on top of the others
     if (hovered) {
       const color = hovered.kind === "layer" ? this.options.colorOf(this.layers[hovered.index]) : hovered.kind === "bed" ? BED_LINE : SURFACE_LINE;
-      stroke(hovered, "#ff4d4d", 4);
-      stroke(hovered, color, 2);
+      ctx.shadowColor = "rgba(255, 255, 255, 0.9)";
+      ctx.shadowBlur = 8;
+      stroke(hovered, "rgba(255, 255, 255, 0.75)", 7);
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      stroke(hovered, color, 2.6);
     }
     // Cursor: a vertical line, and the hovered point
     if (this.hover) {
@@ -735,6 +774,26 @@ export class ProfilePanel {
 
     // Legend of the Bedmap3 grid filling, in the bottom left corner, on a semi-transparent box:
     // only when some is drawn, in this mode and at this zoom
+    // The bed from Bedmap survey points, above it
+    if (surveyShown) {
+      const w = ctx.measureText(SURVEY_LABEL).width + 40;
+      const x = area.left + 6;
+      const y = area.top + area.height - (gridShown ? 50 : 26);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.fillRect(x, y, w, 20);
+      ctx.fillStyle = SURVEY_BED_FILL;
+      ctx.fillRect(x + 6, y + 5, 22, 10);
+      ctx.strokeStyle = SURVEY_BED_LINE;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 5);
+      ctx.lineTo(x + 28, y + 5);
+      ctx.stroke();
+      ctx.fillStyle = "#222";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(SURVEY_LABEL, x + 34, y + 10);
+    }
     if (gridShown) {
       const w = ctx.measureText(GRID_LABEL).width + 40;
       const x = area.left + 6;
@@ -860,7 +919,7 @@ export class ProfilePanel {
       tooltip = {
         title: "Bed",
         rows: [["Bed elevation", round(point.bed)], ["Ice thickness", round(point.thickness)], at],
-        note: this.fromGrid(hover.series, r) ? GRID_NOTE : null,
+        note: this.fromGrid(hover.series, r) ? GRID_NOTE : this.fromSurvey(hover.series, r) ? SURVEY_NOTE : null,
       };
     } else {
       tooltip = {

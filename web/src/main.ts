@@ -39,6 +39,7 @@ import { Tutorial, askForTour, tutorialSeen } from "./tutorial";
 import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, type HeightAt, type Scenario } from "./outlines";
 import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
 import { BEDMAP_DATASETS, BedmapLines, type BedmapTrack } from "./bedmap";
+import { rangeSource } from "./sitedata";
 
 // Data exported by anta_database.web: served with the app in development
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
@@ -64,9 +65,17 @@ const QUALITY: Record<string, string> = { Fast: "8km", Detailed: "4km" };
 // Renderer, scene, camera
 const container = document.getElementById("app")!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-// Full resolution when still, lower while the view moves
-const FULL_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
-const MOVING_PIXEL_RATIO = Math.max(0.75, FULL_PIXEL_RATIO / 2);
+// Full resolution when still, lower while the view moves. At most MAX_PIXELS drawn: an integrated
+// GPU redrawing more, 30 times a second, can stall the whole desktop of a laptop
+const MAX_PIXELS = 4e6; // a 2560×1440 window at ratio 1
+let FULL_PIXEL_RATIO = 1;
+let MOVING_PIXEL_RATIO = 1;
+function setPixelRatios(): void {
+  const fit = Math.sqrt(MAX_PIXELS / Math.max(1, window.innerWidth * window.innerHeight));
+  FULL_PIXEL_RATIO = Math.max(0.5, Math.min(window.devicePixelRatio, 2, fit));
+  MOVING_PIXEL_RATIO = Math.max(0.5, Math.min(0.75, FULL_PIXEL_RATIO), FULL_PIXEL_RATIO / 2);
+}
+setPixelRatios();
 renderer.setPixelRatio(FULL_PIXEL_RATIO);
 renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
@@ -587,6 +596,7 @@ controls.addEventListener("change", () => {
   requestRender();
 });
 window.addEventListener("resize", () => {
+  setPixelRatios();
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -626,11 +636,30 @@ for (const type of ["pointermove", "pointerdown", "wheel", "keydown"]) {
   window.addEventListener(type, () => (lastInput = performance.now()), { passive: true });
 }
 function animating(): boolean {
-  return document.hasFocus() && performance.now() - lastInput < IDLE_MS;
+  return !strained && document.hasFocus() && performance.now() - lastInput < IDLE_MS;
+}
+
+// Guard of the GPU: when the animated frames come slower than STRAINED_MS on median (the GPU can't
+// keep up, and the desktop may soon freeze with it), the animations stop and the resolution drops,
+// with a message. The animations come back with a reload.
+const STRAINED_MS = 100;
+const frameGaps: number[] = [];
+let strained = false;
+function watchFrame(gap: number, animated: boolean): void {
+  if (strained || !animated || gap > 2000) return; // a gap of seconds: a tab in the background
+  frameGaps.push(gap);
+  if (frameGaps.length < 30) return;
+  const median = [...frameGaps].sort((a, b) => a - b)[15];
+  frameGaps.length = 0;
+  if (median < STRAINED_MS) return;
+  strained = true;
+  FULL_PIXEL_RATIO = MOVING_PIXEL_RATIO;
+  showError(new Error(`The graphics card can't keep up (${Math.round(1000 / median)} images per second): the animations are stopped and the resolution lowered. Reload the page to start them again.`));
 }
 
 let lastFrame = 0;
 let lastRender = 0;
+let animatedLastFrame = false;
 const GLIDE_FRAME_MS = 1000 / 30;
 // Whether the animations (aircraft, flow lines) go on while moving with the keys or the pad, and
 // while moving at an edge of the view (false: paused, lighter for a laptop)
@@ -640,6 +669,7 @@ renderer.setAnimationLoop((time: number) => {
   stepFlight(performance.now());
   updateEdgeMove(performance.now());
   keyNavigation.update(Math.min(0.1, (time - lastFrame) / 1000));
+  watchFrame(time - lastFrame, animatedLastFrame);
   lastFrame = time;
   controls.update();
   updateSnowVeil();
@@ -649,6 +679,7 @@ renderer.setAnimationLoop((time: number) => {
   const gliding = flight !== null || keyNavigation.active;
   const paused = (keyNavigation.keysActive && !ANIMATE_WITH_KEYS) || (keyNavigation.edgeActive && !ANIMATE_AT_EDGES);
   const animate = animating() && (flight ? flight.animate : !paused);
+  animatedLastFrame = animate;
   stopMomentum();
   previousCamera.copy(camera.position);
   updateHover();
@@ -1080,7 +1111,7 @@ renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefa
 
 function formatAge(f: Feature): string {
   if (f.age_ka === null) return "not assigned";
-  if (f.age_min_ka !== undefined && f.age_max_ka !== undefined) return `${f.age_min_ka}–${f.age_max_ka} ka (model range)`;
+  if (f.age_min_ka !== undefined && f.age_max_ka !== undefined) return `${f.age_min_ka}–${f.age_max_ka} ka (${rangeSource(f)})`;
   return f.age_unc_ka === null ? `${f.age_ka} ka` : `${f.age_ka} ± ${f.age_unc_ka} ka`;
 }
 
@@ -1608,11 +1639,12 @@ if (SUBMISSION) {
 }
 
 // Link preview screenshots (public/og-image.jpg, 1200×630) in development: ?screenshot
-// hides the panels; the current image is ?screenshot#view=150,-4257,3560,150,-600,150
+// hides the panels (=bedmap adds the Bedmap survey lines); the current image is
+// ?screenshot#view=150,-4257,3560,150,-600,150
 const SCREENSHOT = import.meta.env.DEV && new URLSearchParams(window.location.search).has("screenshot");
 if (SCREENSHOT) {
   document.body.classList.add("clean");
-  Object.assign(settings, { surfaceOpacity: 0.6, lineWidth: 3, exaggeration: 100 });
+  Object.assign(settings, { surfaceOpacity: 0.6, lineWidth: 3, exaggeration: 100, tracks: false, quality: "Detailed" });
   isochrones.lines.setLineWidth(settings.lineWidth);
   surface.material.uniforms.opacity.value = settings.surfaceOpacity;
   eggs.setIceSurface(settings.surface, settings.surfaceOpacity);
@@ -1621,6 +1653,12 @@ if (SCREENSHOT) {
   iceCores.setExaggeration(settings.exaggeration);
   aircraft.setExaggeration(settings.exaggeration);
   eggs.setExaggeration(settings.exaggeration);
+  // ?screenshot=bedmap: with the survey lines of every Bedmap generation (for presentations)
+  // thinner, so the isochrones still show through them
+  if (new URLSearchParams(window.location.search).get("screenshot") === "bedmap") {
+    for (const dataset of BEDMAP_DATASETS) settings.bedmapDatasets[dataset] = true;
+    bedmap.tracks.setLineWidth(0.8);
+  }
 }
 
 function updateBedRange(): void {
