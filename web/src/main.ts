@@ -40,6 +40,7 @@ import { CONFIDENCE_STYLES, GROUNDING_LINE_COLORS, GroundingLines, IceDivides, t
 import { ProfilePanel, type ProfilePoint, type Tooltip } from "./profile";
 import { BEDMAP_DATASETS, BedmapLines, type BedmapTrack } from "./bedmap";
 import { rangeSource } from "./sitedata";
+import { normalise, regionSearch } from "./regionsearch";
 
 // Data exported by anta_database.web: served with the app in development
 // (web/public/data), or from the bucket when VITE_DATA_URL is set at build time
@@ -2051,9 +2052,6 @@ function checkboxFolder<T>(title: string, items: [label: string, value: T][], hi
 }
 
 /** For matching the names of regions: no case, accents or double spaces. */
-const normalise = (name: string) =>
-  name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-
 /** A "?" after the name of a controller, its explanation shown on hover (or focus, by keyboard). */
 function addHelp(controller: { $name: HTMLElement }, text: string): void {
   const help = document.createElement("span");
@@ -2087,15 +2085,9 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
   for (const r of regions) {
     for (const name of [r.key, r.name, ...r.aliases]) if (name && !byName.has(normalise(name))) byName.set(normalise(name), r);
   }
-  const list = document.createElement("datalist");
-  list.id = "region-names";
-  for (const r of regions) {
-    const option = document.createElement("option");
-    option.value = label(r);
-    option.label = `${describe(r)}: ${count(datasetsOf(r).size, "dataset")}, ${count(r.tracks.length, "line")}`;
-    list.append(option);
-  }
-  document.body.append(list);
+  // Suggestions: our own list, not a <datalist>, which Firefox filters only from the start of the
+  // text (no "Pine" in "Amundsen Sea Embayment (Pine Island, Thwaites)") and does not show aliases
+  const suggest = regionSearch(regions, label);
 
   const folder = filters.addFolder("Regions").close();
   // chosen: the labels of the regions, "|" between them (saved with the settings)
@@ -2106,9 +2098,16 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
   const field = document.createElement("input");
   field.type = "text";
   field.className = "region-search";
-  field.setAttribute("list", list.id);
+  field.autocomplete = "off";
+  field.setAttribute("role", "combobox");
+  field.setAttribute("aria-autocomplete", "list");
+  field.setAttribute("aria-controls", "region-suggestions");
   field.placeholder = "Add a region: Dome C, WSB, Dronning Maud Land...";
   field.setAttribute("aria-label", "Add a region");
+  const suggestions = document.createElement("ul");
+  suggestions.className = "region-suggest";
+  suggestions.id = "region-suggestions";
+  suggestions.setAttribute("role", "listbox");
   const info = document.createElement("div");
   info.className = "region-info";
 
@@ -2162,28 +2161,68 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
       setChosen(restored.filter((r): r is Region => r !== undefined), true);
     })
     .hide();
-  const add = () => {
-    const value = field.value.trim();
-    if (!value) return;
-    const region = byName.get(normalise(value));
-    if (!region) {
-      info.textContent = `No line in a region called "${value}"`;
-      return;
+  let shown: Region[] = [];
+  let active = 0; // the suggestion picked by Enter, moved with the arrows
+  const showSuggestions = () => {
+    const found = suggest(field.value);
+    shown = found.map((f) => f.region);
+    active = Math.min(active, Math.max(shown.length - 1, 0));
+    suggestions.replaceChildren(
+      ...found.map(({ region: r, matched }, i) => {
+        const item = document.createElement("li");
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(i === active));
+        if (i === active) item.className = "active";
+        const name = document.createElement("span");
+        name.textContent = label(r);
+        const about = document.createElement("small");
+        about.textContent = `${matched ? `"${matched}", ` : ""}${describe(r)}: ${count(datasetsOf(r).size, "dataset")}, ${count(r.tracks.length, "line")}`;
+        item.append(name, about);
+        // mousedown, not click: before the field loses the focus
+        item.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          add(r);
+        });
+        return item;
+      }),
+    );
+    if (field.value.trim() && !found.length) {
+      const none = document.createElement("li");
+      none.className = "none";
+      none.textContent = `No line in a region called "${field.value.trim()}"`;
+      suggestions.append(none);
     }
+  };
+  const add = (region: Region) => {
     field.value = "";
+    active = 0;
+    showSuggestions();
     if (!chosen.includes(region)) setChosen([...chosen, region]);
     frameBox(region.box, 1500);
   };
   field.addEventListener("keydown", (event) => {
     event.stopPropagation(); // typing, not moving the view
-    if (event.key === "Enter") add();
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (shown.length) active = (active + (event.key === "ArrowDown" ? 1 : shown.length - 1)) % shown.length;
+      showSuggestions();
+    } else if (event.key === "Escape") {
+      field.value = "";
+      showSuggestions();
+    } else if (event.key === "Enter") {
+      // The exact name first (also a name not among the first suggestions), else the one picked
+      const exact = byName.get(normalise(field.value));
+      const region = exact ?? shown[active];
+      if (region) add(region);
+    }
   });
-  // A suggestion picked from the list is added at once: an input event that is not typing
-  // (Firefox), or a replacement (Chrome)
-  field.addEventListener("input", (event) => {
-    if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") add();
+  field.addEventListener("input", () => {
+    active = 0;
+    showSuggestions();
   });
-  folder.$children.append(items, field, info);
+  field.addEventListener("focus", showSuggestions);
+  field.addEventListener("blur", () => suggestions.replaceChildren());
+  folder.$children.append(items, field, suggestions, info);
   const whole = folder
     .add(state, "wholeDatasets")
     .name("Whole datasets")

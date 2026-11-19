@@ -20,6 +20,7 @@ data/scar_gazetteer.parquet, built from the CSV of the Australian Antarctic Data
 import argparse
 import difflib
 import json
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -135,6 +136,9 @@ def resolve(name, radius_km: Optional[float] = None) -> Region:
         if len(rows):
             return _place(rows.iloc[0], radius_km)
     found = _lookup().get(normalise(text))
+    if not found:  # the same name without its hyphens or spaces: "JJpp" for "J-Jpp", "Dome-C"
+        bare = re.sub(r"[^0-9a-z]", "", normalise(text))
+        found = next((v for k, v in _lookup().items() if bare and re.sub(r"[^0-9a-z]", "", k) == bare), None)
     if not found:
         close = difflib.get_close_matches(normalise(text), list(_lookup()), n=5, cutoff=0.75)
         hint = f" Did you mean: {', '.join(close)}?" if close else ""
