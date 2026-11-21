@@ -515,11 +515,11 @@ document.write(`
 <h3>Conversions of the raw data, and lines without IDs<a class="headerlink" href="#conversions-of-the-raw-data-and-lines-without-ids" title="Link to this heading">#</a></h3>
 <p>What a dataset needs goes in a <code class="docutils literal notranslate"><span class="pre">compile_settings.json</span></code> next to its <code class="docutils literal notranslate"><span class="pre">raw/</span></code> directory. It is recorded in the attribute <code class="docutils literal notranslate"><span class="pre">processing</span></code> of its files, and shown by <code class="docutils literal notranslate"><span class="pre">db.query(dataset=&quot;...&quot;)</span></code> when a single dataset is queried.</p>
 <p>For depths in Two-Way Travel Time (TWT), as Wang_2023 (<code class="docutils literal notranslate"><span class="pre">wave_speed</span></code> is half the speed in ice, in m/ns, as the travel time goes both ways):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;wave_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.08425</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">15.5</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;wave_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.08425</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">15.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wang et al. (2023)&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
-<p>For depths without the firn correction, as Cavitte_2020 (only the IRH depths: its ice thickness already has it):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">14.6</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction_vars&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;IRH_DEPTH&quot;</span><span class="p">]}</span>
+<p>For depths without the firn correction, as Cavitte_2020 (the depths and the ice thickness have none, and the bed was the surface minus that thickness):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;firn_correction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">14.6</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;firn_correction_vars&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;IRH_DEPTH&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;ICE_THK&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;BED_ELEV&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;firn_correction_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cavitte et al. (2021)&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
 <div class="pst-scrollable-table-container"><table class="table">
@@ -536,16 +536,22 @@ document.write(`
 <td><p>Metres added to the variables of <code class="docutils literal notranslate"><span class="pre">firn_correction_vars</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">firn_correction_vars</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">[&quot;IRH_DEPTH&quot;,</span> <span class="pre">&quot;ICE_THK&quot;]</span></code> by default. Elevations are never changed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[&quot;IRH_DEPTH&quot;,</span> <span class="pre">&quot;ICE_THK&quot;]</span></code> by default. With <code class="docutils literal notranslate"><span class="pre">&quot;BED_ELEV&quot;</span></code>, the bed is lowered by it (when the published bed is the surface minus the thickness without it). The surface is never changed</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">line_ids</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">firn_correction_source</span></code></p></td>
+<td><p>Where the value comes from, written with it in the attribute <code class="docutils literal notranslate"><span class="pre">firn</span> <span class="pre">correction</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">line_ids</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;dataset&quot;</span></code>: the raw files have no line IDs, so the lines are named after the dataset</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">split_at_jump_km</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">split_at_jump_km</span></code></p></td>
 <td><p>Cut each file of the line structure where two consecutive points are further apart than this. The lines are then named <code class="docutils literal notranslate"><span class="pre">Dataset_1</span></code>, <code class="docutils literal notranslate"><span class="pre">Dataset_2</span></code>…</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">same_trace_within_m</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">same_trace_within_m</span></code></p></td>
 <td><p>With one file per layer: a point of a file this close to a point of another file (each the nearest of the other) is the same trace, given with other coordinates, and takes theirs</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">trim_ends</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code>: keep the points at the ends of the lines without any layer (left out by default)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">note</span></code></p></td>
 <td><p>Anything else to report</p></td>
@@ -554,6 +560,7 @@ document.write(`
 </table>
 </div>
 <p>The arguments <code class="docutils literal notranslate"><span class="pre">wave_speed</span></code> and <code class="docutils literal notranslate"><span class="pre">firn_correction</span></code> of <code class="docutils literal notranslate"><span class="pre">CompileDatabase</span></code> still exist, and take over the settings.</p>
+<p>Every line starts and ends with its layers: the points at its ends without any layer (only the bed or the surface, e.g. Yan_2025) are left out, and the attribute <code class="docutils literal notranslate"><span class="pre">trimmed</span></code> of the line says how many. The gaps without layers inside a line stay. To keep the ends, compile with <code class="docutils literal notranslate"><span class="pre">CompileDatabase(...,</span> <span class="pre">trim_ends=False)</span></code>, or set <code class="docutils literal notranslate"><span class="pre">&quot;trim_ends&quot;:</span> <span class="pre">false</span></code> in the <code class="docutils literal notranslate"><span class="pre">compile_settings.json</span></code> of a dataset.</p>
 <p>Line IDs made by the database: the raw files of Leysinger_Vieli_2011 and Siegert_2004 have none. Leysinger_Vieli_2011 is one file with several survey lines, cut at the jumps of more than 50 km (<code class="docutils literal notranslate"><span class="pre">Leysinger_Vieli_2011_1</span></code> to <code class="docutils literal notranslate"><span class="pre">_9</span></code>), and Siegert_2004 is a single line (<code class="docutils literal notranslate"><span class="pre">Siegert_2004</span></code>).</p>
 </section>
 <section id="multiprocessing">
