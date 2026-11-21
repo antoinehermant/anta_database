@@ -812,9 +812,9 @@ const isochrones = new Isochrones();
 const tracks = new Tracks();
 // After the Bedmap tracks (order 3), on top of them
 tracks.group.renderOrder = 4;
-// Bed picks of the isochrone datasets along their tracks; off at start
+// Bed picks of the isochrone datasets along their tracks; on at start, where the lines are
 const trackBed = new TrackBed();
-trackBed.group.visible = false;
+trackBed.group.visible = false; // until loaded (showTrackBed)
 const lineLayers: LineLayer[] = [isochrones.lines, tracks.lines, trackBed.lines];
 for (const layer of lineLayers) {
   layer.setResolution(window.innerWidth, window.innerHeight);
@@ -1643,7 +1643,7 @@ const settings = {
   isochrones: true,
   colorBy: "Age" as ColorBy,
   tracks: true,
-  trackBed: false,
+  trackBed: true,
   // Layers of the Bedmap survey lines, once a generation is shown
   bedmapTracks: true,
   bedmapBed: false,
@@ -2029,12 +2029,24 @@ function queueFilter(): void {
   });
 }
 
-/** A folder of boxes, one per value; returns a function to tick the boxes of the values given. */
-function checkboxFolder<T>(title: string, items: [label: string, value: T][], hidden: Set<T>): (shown: (value: T) => boolean) => void {
+/** The datasets with lines in the regions chosen (null: no region), for "Select all" of the Datasets. */
+let regionDatasets: Set<string> | null = null;
+
+/**
+ * A folder of boxes, one per value; returns a function to tick the boxes of the values given.
+ * allowed: the values "Select all" ticks (all when it gives null), e.g. only the datasets of the regions.
+ */
+function checkboxFolder<T>(
+  title: string,
+  items: [label: string, value: T][],
+  hidden: Set<T>,
+  allowed: () => ((value: T) => boolean) | null = () => null,
+): (shown: (value: T) => boolean) => void {
   const folder = filters.addFolder(title).close();
   const state: Record<string, boolean> = {};
   const all = (on: boolean) => () => {
-    for (const c of boxes) c.setValue(on);
+    const ok = allowed();
+    boxes.forEach((box, i) => box.setValue(on && (!ok || ok(items[i][1]))));
   };
   folder.add({ all: all(true) }, "all").name("Select all");
   folder.add({ none: all(false) }, "none").name("Clear all");
@@ -2070,11 +2082,16 @@ function addHelp(controller: { $name: HTMLElement }, text: string): void {
  * radius), typed or picked from the suggestions by any of their names (anta_database.regions).
  * Each region chosen is listed (× to remove it), and the field stays to add more. With regions,
  * only their lines are shown, and in the Datasets folder only the datasets with lines there are
- * ticked; "Whole datasets" shows every line of those datasets. All regions removes them all and
- * ticks every dataset again. The regions chosen are kept with the settings (a hidden controller).
- * showDatasets: ticks the boxes of the Datasets folder (null in a private preview, without it)
+ * ticked, and "Select all" there ticks only them; "Whole datasets" shows every line of those
+ * datasets. The regions chosen are kept with the settings (a hidden controller).
+ * showDatasets: ticks the boxes of the Datasets folder (null in a private preview, without it).
+ * Returns a function removing every region (Reset filters).
  */
-function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown: (dataset: string) => boolean) => void) | null): void {
+function regionFilter(
+  index: IrhIndex,
+  regions: Region[],
+  showDatasets: ((shown: (dataset: string) => boolean) => void) | null,
+): () => void {
   const label = (r: Region) => (r.key ? `${r.name} (${r.key})` : r.name);
   const describe = (r: Region) =>
     r.kind === "place" ? `${r.type ?? "Place"}, lines within ${r.radius_km} km` : r.kind === "basin" ? "IMBIE basin" : "Ice sheet";
@@ -2145,12 +2162,12 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
   /** The regions chosen; restoring: from the settings, the boxes of the datasets left as they were. */
   const setChosen = (next: Region[], restoring = false) => {
     chosen = next;
+    regionDatasets = chosen.length ? new Set(chosen.flatMap((r) => [...datasetsOf(r)])) : null;
     showList();
     showLines();
     if (restoring) return;
     saved.setValue(chosen.map(label).join("|")); // kept with the settings
-    const inside = new Set(chosen.flatMap((r) => [...datasetsOf(r)]));
-    showDatasets?.((dataset) => chosen.length === 0 || inside.has(dataset));
+    showDatasets?.((dataset) => !regionDatasets || regionDatasets.has(dataset));
   };
 
   const saved = folder
@@ -2190,6 +2207,9 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
       const none = document.createElement("li");
       none.className = "none";
       none.textContent = `No line in a region called "${field.value.trim()}"`;
+      none.title =
+        "A place of the SCAR gazetteer is listed only when an isochrone line passes within its radius " +
+        "(e.g. 150 km for an ice shelf, 30 km for a glacier)";
       suggestions.append(none);
     }
   };
@@ -2231,11 +2251,23 @@ function regionFilter(index: IrhIndex, regions: Region[], showDatasets: ((shown:
     whole,
     "Off: only the lines that cross the regions chosen are shown. On: every line of the datasets that cross them, also outside the regions.",
   );
-  folder.add({ all: () => setChosen([]) }, "all").name("All regions");
   showList();
+  return () => {
+    whole.setValue(false);
+    setChosen([]);
+  };
 }
 
 function buildFilters(index: IrhIndex, regions: Region[] | null): void {
+  // First in the folder: every region removed, every dataset and age ticked
+  let clearRegions: (() => void) | null = null;
+  let showAges: ((shown: (age: AgeKey) => boolean) => void) | null = null;
+  const reset = () => {
+    clearRegions?.(); // also ticks every dataset
+    if (!clearRegions) showDatasets?.(() => true);
+    showAges?.(() => true);
+  };
+  filters.add({ reset }, "reset").name("Reset filters");
   let showDatasets: ((shown: (dataset: string) => boolean) => void) | null = null;
   // Datasets by their citation, e.g. "Cavitte et al. (2020)"; not in a private preview, which has
   // only the submitted dataset
@@ -2243,14 +2275,16 @@ function buildFilters(index: IrhIndex, regions: Region[] | null): void {
     const labels = new Map<string, string>();
     for (const f of index.features) if (!labels.has(f.dataset)) labels.set(f.dataset, f.citation ?? f.dataset);
     const datasets = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([name, label]): [string, string] => [label, name]);
-    showDatasets = checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets);
+    showDatasets = checkboxFolder("Datasets", datasets, isochrones.hiddenDatasets, () =>
+      regionDatasets ? (dataset) => regionDatasets!.has(dataset) : null,
+    );
   }
   // The regions, setting the boxes of the datasets
-  if (regions?.length) regionFilter(index, regions, showDatasets);
+  if (regions?.length) clearRegions = regionFilter(index, regions, showDatasets);
   // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
   const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
   const ages = [...new Set(index.features.map(ageKey))].sort((a, b) => rank(a) - rank(b) || (a as number) - (b as number));
-  checkboxFolder(
+  showAges = checkboxFolder(
     "Ages",
     ages.map((a): [string, AgeKey] => [a === "basal unit" ? "Basal unit" : a === null ? "No age" : `${a} ka`, a]),
     isochrones.hiddenAges,
@@ -2504,6 +2538,7 @@ terrainPreview
   });
 
 showTracks();
+showTrackBed();
 showBedmap();
 loadIsochrones();
 
