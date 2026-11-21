@@ -36,7 +36,7 @@ import shutil
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -146,16 +146,17 @@ class Layer(BaseModel):
 
 
 class FirnCorrection(BaseModel):
-    """Whether the depths of the files include a firn correction, and the one added (m)."""
+    """Whether the depths of the files include a firn correction ("unknown": the files and the article
+    do not say), and the one added (m)."""
 
-    applied: bool
+    applied: Union[bool, Literal["unknown"]]
     value: Optional[float] = Field(default=None, gt=0, le=100)
 
     @model_validator(mode="after")
     def value_if_applied(self) -> "FirnCorrection":
         if self.applied and self.value is None:
             raise ValueError("give the firn correction added to the depths, in metres")
-        if not self.applied:
+        if self.applied is not True:
             self.value = None
         return self
 
@@ -339,6 +340,7 @@ def submission_summary(s: Submission, submission_id: str, total: int) -> str:
         f"Layers: {layers or 'none'}",
         "Firn correction: "
         + ("not asked (older form)" if not s.firn_correction
+           else "not known" if s.firn_correction.applied == "unknown"
            else f"{s.firn_correction.value:g} m, in the depths" if s.firn_correction.applied else "none in the depths"),
         *(
             [f"Line ID: {s.line_id or f'{s.dataset} (none given)'}, for {len(no_ids)} file(s) without LINE_ID"]

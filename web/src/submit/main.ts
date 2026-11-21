@@ -87,8 +87,8 @@ interface Draft {
   line_id: string;
   /** Acquisition year and project of a file, when different from the survey */
   fileSurvey: Record<string, { acquisition_year: string; project: string }>;
-  /** Whether the depths include a firn correction ("yes", "no", "" until chosen), and its value in m */
-  firn: { applied: "" | "yes" | "no"; value: string };
+  /** Whether the depths include a firn correction ("yes", "no", "unknown", "" until chosen), and its value in m */
+  firn: { applied: "" | "yes" | "no" | "unknown"; value: string };
 }
 
 const emptyDraft = (): Draft => ({
@@ -1099,7 +1099,7 @@ function payload() {
     licence: draft.licence === "yes" ? "redistribute" : draft.licence === "review" ? "review" : "",
     line_id: filesWithoutLineIds().length ? draft.line_id.trim() : "",
     firn_correction: {
-      applied: draft.firn.applied === "yes",
+      applied: draft.firn.applied === "unknown" ? "unknown" : draft.firn.applied === "yes",
       value: draft.firn.applied === "yes" ? Number(draft.firn.value.replace(",", ".")) : null,
     },
     files: files.map((f) => ({

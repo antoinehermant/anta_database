@@ -213,6 +213,10 @@
                 <input type="radio" name="firn" value="no" data-bind="firn.applied" />
                 <span><strong>No:</strong> the depths are the travel times converted with the wave speed in ice only.</span>
               </label>
+              <label class="check">
+                <input type="radio" name="firn" value="unknown" data-bind="firn.applied" />
+                <span><strong>Not known:</strong> the files and the article do not say.</span>
+              </label>
               <label id="firn-value" hidden>Firn correction added (m)
                 <input data-bind="firn.value" inputmode="decimal" maxlength="6" placeholder="10" /></label>
             </fieldset>
