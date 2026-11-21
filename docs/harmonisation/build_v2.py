@@ -54,17 +54,22 @@ CROSS_TRACK = ["Winter_2018"]
 
 # What the compilation does to the raw files (compile.py, SETTINGS_FILE), as in v1
 SETTINGS = {
-    # No firn correction for now (2026-11-10): the published depths have none, and which value to add
-    # (14.6 m at EPICA Dome C, Cavitte et al., 2021) is to be settled with the harmonisation
+    # The published depths have no firn correction (D. Young, anta_json #15), but the ages were given at the
+    # depths + 14.6 m (checked at EDC, metadata-issues.md); the thickness has none either (the same as the UTIG
+    # lines of Bedmap3, firn correction 0), and the bed is the surface minus that thickness
     "Cavitte_2020": {
-        "note": "The published depths do not have a firn correction, and none is added for now (14.6 m at EPICA "
-        "Dome C in Cavitte et al., 2021): to be settled with the harmonisation. Depths interpolated across the gaps "
+        "firn_correction": 14.6,
+        "firn_correction_vars": ["IRH_DEPTH", "ICE_THK", "BED_ELEV"],
+        "firn_correction_source": "Cavitte et al. (2021)",
+        "note": "The published depths and ice thickness do not have the firn correction of Cavitte et al. (2021), "
+        "which dated the IRHs at the depths + 14.6 m at EPICA Dome C. Depths interpolated across the gaps "
         "of the HiCARS lines (OIA_JKB2n_*, IRH 1-20) removed, with the picks of M. Cavitte (2025).",
     },
     "Wang_2023": {
         "wave_speed": 0.08425,
         "firn_correction": 15.5,
-        "note": "Wave speed of 168.5 m/us and firn correction as in Wang et al. (2023).",
+        "firn_correction_source": "Wang et al. (2023)",
+        "note": "Wave speed of 168.5 m/us as in Wang et al. (2023).",
     },
     "Bodart_2021": {
         "drop_vars": {"R2_OIB_20181022_01.csv": ["ICE_THK"], "R3_OIB_20181022_01.csv": ["ICE_THK"]},

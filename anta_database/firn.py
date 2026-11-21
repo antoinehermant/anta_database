@@ -11,11 +11,14 @@ def _missing(value) -> bool:
 
 
 def firn_text(applied, value, settings: dict | None = None) -> str:
-    """"14.6 m, by the authors", "none", "not known"... An IRH dated at two cores can have one value
+    """"14.6 m, by the authors", "15.5 m, added by AntADatabase, value of Wang et al. (2023)", "none",
+    "not known"... An IRH dated at two cores can have one value
     per core (a list, in the order of "ice core")."""
     if settings and settings.get("firn_correction"):
-        return f"{settings['firn_correction']:g} m, added by the compilation"
-    if _missing(applied):
+        source = settings.get("firn_correction_source")
+        return f"{settings['firn_correction']:g} m, added by AntADatabase" + (f", value of {source}" if source else "")
+    # "unknown": checked, and the article does not say (null: not filled in, read the same way)
+    if _missing(applied) or str(applied).lower() == "unknown":
         return "not known"
     if not applied:
         return "none"

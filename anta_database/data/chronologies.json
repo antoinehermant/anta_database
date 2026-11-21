@@ -16,6 +16,7 @@
     "DFO-2006+AICC2012": {"cores": ["Dome Fuji"], "reference": "Dome Fuji Ice Core Project Members (2017), Science Advances: DFO-2006 below 342 ka, AICC2012 above 344 ka"},
     "Byrd-BB2001": {"cores": ["Byrd"], "reference": "Blunier and Brook (2001), Science"},
     "Byrd-H1994": {"cores": ["Byrd"], "reference": "Hammer et al. (1994), Annals of Glaciology"},
-    "Vostok-RR2003": {"cores": ["Vostok"], "reference": "Ruddiman and Raymo (2003), Quaternary Science Reviews"}
+    "Vostok-RR2003": {"cores": ["Vostok"], "reference": "Ruddiman and Raymo (2003), Quaternary Science Reviews"},
+    "GT4": {"cores": ["Vostok"], "reference": "Petit et al. (1999), Nature"}
   }
 }

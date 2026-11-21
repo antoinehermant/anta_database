@@ -94,20 +94,21 @@ What a dataset needs goes in a `compile_settings.json` next to its `raw/` direct
 For depths in Two-Way Travel Time (TWT), as Wang_2023 (`wave_speed` is half the speed in ice, in m/ns, as the travel time goes both ways):
 
 ```json
-{"wave_speed": 0.08425, "firn_correction": 15.5}
+{"wave_speed": 0.08425, "firn_correction": 15.5, "firn_correction_source": "Wang et al. (2023)"}
 ```
 
-For depths without the firn correction, as Cavitte_2020 (only the IRH depths: its ice thickness already has it):
+For depths without the firn correction, as Cavitte_2020 (the depths and the ice thickness have none, and the bed was the surface minus that thickness):
 
 ```json
-{"firn_correction": 14.6, "firn_correction_vars": ["IRH_DEPTH"]}
+{"firn_correction": 14.6, "firn_correction_vars": ["IRH_DEPTH", "ICE_THK", "BED_ELEV"], "firn_correction_source": "Cavitte et al. (2021)"}
 ```
 
 | Setting | Meaning |
 |---------|---------|
 | `wave_speed` | Multiplies `IRH_DEPTH` and `ICE_THK` (TWT in ns to metres) |
 | `firn_correction` | Metres added to the variables of `firn_correction_vars` |
-| `firn_correction_vars` | `["IRH_DEPTH", "ICE_THK"]` by default. Elevations are never changed |
+| `firn_correction_vars` | `["IRH_DEPTH", "ICE_THK"]` by default. With `"BED_ELEV"`, the bed is lowered by it (when the published bed is the surface minus the thickness without it). The surface is never changed |
+| `firn_correction_source` | Where the value comes from, written with it in the attribute `firn correction` |
 | `line_ids` | `"dataset"`: the raw files have no line IDs, so the lines are named after the dataset |
 | `split_at_jump_km` | Cut each file of the line structure where two consecutive points are further apart than this. The lines are then named `Dataset_1`, `Dataset_2`... |
 | `same_trace_within_m` | With one file per layer: a point of a file this close to a point of another file (each the nearest of the other) is the same trace, given with other coordinates, and takes theirs |

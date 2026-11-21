@@ -31,7 +31,10 @@ OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
 # in the attribute "processing" of its files:
 #   wave_speed             m/ns: the raw depths are two-way travel times (ns), multiplied by it
 #   firn_correction        m: added to the depths
-#   firn_correction_vars   what it is added to, ["IRH_DEPTH", "ICE_THK"] by default
+#   firn_correction_vars   what it is added to, ["IRH_DEPTH", "ICE_THK"] by default; with "BED_ELEV",
+#                          the bed is lowered by it (a published bed of the surface minus the
+#                          thickness without it)
+#   firn_correction_source where the value comes from, e.g. "Cavitte et al. (2021)"
 #   line_ids               "dataset": the raw files have no line IDs, the lines are named after
 #                          the dataset (Dataset_1, Dataset_2... when split). With one file per
 #                          layer, raw_md.json gives that name as "line ID"
@@ -105,9 +108,14 @@ class CompileDatabase:
                 f"({', '.join(DEPTH_VARS)})."
             )
         if settings.get("firn_correction"):
+            corrected = settings.get("firn_correction_vars", DEPTH_VARS)
+            source = settings.get("firn_correction_source")
             done.append(
-                f"Firn correction of {settings['firn_correction']:+g} m added "
-                f"({', '.join(settings.get('firn_correction_vars', DEPTH_VARS))})."
+                f"Firn correction of {settings['firn_correction']:+g} m added by AntADatabase "
+                f"({', '.join(v for v in corrected if v != 'BED_ELEV')}"
+                + ("; BED_ELEV lowered by it" if "BED_ELEV" in corrected else "")
+                + ")"
+                + (f", value of {source}." if source else ".")
             )
         if settings.get("line_ids") == "dataset" and settings.get("line_names"):
             pass  # named elsewhere: said by the note
@@ -530,6 +538,8 @@ class CompileDatabase:
         # the third of ice thickness, surface and bed is worked out from the other two
         if "ICE_THK" in df.columns:
             df["ICE_THK"] = self._to_depth(df["ICE_THK"], "ICE_THK", settings)
+        if "BED_ELEV" in df.columns and settings.get("firn_correction") and "BED_ELEV" in settings.get("firn_correction_vars", []):
+            df["BED_ELEV"] = df["BED_ELEV"] - settings["firn_correction"]
 
         published = [v for v in SOURCE_VARIABLES if v in df.columns]
         if (
@@ -571,6 +581,8 @@ class CompileDatabase:
         else:
             print("No coordinates found in the dataset")
             return
+        # A point without its position (e.g. -9999 for both in Jacobel_2005) is no point of the line
+        df = df[np.isfinite(df["PSX"].astype(float)) & np.isfinite(df["PSY"].astype(float))]
 
         if raw_md.iloc[0]["file structure"] == "IRH":
             raw_md.set_index("raw file", inplace=True)
@@ -737,7 +749,7 @@ class CompileDatabase:
                         acq_year_flag = "original"
                         line_id_flag = "not_provided" if settings.get("line_ids") == "dataset" else "original"
                         if line_id in settings.get("line_names", {}).values():
-                            line_id_flag = "article"  # named after the article, not the raw files
+                            line_id_flag = "original"  # the radar line IDs, from the article, not the raw files
                         doi_data = row["DOI dataset"]
                         doi_article = row.get("DOI article", row.get("DOI publication"))
                         if "radar instrument" in row.index:

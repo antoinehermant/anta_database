@@ -83,6 +83,36 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
       maybe ask Z. Wang one day.
 - [ ] **Cavitte_2020, firn correction:** none added in v2 for now (decided 2026-11-10); v1 added 14.6 m. To settle
       with the harmonisation, with one consistent firn correction for all datasets.
+      Checked 2026-11-20: the published ages come from the published depths **+ 14.6 m** (the firn correction is not in
+      the depths). The age method of the paper was redone: AICC2012 (EDC) interpolated at the IRH depth of the point of
+      `MCM_JKB1a_EDMC01a` closest to EDC (75°06'S, 123°21'E), which is at 94 m and along-track 110.153 km, as in the file
+      headers (the picks there are real, no nan or interpolation). With the ages of v1 (10.0 to 366.5 ka), all 19 dated IRHs
+      (1-19) need 14.4 to 15.1 m (mean 14.7, sd 0.2, within the rounding of the ages to 0.1 ka); without a correction, all
+      come out too young by 0.5 to 9 ka. The `raw_md.json` of the working copy (2026-09-02; the unused copy in `AntADatabase-v2-source` was replaced
+      by that of anta_json on 2026-11-20) has other ages (e.g. IRH 7-10: 97.4, 108.6, 122.8, 128.7 ka instead of 96.5, 106.3, 121.1, 127.8): they are the
+      same depths + 14.6 m dated on **AICC2023** (offset 14.0 ± 1.1 m), source unknown. v1 and the v2 build have the AICC2012 ages.
+      **Fixed in v2 (2026-11-21):** anta_json says `applied: false` (D. Young via Julien, #15), and the compilation adds
+      14.6 m to `IRH_DEPTH` and `ICE_THK` and lowers `BED_ELEV` by it (surface unchanged): the published thickness, bed
+      and surface are those of the Bedmap3 UTIG/NASA lines of the same traces (median 0.0 m), which Bedmap lists with a
+      firn correction of 0 m. Attribute: "14.6 m, added by AntADatabase, value of Cavitte et al. (2021)". Wang_2023 the
+      same way (15.5 m, Wang et al., 2023).
+- [ ] **Firn correction of the Bedmap fills (harmonisation):** Bedmap3 gives a firn correction per survey (UTIG, NASA,
+      CReSIS: 0 m; AWI, BAS: 10 m). Thickness and bed filled from Bedmap keep the correction of their survey, so they
+      can differ from the depths of the same line (e.g. Cavitte's thickness is now 14.6 m more than Bedmap's UTIG lines).
+- [ ] **Beem_2021, line `SPC_GCX0e_SPICE1a`:** the 51.4 ka layer is only 35 m below the 37.6 ka one near SPICEcore
+      (SP19: about 280 m). Looks fine in the viewer and our data match the raw files: to ask Julien.
+- [ ] **Muldoon_2023:** its 4.7 ka layer is 218 m deeper than WD2014 gives, 2 km from WDC: not a firn correction; dated
+      at Byrd? (ice core `["WDC", "Byrd"]`). To settle with the harmonisation.
+- [ ] **Firn correction of the datasets marked `false`, checked at the cores (2026-11-21; chronologies in
+      `~/data/ice_core_chronologies/`: EDC3, GT4, Ruddiman2003, Byrd):**
+  - Jacobel_2005 at Byrd (Blunier and Brook, 2001), 0.2 km: +5.4 m needed, within the 0.5 ka uncertainty (0-14 m): not decisive.
+  - Siegert_2004: the line is 248 km from Byrd, and the Byrd chronology starts at 940 m (10 ka): not checkable there.
+  - Leysinger_Vieli_2011 at Vostok (line 009, 1.4 km), the four Vostok-dated layers: GT4 ice ages need -57 to +50 m
+    (no constant offset); read as **gas ages of Ruddiman and Raymo (2003)**, +11 to +29 m. So the chronology is
+    `Vostok-RR2003` (the paper cites it), set in anta_json with `EDC3` for EDC. At EDC the closest line is 12.8 km
+    away, and the offset grows with depth (+39 to +150 m, about 6 % of the depth): not checkable as such.
+  - Byrd: no chronology above 940 m (Hammer et al. ECM not found online); the authors of Muldoon_2023 built their own
+    (Bayesian, from the volcanic ties): we may need the same for the harmonisation.
 
 ## Known issues of v1, to fix in v2
 
