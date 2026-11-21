@@ -35,6 +35,9 @@ OLD_RAW_MD_KEYS = {"flight ID": "line ID", "flight ID prefix": "line ID prefix"}
 #                          the bed is lowered by it (a published bed of the surface minus the
 #                          thickness without it)
 #   firn_correction_source where the value comes from, e.g. "Cavitte et al. (2021)"
+#   trim_ends              false: keep the points at the ends of the lines without any layer
+#                          (left out by default; the argument trim_ends=False of the class keeps
+#                          them for every dataset)
 #   line_ids               "dataset": the raw files have no line IDs, the lines are named after
 #                          the dataset (Dataset_1, Dataset_2... when split). With one file per
 #                          layer, raw_md.json gives that name as "line ID"
@@ -66,8 +69,10 @@ class CompileDatabase:
         geopackages: bool = False,
         remove_tmp_files: bool = True,
         var_attrs_json: Optional[str] = None,
+        trim_ends: bool = True,
     ) -> None:
         self._dir_list = dir_list
+        self._trim = trim_ends
         self._wave_speed = wave_speed
         self._firn_correction = firn_correction
         self._extract_data = extract_data
@@ -915,8 +920,30 @@ class CompileDatabase:
             part = merged_df.iloc[line].dropna(axis=1, how="all").reset_index(drop=True)
             self._write_line(part, trace_dir, f"{line_id}_{n}")
 
+    @staticmethod
+    def _trim_ends(merged_df: pd.DataFrame) -> tuple[pd.DataFrame, Optional[str]]:
+        """Without the points at the ends of the line that have no layer (the bed and surface
+        alone, e.g. Yan_2025): the line starts and ends with its layers. The gaps inside a line
+        stay. Also returns what was left out, in words (attribute "trimmed"), or None."""
+        layers = [col for col in merged_df.columns if str(col).isdigit()]
+        if not layers:
+            return merged_df, None
+        has = merged_df[layers].notna().any(axis=1).to_numpy()
+        if not has.any() or (has[0] and has[-1]):
+            return merged_df, None
+        first, last = np.flatnonzero(has)[[0, -1]]
+        xy = merged_df[["PSX", "PSY"]].to_numpy(dtype=float)
+        steps = np.hypot(*np.diff(xy, axis=0).T)
+        km = (steps[:first].sum() + steps[last:].sum()) / 1000
+        n = first + len(has) - 1 - last
+        text = f"{n} points without any layer left out at the ends of the line ({km:.1f} km)"
+        return merged_df.iloc[first : last + 1].reset_index(drop=True), text
+
     def _write_line(self, merged_df: pd.DataFrame, trace_dir: str, name: Optional[str]) -> None:
         """Write the nc file of a line; name: when it is not the one of its directory."""
+        trimmed = None
+        if self._trim and self._settings(os.path.dirname(os.path.dirname(trace_dir))).get("trim_ends", True):
+            merged_df, trimmed = self._trim_ends(merged_df)
         x = merged_df["PSX"]
         y = merged_df["PSY"]
         data_vars = {
@@ -973,6 +1000,8 @@ class CompileDatabase:
         )
         if not ds.attrs["platform"]:  # not in the metadata of the dataset
             del ds.attrs["platform"]
+        if trimmed:
+            ds.attrs["trimmed"] = trimmed
         point_shape = len(merged_df)
         if point_shape < 1e6:
             chunk_size_point = min(100, point_shape)
