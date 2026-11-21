@@ -395,6 +395,24 @@ body:has(#sidebar:not(.closed)) #legends {
   text-decoration: underline;
 }
 
+/* A region without lines: the warning after its name */
+#gui .region-list span.region-empty {
+  margin-right: auto;
+  color: #d97a00;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+#gui .region-list span.region-empty:hover {
+  text-decoration: none;
+}
+
+#gui .region-suggest li small.region-empty {
+  color: #d97a00;
+  opacity: 1;
+}
+
 #gui .region-list button {
   padding: 0 5px;
   border: none;

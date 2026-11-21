@@ -79,10 +79,35 @@ export interface Region {
   tracks: number[];
 }
 
-export async function loadRegions(baseUrl: string, file: string): Promise<Region[]> {
+/** The regions with lines, and the files of the regions without lines and of the outlines (exports since 2026-11-21). */
+export interface Regions {
+  regions: Region[];
+  empty?: string;
+  outlines?: string;
+}
+
+export async function loadRegions(baseUrl: string, file: string): Promise<Regions> {
   const response = await fetchData(`${baseUrl}/${file}`);
   if (!response.ok) throw new Error(`${baseUrl}/${file} not found`);
-  return (await response.json()).regions;
+  const { regions, empty, outlines } = await response.json();
+  return { regions, empty, outlines };
+}
+
+const fetchJsonGz = async (url: string) => JSON.parse(new TextDecoder().decode(await fetchBytes(url)));
+
+/** The regions without lines (anta_database.web.regions): places of the gazetteer, ice sheets and basins. */
+export async function loadEmptyRegions(baseUrl: string, file: string): Promise<Region[]> {
+  const { places, regions } = await fetchJsonGz(`${baseUrl}/${file}`);
+  const fromRow = ([key, name, aliases, type, radius, x, y]: [string | null, string, string, string | null, number, number, number]): Region => {
+    const [cx, cy, r] = [x * 1000, y * 1000, radius * 1000];
+    return { key, name, kind: "place", aliases: aliases ? aliases.split("|") : [], type: type ?? undefined, radius_km: radius, box: [cx - r, cx + r, cy - r, cy + r], tracks: [] };
+  };
+  return [...regions, ...places.map(fromRow)];
+}
+
+/** The outlines of the ice sheets and basins by short name: rings of x, y (km). */
+export function loadRegionOutlines(baseUrl: string, file: string): Promise<Record<string, number[][]>> {
+  return fetchJsonGz(`${baseUrl}/${file}`);
 }
 
 /** The key of a line, the same for its isochrones and its track. */
