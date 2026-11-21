@@ -5,7 +5,7 @@ the working copy (only read), so that:
 - the points of every line are in order along it (compiling/lines.py, order_line);
 - no line is cut: Leysinger_Vieli_2011 and Siegert_2004, without line IDs, are one line each,
   until Bedmap gives them their lines (docs/bedmap/README.md);
-- the corrected files of AntADatabase-v2-source are used (fix_cavitte.py);
+- the corrected files of AntADatabase-v2-source are used (fix_cavitte.py --min-km 2);
 - a line only lists the layers it has values of (docs/harmonisation/metadata-issues.md);
 - ice thickness, bed and surface elevation are taken from Bedmap where a line has none
   (anta_database/bedmap/reconnect.py; report in BUILD/bedmap_fill.csv).
@@ -63,7 +63,9 @@ SETTINGS = {
         "firn_correction_source": "Cavitte et al. (2021)",
         "note": "The published depths and ice thickness do not have the firn correction of Cavitte et al. (2021), "
         "which dated the IRHs at the depths + 14.6 m at EPICA Dome C. Depths interpolated across the gaps "
-        "of the HiCARS lines (OIA_JKB2n_*, IRH 1-20) removed, with the picks of M. Cavitte (2025).",
+        "of the HiCARS lines (OIA_JKB2n_*, IRH 1-20) removed, with the picks of M. Cavitte (2025), and on all "
+        "the lines the interpolated stretches of 2 km or more (depths on a straight line, second difference "
+        "at most 0.1 m), but for their two ends.",
     },
     "Wang_2023": {
         "wave_speed": 0.08425,
