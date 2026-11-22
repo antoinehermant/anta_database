@@ -129,10 +129,84 @@ def date_target(target: pd.DataFrame, at: pd.DataFrame, firn: float) -> pd.DataF
     return pd.DataFrame(rows, columns=["point", "file", "irh", "depth", "age", "age_unc", "gap", "to_nearest"])
 
 
+def _along(line: pd.DataFrame, irh_cols: List[int], at: float, max_gap: float) -> Dict[int, float]:
+    """Depth of each layer of a line at a distance along it (m): linear between its two points around, if they are
+    within max_gap of each other and both have the layer."""
+    d, out = line["along"].values, {}
+    j = np.searchsorted(d, at)
+    if j == 0 or j == len(d) or d[j] - d[j - 1] > max_gap:
+        return out
+    w = (at - d[j - 1]) / (d[j] - d[j - 1])
+    for irh in irh_cols:
+        z0, z1 = line[irh].values[j - 1], line[irh].values[j]
+        if np.isfinite(z0) and np.isfinite(z1):
+            out[irh] = z0 + w * (z1 - z0)
+    return out
+
+
+def _wide(points: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Per line: x, y, along (m), and one column of depth per layer."""
+    out = {}
+    for file, g in points.groupby("file"):
+        w = g.pivot_table(index=["x", "y"], columns="irh", values="depth", sort=False).reset_index()
+        xy = w[["x", "y"]].values
+        w["along"] = np.r_[0, np.cumsum(np.hypot(*np.diff(xy, axis=0).T))]
+        out[file] = w
+    return out
+
+
+def crossings(target: pd.DataFrame, ref: pd.DataFrame, target_gap: float = 6e3, ref_gap: float = 1e3) -> pd.DataFrame:
+    """Where the lines of the target cross those of a reference dataset: one row per crossing, with the depths of all
+    layers of both lines there (linear along each line; gaps up to target_gap and ref_gap m), and the angle."""
+    from shapely.geometry import LineString, Point
+
+    tl, rl = _wide(target), _wide(ref)
+    rows = []
+    rgeom = {f: LineString(w[["x", "y"]].values) for f, w in rl.items() if len(w) > 1}
+    for tf, tw in tl.items():
+        if len(tw) < 2:
+            continue
+        tline = LineString(tw[["x", "y"]].values)
+        tcols = [c for c in tw.columns if isinstance(c, (int, np.integer))]
+        for rf, rline in rgeom.items():
+            if not tline.envelope.intersects(rline.envelope):
+                continue
+            hit = tline.intersection(rline)
+            pts = [hit] if hit.geom_type == "Point" else [g for g in getattr(hit, "geoms", []) if g.geom_type == "Point"]
+            rw = rl[rf]
+            rcols = [c for c in rw.columns if isinstance(c, (int, np.integer))]
+            for p in pts:
+                td = _along(tw, tcols, tline.project(p), target_gap)
+                rd = _along(rw, rcols, rline.project(p), ref_gap)
+                if not td or not rd:
+                    continue
+                rows.append({"target_file": tf, "ref_file": rf, "x": p.x, "y": p.y, "target": td, "ref": rd})
+    return pd.DataFrame(rows)
+
+
+def date_at_crossings(cross: pd.DataFrame, ages: pd.DataFrame, firn: float) -> pd.DataFrame:
+    """Age of each target layer at each crossing, from the reference layers there (as date_target, without the GP)."""
+    age = dict(zip(ages.irh, ages.age))
+    rows = []
+    for c in cross.itertuples():
+        prof = sorted((z, age[i]) for i, z in c.ref.items() if i in age)
+        if len(prof) < 2 or not all(b[1] > a[1] for a, b in zip(prof, prof[1:])):
+            continue
+        z, a = np.array(prof).T
+        for irh, zt in c.target.items():
+            zt = zt + firn
+            j = np.searchsorted(z, zt)
+            if j == 0 or j == len(z):
+                continue
+            w = (zt - z[j - 1]) / (z[j] - z[j - 1])
+            rows.append((c.target_file, c.ref_file, c.x, c.y, irh, zt, a[j - 1] + w * (a[j] - a[j - 1]), z[j] - z[j - 1]))
+    return pd.DataFrame(rows, columns=["file", "ref_file", "x", "y", "irh", "depth", "age", "gap"])
+
+
 def run(target_name: str, refs: List[str], firns: List[float], build: str = BUILD, out: str = OUTPUT) -> pd.DataFrame:
     target = load(target_name, build)
     ages = reference_ages(out)
-    results = []
+    results, crossed = [], []
     for ref_name in refs:
         ref = load(ref_name, build)
         # Only the reference points near the target lines
@@ -140,12 +214,18 @@ def run(target_name: str, refs: List[str], firns: List[float], build: str = BUIL
         d, _ = tree.query(ref[["x", "y"]].values, distance_upper_bound=NEIGHBOUR_KM * 1e3)
         ref = ref[np.isfinite(d)]
         at = reference_at(target, ref, ages[ages.dataset == ref_name])
+        cross = crossings(target, ref)
+        a_ref = ages[ages.dataset == ref_name]
         for firn in firns:
-            r = date_target(target, at, firn).assign(reference=ref_name, firn=firn)
-            results.append(r)
+            results.append(date_target(target, at, firn).assign(reference=ref_name, firn=firn))
+            if len(cross):
+                crossed.append(date_at_crossings(cross, a_ref, firn).assign(reference=ref_name, firn=firn))
     df = pd.concat(results, ignore_index=True)
     os.makedirs(out, exist_ok=True)
     df.to_csv(os.path.join(out, f"transfer_{target_name}.csv"), index=False, float_format="%.6g")
+    if crossed:
+        pd.concat(crossed, ignore_index=True).to_csv(os.path.join(out, f"crossings_{target_name}.csv"), index=False,
+                                                     float_format="%.6g")
     return df
 
 

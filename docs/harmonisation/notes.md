@@ -255,8 +255,48 @@ This does not support it: on 009 they look like deeper layers.
 for only 0 to 19 % of its points (Beem_2021, Sanderson_2024, Yan_2025, none of them tied yet). Line 110 has none.
 Next: the ties at SPICEcore (Beem, Sanderson), then the transfer again.
 
-**Proposed for the database age of their layers:** the transfer ages, per cluster (their numbers split where the
-clusters disagree), with the spread above as the uncertainty. The published ages stay as published.
+#### At the crossings themselves
+
+The lines do cross: 156 crossings with the five newer datasets (Cavitte 51, Mulvaney 49, Chung 24, Winter 18,
+Bodart_2025b 14), most of them on the Dome C cluster (figure). At a crossing no surface is needed: the layers of both
+lines are interpolated along each line to the crossing point (the target's points are 2.5 km apart, the reference's
+binned to 250 m), and the target layer is read on the depth-age profile of the reference layers there.
+
+![Leysinger lines and the crossings](figures/leysinger_crossings_map.png)
+
+![Reading an age at a crossing](figures/leysinger_crossing_profile.png)
+
+![Ages at the crossings, per line](figures/leysinger_crossing_ages.png)
+
+Figures: `docs/harmonisation/figures/leysinger.py`.
+
+**Which dating is better?** For the Dome C cluster, with the +14 m firn shift:
+
+| IRH | Published | At EDC, 13 km (H3) | At the crossings | Crossings (references) | Spread between crossings (1.4826 MAD) | Depth part of the EDC tie |
+|---|---|---|---|---|---|---|
+| 2 | 36.6 | 33.5 | 34.4 | 96 (3) | 0.9 ka | 0.7 ka |
+| 4 | 72.9 | 65.1 | 69.0 | 115 (4) | 1.1 ka | 1.6 ka |
+| 6 | 129.8 | 125.2 | 125.2 | 136 (5) | 1.6 ka | 2.0 ka |
+| 8 | 244.7 | 220.4 | 211.6 | 118 (3) | 3.5 ka | 12.2 ka |
+| 9 | 352.4 | | 306.6 | 4 (1) | 14.7 ka | |
+
+The crossings agree with each other better than the EDC tie is known, and they agree with the surfaces of the transfer
+above. The EDC tie rests on one line 13 km from the core, so its GP uncertainty is likely too small, too. **Proposed:
+date such datasets at their crossings with datasets tied to a core, where they cross; through the surfaces of the
+transfer where they only pass near; at the core only where neither exists.** The uncertainty of such an age is the
+spread between the crossings, combined with the uncertainty of the reference datasets' own ages (their tie at the core
+and the chronology), which is common to all their crossings, so it doesn't average out.
+
+**For the manuscript: the two clusters of Leysinger Vieli et al. (2011) do not share their layers.** At the crossings
+with Cavitte_2020 and Winter_2018 near Vostok, line 009 gives IRH 2 at 49.5 ka (Dome C cluster: 34.4), IRH 4 at 81.1
+ka (69.0) and IRH 6 at 136.2 ka (125.2). The few crossings of the other lines of the Vostok cluster agree with 009
+(121: IRH 2 at 53 ka). The paper correlated the two clusters through their ice-core ages only (its Combined Cluster
+case), because the layers fade on line 102; the crossings show that the layers given the same number are different
+layers, 12 to 15 ka apart. This is the kind of result the database makes possible: a correlation that could only be
+assumed in 2011 can now be tested against the newer datasets crossing those lines.
+
+**Proposed for the database age of their layers:** the ages at the crossings, per cluster (their numbers split
+where the clusters disagree), with the uncertainty above. The published ages stay as published.
 
 *Across cores:* Cavitte's layers, dated at EDC, reach Vostok too. There, AICC2023 gives 37.7, 72.8 and 97.6 ka for
 the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carrying a layer from one core to another
