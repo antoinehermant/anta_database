@@ -28,7 +28,7 @@ used by the viewer before; precision: what the source allows, not a measured err
 
 | Core | Position | Source | Precision | Moved |
 |---|---|---|---|---|
-| EDC | 75°06'02"S, 123°20'52"E, 3233 m | Stauffer et al. (2004), the site selected for drilling | ~150 m | 127 m |
+| EDC | 75.10162°S, 123.34820°E, 3233 m | The sign at the drill tent (photograph, personal communication) | ~10 m | 9 m |
 | BELDC | 75°17'57.02"S, 122°26'42.5"E, 3230 m (WGS84) | Lilien et al. (2021) | ~10 m | 3 m |
 | Dome Fuji | 77°19'01"S, 39°42'12"E, 3810 m | Dome-F Deep Coring Group (1998), DF1; DF2 is 43 m north | ~50 m | 85 m |
 | Vostok | -78.46442, 106.83732, 3488 m | PANGAEA (AICC2012 Vostok) | ~300 m | 3 m |
@@ -55,12 +55,14 @@ The old table of the regions was much further off: Talos Dome 37.6 km, Vostok 21
   39°42' (0.8 km).
 - Rounded values propagate: the 72°49'S of the TALDICE website (for 72°49'40"S) is 1.2 km north; the 0.01° of drilling
   reports and data centres is up to 1.1 km.
-- No surveyed position of the borehole itself is published for EDC (the selected site and the camp differ by 60 m),
-  Vostok 5G (station level) or DF2 (43 m from DF1). Byrd and Siple Dome are known to about 1 to 2 km only, which limits
+- No surveyed position of the borehole itself is published for EDC: the site selected for drilling (Stauffer et al.,
+  2004) is 118 m from the borehole, and the camp (Vittuari et al., 2004) 60 m from that site. We use the position on the
+  sign at the drill tent, given by a colleague from a photograph; it puts the Cavitte_2020 line 32 m from the core
+  instead of 109 m. Nor is one published for Vostok 5G (station level) or DF2 (43 m from DF1). Byrd and Siple Dome are known to about 1 to 2 km only, which limits
   any tie there.
 
-**The radar near the cores** (nearest point with a layer, v2 build, corrected positions): EDC: Bodart_2025b 20 m,
-Winter_2018 30 m, Cavitte_2020 110 m, Chung_2023 220 m, Mulvaney_2023 240 m. BELDC: Cavitte_2020, Mulvaney_2023 20 m,
+**The radar near the cores** (nearest point with a layer, v2 build, corrected positions): EDC: Winter_2018 30 m,
+Cavitte_2020 30 m, Bodart_2025b 80 m, Mulvaney_2023 170 m, Chung_2023 190 m. BELDC: Cavitte_2020, Mulvaney_2023 20 m,
 Chung_2023 40 m. Dome Fuji: Wang_2023 10 m, Franke_2025, Winter_2018, Bodart_2025a 120 m. Vostok: Winter_2018 70 m,
 Cavitte_2020 80 m, Leysinger_Vieli_2011 600 m. EDML: Franke_2025, Winter_2018 150 m, Bodart_2025a 230 m. TALDICE:
 Bodart_2025b 10 m. SPICEcore: Sanderson_2024 630 m, Leysinger_Vieli_2011 750 m, Beem_2021 810 m. WDC: Bodart_2021
@@ -68,6 +70,8 @@ Bodart_2025b 10 m. SPICEcore: Sanderson_2024 630 m, Leysinger_Vieli_2011 750 m, 
 Taylor Dome, Law Dome, Siple Dome, Skytrain, RICE, Fletcher, Berkner, James Ross Island.
 
 **Where the positions are used:** the regions of the queries (the places of the ice cores: Dome C, Little Dome C, Dome
-Fuji, Vostok, Kohnen, Talos Dome, WAIS Divide, Siple Dome; WAIS Divide now has 8 lines instead of 9), the 3D viewer and
+Fuji, Vostok, Kohnen, Talos Dome, WAIS Divide, Siple Dome; WAIS Divide now has 8 lines instead of 9: the old table put the core 20.6 km north-east, at 79.28°S, 112.05°W, so two
+Muldoon_2023 lines 33 and 46 km from that point, but 54 and 66 km from the core, left the 50 km circle, and one 41 km
+from the core came in), the 3D viewer and
 the submission form (`web/src/icecore-sites.ts`, checked against the table by `python -m
 anta_database.harmonisation.cores`), and the harmonisation.

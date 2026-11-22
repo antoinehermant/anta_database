@@ -19,7 +19,7 @@ export interface IceCore {
 }
 
 export const ICE_CORES: IceCore[] = [
-  { name: "EDC", site: "EPICA Dome C", lat: -75.100556, lon: 123.347778, elevation: 3233, depth: 3270, bottomAge: "≈ 800 ka", drilled: "1996–2004", reference: "EPICA community members (2004), Nature" },
+  { name: "EDC", site: "EPICA Dome C", lat: -75.10162, lon: 123.3482, elevation: 3233, depth: 3270, bottomAge: "≈ 800 ka", drilled: "1996–2004", reference: "EPICA community members (2004), Nature" },
   { name: "BELDC", site: "Beyond EPICA, Little Dome C", lat: -75.299172, lon: 122.445139, elevation: 3230, depth: 2800, bottomAge: "> 1.2 Ma", drilled: "2021–2025", reference: "Beyond EPICA – Oldest Ice (2025); Lilien et al. (2021), The Cryosphere", poleScale: 2.2, basalDebris: 300 },
   { name: "Dome Fuji", site: "Dome Fuji (DF1 and DF2)", lat: -77.316944, lon: 39.703333, elevation: 3810, depth: 3035, bottomAge: "≈ 720 ka", drilled: "2003–2007", reference: "Dome Fuji Ice Core Project Members (2017), Science Advances" },
   { name: "Vostok", site: "Vostok (5G)", lat: -78.46442, lon: 106.83732, elevation: 3488, depth: 3769, bottomAge: "≈ 420 ka (meteoric ice)", drilled: "1990–2012", reference: "Petit et al. (1999), Nature; Vasiliev et al. (2012)" },
