@@ -349,3 +349,90 @@ the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carryi
 - The other cores (EDML, TALDICE, BELDC, WDC, SPICEcore, Byrd).
 - An anta_json issue per dataset not reproduced (Chung, Bodart_2025b, Winter, Mulvaney), asking Julien for the tie
   depth or method (queued for Monday).
+
+---
+
+## Datasets that cause problems (running list)
+
+Kept here as we go, so that each is handled on purpose in H5 and stated in the manuscript.
+
+| Dataset | Problem | Found | Handling for now |
+|---|---|---|---|
+| Leysinger_Vieli_2011 | Depths from normalised heights times a thickness; 50 to 60 m shallower than the newer datasets at the crossings, scatter 20 to 70 m (within its stated error of 0.02 to 0.03 of the thickness). Line 13 km from EDC; ages not reproduced at EDC or Vostok. Its two clusters probably don't share the layers the paper correlated | H3, 2026-11-22 | Matched by the sequence of its layers, not by depth; dated through the matched Cavitte layers (Dome C cluster only) |
+| Mulvaney_2023 | Published ages not reproduced at EDC (Δz growing with depth, up to 29 m); at the crossings 10.5 m deeper than Cavitte, with a large scatter below 2000 m; its 75.2 ka layer sits 21 m below Cavitte's 73.4 ka (usual: 10.5 m) | H3 and below | Anta_json issue on Monday; its deep layers and the 75 ka link marked uncertain |
+| Bodart_2025b | Few lines near EDC, leave-one-line-out errors 7 to 20 m; its 128 ka layer at the core 15 to 21 m off the crossings | H3 and below | Anta_json issue on Monday; matched at the crossings rather than at the core |
+| Wang_2023, IRH 6 | Leave-one-line-out error 15.6 m at Dome Fuji; age not reproduced (−12.5 m) | H3 | Marked uncertain |
+
+---
+
+## H5, first look: the same reflections across the datasets at EDC (2026-11-22)
+
+Can we already say which layers of the datasets near EDC are the same reflection? Five datasets have layers within
+30 km of the core: Cavitte_2020 (25 layers), Mulvaney_2023 (20), Chung_2023 (19), Bodart_2025b (6), Winter_2018 (4).
+Script: `docs/harmonisation/scripts/edc_horizons.py`; outputs `crossings_EDC.parquet`, `matches_EDC.csv`,
+`horizons_EDC.csv` next to `ties.csv`.
+
+**Method.**
+1. All the crossings of every pair of these datasets within 30 km of EDC: 648 in all, from 8 (Chung with Winter or
+   Bodart, its one line) to 192 (Cavitte with Mulvaney). Some pairs of lines cross many times: they fly nearly the
+   same track (e.g. one Cavitte and one Mulvaney line, 103 times).
+2. For each pair of layers, the median depth difference over the crossings, and its spread.
+3. For each pair of datasets, one offset (the median of the closest pairs of layers), then each layer matched to the
+   layer of the other dataset nearest that offset: within 5 m (or twice the spread), spread at most 10 m, at least 3
+   crossings, the order of the layers kept.
+4. The matched pairs joined into horizons across datasets.
+
+Only depth and order are used. **The published ages are kept aside, as an independent check.**
+
+**Results.** 35 matched pairs make **18 horizons**, none with two layers of the same dataset. The published ages of
+their members agree within 0.2 to 2.1 ka for 16 of them, though the matching never saw them:
+
+| Depth at EDC (m) | Cavitte | Mulvaney | Bodart_2025b | Winter | Chung | AICC2023 (our tie of Cavitte) | Spread of our ties |
+|---|---|---|---|---|---|---|---|
+| 317 | 10.0 | 10.5 | | | | 10.0 | 0.5 |
+| 609 | 29.4 | 30.4 | | | | 29.3 | 1.2 |
+| **707** | **38.1** | **39.2** | **37.7** | **38.2** | | **38.1** | 1.1 |
+| 805 | 46.4 | 47.1 | | | | 46.7 | 0.9 |
+| 1081 | 73.4 | 75.2 (?) | 73.1 | | 73.3 | 73.0 | 2.1 |
+| 1177 | 82.0 | 82.6 | | | | 82.0 | 0.7 |
+| 1275 | | | 90.8 | 90.2 | 90.0 | (91.0 to 91.5) | 0.5 |
+| 1341 | 96.5 | 97.7 | | | 96.5 | 97.5 | 1.6 |
+| 1596 | 121.1 | | 122.8 | | 121.0 | 122.9 | 0.2 |
+| 1683 | 127.8 | 128.5 | 128.4 | | | 128.8 | 1.6 |
+| 1890 | 160.4 | | | 161.1 | 160.0 | 159.6 | 0.8 |
+| 1918 | 166.4 | 166.1 | | | | 164.8 | 1.0 |
+| 2096 | | 202.3 | | | 203.0 | (202.7 to 203.0) | 0.3 |
+| 2280 | | 240.4 | | | 239.0 | (240.1 to 241.7) | 1.6 |
+| 2351 | 254.5 | **262.2** | | | | 253.2 | **10.4** |
+| 2546 | 327.3 | 326.2 | | | | 326.5 | 1.4 |
+| 2607 | 341.5 | **345.5** | | | | 340.5 | **10.3** |
+| 2643 | 366.5 | | | | 365.0 | 366.7 | 0.7 |
+
+The 38 ka layer is one reflection in four datasets. In two horizons the same reflection has published ages 4 and
+7.7 ka apart (Mulvaney's 262.2 and 345.5 ka against Cavitte's 254.5 and 341.5): the reconciliation gives them one
+age. "(?)": the link of Mulvaney's 75.2 ka layer is indirect (through Bodart and Chung); against Cavitte it is 21 m
+deeper than their usual offset, so it may be another layer about 10 m below.
+
+![Layers at EDC and the horizons](figures/edc_horizons_ladder.png)
+
+**Depth offsets between datasets** (the second dataset deeper, m): Mulvaney − Cavitte +10.5, Bodart − Cavitte +9.2,
+Winter − Cavitte +5.2, Chung − Cavitte +1.9, and so on. They are about **constant with depth** in every pair (figure):
+a shift, from the firn correction or the pick of the surface, not a wave-speed scale. They don't follow the firn
+corrections given (Cavitte +14.6 m, added by us; Mulvaney and Chung 10 m; Winter 13 m; Bodart 9.5 and 14.6 m): with
+those, Mulvaney should be about 4.6 m *shallower* than Cavitte, not 10.5 m deeper. To be understood in H4, with the
+metadata of each radar. The loops of three datasets close within ±2.6 m, except those through the pair Mulvaney and
+Chung (−5.5 to −7.9 m; their 8 crossings are on deep layers only).
+
+![Depth differences at the crossings](figures/edc_pair_offsets.png)
+
+**The core and the crossings agree.** For the matched pairs, the depth difference at the core (Gaussian surfaces, H3)
+and at the crossings differ by 1.7 m (median). The exceptions are the deep Mulvaney layers (up to 18 m) and Bodart's
+128 ka layer (15 to 21 m), where their lines near the core are few or scattered.
+
+**What it means for the dating.** The datasets near EDC can be reconciled now: one horizon per reflection, its age
+taken once, at the core. The proposed age of each horizon is our AICC2023 age at the core from the dataset that
+reproduces its own published ages and passes closest (Cavitte_2020, 130 m from the core, 19 layers within 3 m),
+or the next best where Cavitte doesn't have the layer. The spread of the ages between the members (0.2 to 2 ka) is
+mostly the depth offsets between datasets; the depth scale (which dataset's depth is right at the core, i.e. the
+offsets of H4) decides the final ages. Still to do: the same at Vostok and Dome Fuji, then join the three through
+the datasets that reach two of them (Winter, Cavitte: the 38 ka layer).
