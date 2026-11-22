@@ -2,7 +2,7 @@
 
 Working document, started 2026-11-01. It records the decisions as they are taken, so that the
 manuscript (`../manuscript-brief.md`, and the ESSD draft) can be updated. **The steps to follow are in
-section 8, the fixes left before the harmonisation in 8a, the remaining challenges and decisions in 8b.** Status of each item:
+section 8c (the harmonisation, from 2026-11-22), the fixes left before it in 8a, the remaining challenges and decisions in 8b.** Status of each item:
 - *Proposed*: a suggestion, not discussed yet;
 - *Agreed*: discussed and accepted;
 - *Open*: needs a decision or more data.
@@ -811,6 +811,41 @@ Winter IRH 1 and 5, and the Cavitte firn correction (both settled by the harmoni
 
 ---
 
+## 8c. The harmonisation, as started (2026-11-22)
+
+Replaces the order of phase 2 (section 8) where they differ. Input: the v2 build of 2026-11-21 (its metadata are the
+anta_json working tree, pushed and tagged on Monday 2026-11-23: nothing to recompute then). Code: a new module
+`anta_database/harmonisation/` (the `anta-harmonise` of section 5), output in `~/data/isochrones/harmonisation/<input>/`.
+The portal will run the same code after the compilation of a submission, to propose its horizons and their database age
+to the contributor.
+
+**Decided (A, 2026-11-22):**
+- **Reference age scale: AICC2023.** The other chronologies (DF2021, SP19, WD2014, and those of the papers) are used to
+  compare, and to date what reaches no AICC2023 core, labelled with their scale. Ties to several AICC2023 cores (e.g. EDC
+  and EDML) must give the same age: they are compared, and reconciled (H5).
+- **Tie depths: our own measure.** The papers rarely give the depth of a layer at the core. We measure it from the radar
+  (H3). Where our depth with the authors' chronology does not give their published age back, we look for the information,
+  and open an anta_json issue for Julien.
+- **Pilot at Dome C**, but with Vostok and Dome Fuji from the start: Winter, Cavitte and Leysinger reach them too. Then
+  Dronning Maud Land and Dome Fuji, reconciled with Dome C (above all the layer of about 38 ka seen in every EAIS
+  dataset), then West Antarctica on its own (not connected).
+- **The depths first, the dating after.** The depth conversion (wave speed, firn) is tested with significant statistics
+  before any `IRH_DEPTH_H` (H4).
+
+| # | Step | Output |
+|---|---|---|
+| H1 | **Core positions**, from the drilling reports (the CSV of the package had errors of 20 to 38 km: Vostok, WDC, TALDICE). **Done 2026-11-22**; with elevation, date of drilling, depth scale | `cores.json`, sources |
+| H2 | **Chronology registry**: every table in one format (core, depth, age, uncertainty, scale), AICC2023 first, plus the chronologies of the papers | `chronologies/` |
+| H3 | **Depth of each published layer at each core it reaches**: all the lines within a radius, a fitted local surface of the layer (Gaussian process: the uncertainty grows with the distance, the length scale from the data), depth below the surface, compared with fractional depth by leaving one line out. Then the age in the authors' chronology (it should give the published age back) and in AICC2023 | `ties.csv`, the first table of age changes |
+| H4 | **Depth comparison** on the coincident tracks and crossovers (rerun of `crossovers.py` on the build of 2026-11-21): offsets per pair of datasets, and the test of the wave speed and firn conversion on confident pairs | `offsets.csv`, go or no-go for `IRH_DEPTH_H` |
+| H5 | **Matching** (3.3, 3.4) at Dome C, Vostok and Dome Fuji, then DML: layers in depth order, the offsets of H4, loops; horizons. Then one age per horizon from all its ties (H3), with the order of the layers kept everywhere | `horizons.csv`, links with their evidence |
+| H6 | **Review mode** in the viewer (local): a horizon in one colour across datasets, with its residuals | |
+| H7 | **Validation**: leave one core out, order, loops, the table of age changes with their causes | report |
+
+**For Julien on Monday 2026-11-23:** H1 to H4, and a first proposal of H5 for the Dome C pilot.
+
+---
+
 ## 8b. Remaining challenges (2026-11-02)
 
 ### Science: can change the results
@@ -904,6 +939,10 @@ parameters don't explain the offsets between datasets, so level 1 is only built 
 | 2026-11-11 | D4: `BASAL_UNIT` stays an undated variable | Agreed |
 | 2026-11-11 | D5: the common depth reference is chosen only after the test of 2.4 | Agreed |
 | 2026-11-11 | One `region` query argument for ice sheets, IMBIE basins (short names) and regions of interest (DC, WSB...); `regions` attribute in the files (section 8, other v2 items) | Agreed, list and outlines to settle |
+| 2026-11-22 | Reference age scale AICC2023; other chronologies to compare, or labelled where no AICC2023 core is reached | Agreed |
+| 2026-11-22 | Depths of the layers at the cores measured from the radar, not taken from the papers | Agreed |
+| 2026-11-22 | Pilot at Dome C with Vostok and Dome Fuji, then DML, then West Antarctica | Agreed |
+| 2026-11-22 | Code in a new module `anta_database/harmonisation/`, also run by the portal on submissions | Agreed |
 
 ## 10. Chronology files (2026-11-01)
 

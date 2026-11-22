@@ -1,0 +1,19 @@
+name,site,lat,lon,elevation_m,elevation_reference,precision_m,source,doi,note
+EDC,EPICA Dome C,-75.100556,123.347778,3233,a.s.l.,150,"Stauffer et al. (2004), Ann. Glaciol. 39: 75°06'02""S, 123°20'52""E",10.3189/172756404781814500,"The site selected for drilling. No GPS fix of the borehole found; Vittuari et al. (2004) give the camp at 75°06'04""S, 123°20'52""E (60 m away), PANGAEA -75.10, 123.35 (rounded)"
+BELDC,"Beyond EPICA, Little Dome C",-75.299172,122.445139,3230,WGS84 ellipsoid (2020),10,"Lilien et al. (2021), The Cryosphere 15: 75°17'57.02""S, 122°26'42.5""E",10.5194/tc-15-1881-2021,"The site chosen before drilling (2021-2025)"
+Dome Fuji,Dome Fuji (DF1 and DF2),-77.316944,39.703333,3810,a.s.l.,50,"Dome-F Deep Coring Group (1998), Ann. Glaciol. 27: 77°19'01""S, 39°42'12""E",10.3189/1998AoG27-1-333-337,"The DF1 borehole; DF2 (2003-2007) is about 43 m north of it (Motoyama, 2007), not published separately. PANGAEA's 39.66667 E is 0.8 km off"
+Vostok,Vostok (5G),-78.46442,106.83732,3488,a.s.l.,300,"PANGAEA, AICC2012 Vostok event",10.1594/PANGAEA.824869,"Station or borehole not stated; no published 5G wellhead coordinates found"
+EDML,EPICA Dronning Maud Land (Kohnen),-75.0025,0.0684,2891.7,WGS84 ellipsoid,10,"Wesche et al. (2007), J. Glaciol. 53: GPS survey of the drill site",10.3189/002214307783258512,"Same in PANGAEA (AICC2012 EDML)"
+TALDICE,Talos Dome,-72.827778,159.183333,2315,a.s.l.,30,"Frezzotti et al. (2004), Ann. Glaciol. 39; Urbini et al. (2006): site ID1, 72°49'40""S, 159°11'00""E",10.3189/172756404781814591,"The rounded 72°49'S of taldice.org is 1.2 km north; PANGAEA's -72.78333, 159.06667 is the 1996 firn core, not TALDICE"
+Taylor Dome,Taylor Dome,-77.796389,158.723889,2365,a.s.l.,30,"UW IsoLab, Taylor Dome: 77°47'47""S, 158°43'26""E",,
+Law Dome,Law Dome (DSS),-66.769722,112.806944,1370,a.s.l.,30,"Jong et al. (2022), ESSD 14: 66°46'11""S, 112°48'25""E",10.5194/essd-14-3313-2022,"Elevation not verified at the source"
+SPICEcore,South Pole,-89.9889,-98.1596,2835,a.s.l.,50,"Casey et al. (2014), Ann. Glaciol. 55: 89.9889°S, 98.1596°W",10.3189/2014AoG68A016,"The site chosen before drilling (2014-2016); the drilling report gives it rounded (89.99°S, 98.16°W); the ice moves about 10 m/a"
+WDC,WAIS Divide (WDC06A),-79.467633,-112.086483,1766,WGS84,10,"Fitzpatrick et al. (2014), J. Glaciol. 60: 79°28.0580'S, 112°05.1890'W",10.3189/2014JoG14J100,
+Byrd,Byrd Station,-80.016667,-119.516667,1530,a.s.l.,1000,"Ueda and Garfield (1969), CRREL Technical Report 231: 80°01'S, 119°31'W",,"Whole arc-minutes only (its abstract gives 119°32'W)"
+Siple Dome,Siple Dome A,-81.65,-148.81,621,a.s.l.,2000,"Taylor et al. (2004), J. Glaciol. 50: 81.65°S, 148.81°W",10.3189/172756504781829864,"Rounded; NSIDC gives about 81°40'S, 148°49'W, 1.9 km away"
+Skytrain,Skytrain Ice Rise,-79.741,-78.544833,784,a.s.l.,20,"Hoffmann et al. (2022), Clim. Past 18: 79°44.46'S, 78°32.69'W",10.5194/cp-18-1831-2022,
+ABN,Aurora Basin North (ABN1314 main hole),-71.166889,111.366531,2690,not stated,10,"AADC, ABN1314 borehole temperature profile of the main hole",10.4225/15/581bfe6bd75b8,
+RICE,Roosevelt Island (RICE),-79.364,-161.706,550,a.s.l.,110,"Bertler et al. (2017), PANGAEA, event RICE",10.1594/PANGAEA.880396,"Lee et al. (2020) give it rounded (79.36°S, 161.71°W)"
+Fletcher,Fletcher Promontory,-77.901667,-82.605,873,a.s.l.,200,"Mulvaney et al. (2014), Ann. Glaciol. 55, Table 1: 77°54.10'S, 82°36.30'W",10.3189/2014AoG68A044,
+Berkner,Berkner Island (Thyssenhöhe),-79.548333,-45.678333,890,a.s.l.,200,"Mulvaney et al. (2007), Ann. Glaciol. 47, Table 1: 79°32.90'S, 45°40.70'W",10.3189/172756407786857758,"Not the 1995 B25 core, 5 km south"
+JRI,James Ross Island (Mount Haddington),-64.201667,-57.685,1542,a.s.l.,200,"Mulvaney et al. (2014), Ann. Glaciol. 55, Table 1: 64°12.10'S, 57°41.10'W",10.3189/2014AoG68A044,

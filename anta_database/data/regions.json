@@ -3,7 +3,7 @@
  "sources": {
   "IMBIE": "IMBIE2 drainage basins, v1.6 (Rignot et al.; Mouginot et al., 2017)",
   "SCAR": "SCAR Composite Gazetteer of Antarctica, Australian Antarctic Data Centre, https://data.aad.gov.au/aadc/gaz/scar/ (CC BY 4.0)",
-  "ice core": "ice-core-coordinates.csv of this package"
+  "ice core": "ice_cores.csv of this package (positions from the drilling reports and data records of the cores)"
  },
  "ice sheets": {
   "EAST": {"name": "East Antarctic Ice Sheet", "code": "EAIS", "aliases": ["EAIS", "East Antarctica"]},
@@ -32,16 +32,16 @@
  },
  "places": {
   "DC": {"scar": 2550, "ice core": "EDC", "name": "Dome C", "aliases": ["EDC", "Dome Charlie"]},
-  "LDC": {"name": "Little Dome C", "ice core": "LDC", "aliases": ["Beyond EPICA"]},
+  "LDC": {"name": "Little Dome C", "ice core": "BELDC", "aliases": ["Beyond EPICA"]},
   "DA": {"scar": 501, "aliases": ["Dome A"]},
-  "DF": {"scar": 18353, "aliases": ["Dome Fuji", "Dome F"]},
-  "VK": {"scar": 15605, "aliases": ["Vostok", "Vostok Station"]},
+  "DF": {"scar": 18353, "ice core": "Dome Fuji", "aliases": ["Dome Fuji", "Dome F"]},
+  "VK": {"scar": 15605, "ice core": "Vostok", "aliases": ["Vostok", "Vostok Station"]},
   "LV": {"scar": 17258, "radius km": 100},
-  "EDML": {"scar": 18359, "aliases": ["Kohnen"]},
+  "EDML": {"scar": 18359, "ice core": "EDML", "aliases": ["Kohnen"]},
   "TD": {"scar": 14405, "ice core": "TALDICE", "aliases": ["TALDICE"]},
   "SP": {"scar": 13736, "radius km": 50},
   "WD": {"name": "WAIS Divide", "ice core": "WDC", "aliases": ["WDC", "WAIS Divide ice core"]},
-  "SD": {"scar": 16768, "ice core": "SIPLE"},
+  "SD": {"scar": 16768, "ice core": "Siple Dome"},
   "LD": {"scar": 8209},
   "HD": {"scar": 6284},
   "SIR": {"scar": 13462},

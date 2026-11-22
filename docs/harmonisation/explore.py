@@ -23,12 +23,10 @@ from pyproj import Transformer
 sys.path.insert(0, os.path.dirname(__file__))
 from load import DEFAULT, load_lines  # noqa: E402
 
-# As in the 3D viewer (web/src/icecores.ts)
-CORES = {"EDC": (-75.1017, 123.3482), "BELDC": (-75.2992, 122.4451), "Dome Fuji": (-77.3167, 39.7), "Vostok": (-78.4644, 106.8372),
-         "EDML": (-75.0025, 0.0684), "TALDICE": (-72.8167, 159.1833), "Taylor Dome": (-77.7964, 158.7239), "Law Dome": (-66.7725, 112.8113),
-         "SPICEcore": (-89.99, -98.16), "WDC": (-79.467, -112.085), "Byrd": (-80.0167, -119.5167), "Siple Dome": (-81.65, -148.81),
-         "Skytrain": (-79.741, -78.5448), "ABN": (-71.17, 111.37), "RICE": (-79.36, -161.71), "Fletcher": (-77.9, -82.61),
-         "Berkner": (-79.55, -45.68), "JRI": (-64.2017, -57.685)}
+from anta_database.harmonisation.cores import ice_cores  # noqa: E402
+
+# The positions of the package (data/ice_cores.csv)
+CORES = {name: (row.lat, row.lon) for name, row in ice_cores().iterrows()}
 
 
 def cores(lines):

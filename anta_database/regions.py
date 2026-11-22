@@ -90,7 +90,9 @@ def named() -> Dict[str, Region]:
     for key, r in cfg["basins"].items():
         out[key] = Region(key, r["name"], "basin", code=r["code"], aliases=(r["code"], *r.get("aliases", ())))
     gaz = gazetteer().set_index("scar_id")
-    cores = pd.read_csv(files("anta_database.data").joinpath("ice-core-coordinates.csv")).set_index("site")
+    from anta_database.harmonisation.cores import ice_cores
+
+    cores = ice_cores()
     for key, r in cfg["places"].items():
         if "scar" in r:
             p = gaz.loc[r["scar"]]
