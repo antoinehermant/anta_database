@@ -841,6 +841,24 @@ to the contributor.
 | H5 | **Matching** (3.3, 3.4) at Dome C, Vostok and Dome Fuji, then DML: layers in depth order, the offsets of H4, loops; horizons. Then one age per horizon from all its ties (H3), with the order of the layers kept everywhere | `horizons.csv`, links with their evidence |
 | H6 | **Review mode** in the viewer (local): a horizon in one colour across datasets, with its residuals | |
 | H7 | **Validation**: leave one core out, order, loops, the table of age changes with their causes | report |
+| H8 | **Processing in the viewer** (public, for transparency): a section "Processing" with the harmonisation as layers, and a button that plays a 3D animation of the whole process. See below | viewer |
+
+**H8, the harmonisation in the viewer** (*Proposed* by A, 2026-11-22):
+- **The Gaussian surfaces as a layer.** For each tie (H3) and each transfer (H5): the fitted surface of the layer
+  around the core or the crossing, drawn in 3D under the ice surface. Its colour or transparency shows the GP
+  uncertainty, which grows away from the lines. The radar picks it was fitted to are shown on it, and the depth at the
+  core with its error bar on the borehole. Export: the GP mean and sd on a grid (e.g. 250 m over the 20 km radius) per
+  layer and core, from `ties.py` (small files, one per core).
+- **A "Processing" section** in the viewer menu, with these layers: the surfaces at the cores, the ties (the depth on
+  the borehole and its age on each chronology), the crossovers and the offsets (H4), the matched horizons (H5) and
+  their residuals (H6).
+- **An animation**, started by a button, that explains the whole harmonisation in 3D, step by step, with a short text
+  at each step: (1) the cores at their positions (H1); (2) the radar lines and the picks of one layer near EDC; (3) the
+  Gaussian surface fitted to them, its uncertainty, and one line taken out and predicted (the test); (4) the depth on
+  the borehole read on the chronologies (H2): the published age back, then AICC2023; (5) a crossing with another
+  dataset, its layers dated through the surfaces (the transfer, e.g. Leysinger_Vieli_2011); (6) the horizons across
+  datasets in one colour, and their ages. The camera moves on its own; the user can pause, step back, or leave it.
+- Built from the outputs of H3 to H6, after they settle; local first (dev viewer), public with the release.
 
 **For Julien on Monday 2026-11-23:** H1 to H4, and a first proposal of H5 for the Dome C pilot.
 

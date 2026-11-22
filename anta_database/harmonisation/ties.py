@@ -3,15 +3,11 @@
 For one core and one layer of one dataset: all its points within RADIUS of the core (binned along the lines to
 BIN), and a Gaussian process fitted to them (a Matern 3/2 covariance and a white noise, both fitted to the data),
 which gives the depth at the core and its uncertainty: small where a line passes over the core, growing with the
-distance to the nearest line. Two ways are compared:
+distance to the nearest line.
 
-- depth: the GP of the depth below the surface;
-- fractional depth: the GP of depth / ice thickness, times the ice thickness at the core (a GP of the thickness of
-  all the datasets there), which follows the bed where the layers do.
-
-Each is tested by leaving one line out: every line passing within LOLO_KM of the core is removed in turn, and the
-depth predicted at its point nearest to the core is compared with its own depth there. The method with the smaller
-errors over all layers is the one to use (notes.md, H3).
+It is tested by leaving one line out: every line passing within LOLO_KM of the core is removed in turn, and the
+depth predicted at its point nearest to the core is compared with its own depth there. (The fractional depth, depth /
+ice thickness, was tried too and did worse, 12.3 m against 2.7 m: notes.md, H3.)
 
 The age at the core then comes from the chronologies (chronologies.py): the authors' one (raw_md.json of anta_json,
 "ice core" and "chronology"), which should give their published age back, and the reference of the core (AICC2023,
@@ -135,18 +131,6 @@ def _km(df: pd.DataFrame, core_xy) -> np.ndarray:
     return np.c_[(df.x.values - core_xy[0]) / 1e3, (df.y.values - core_xy[1]) / 1e3]
 
 
-def thickness_at(points: pd.DataFrame, core_xy) -> Tuple[float, float]:
-    """Ice thickness at the core: a GP of the thickness of all the datasets' points (one per bin and line)."""
-    t = points.dropna(subset=["thk"]).drop_duplicates(["file", "x", "y"])
-    if len(t) < 5:
-        return np.nan, np.nan
-    if len(t) > 2000:
-        t = t.sample(2000, random_state=0)
-    gp = _gp(_km(t, core_xy), t.thk.values, 10.0)
-    m, s = _predict(gp, np.zeros((1, 2)))
-    return float(m[0]), float(s[0])
-
-
 def _thin(layer: pd.DataFrame) -> pd.DataFrame:
     if len(layer) <= MAX_POINTS:
         return layer
@@ -156,9 +140,8 @@ def _thin(layer: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([layer[near], far.sample(min(n, len(far)), random_state=0)])
 
 
-def tie(layer: pd.DataFrame, core_xy, thk_core: Tuple[float, float]) -> dict:
-    """Depth of one layer of one dataset at the core, by depth and by fractional depth, and the leave-one-line-out
-    errors of both."""
+def tie(layer: pd.DataFrame, core_xy) -> dict:
+    """Depth of one layer of one dataset at the core, and the errors of leaving one line out."""
     at = np.zeros((1, 2))
     layer = _thin(layer)
     xy = _km(layer, core_xy)
@@ -166,33 +149,18 @@ def tie(layer: pd.DataFrame, core_xy, thk_core: Tuple[float, float]) -> dict:
     gp = _gp(xy, layer.depth.values, 5.0)
     m, s = _predict(gp, at)
     out.update(depth=m[0], depth_sd=s[0], **{f"depth_{k}": v for k, v in _params(gp).items()})
-    f = layer.dropna(subset=["thk"])
-    f = f[f.thk > 0]
-    gpf = None
-    if len(f) >= 5 and np.isfinite(thk_core[0]):
-        gpf = _gp(_km(f, core_xy), (f.depth / f.thk).values, 0.002)
-        fm, fs = _predict(gpf, at)
-        out.update(frac=fm[0], frac_sd=fs[0], frac_depth=fm[0] * thk_core[0],
-                   frac_depth_sd=float(np.hypot(fs[0] * thk_core[0], fm[0] * thk_core[1])),
-                   **{f"frac_{k}": v for k, v in _params(gpf).items()})
     # Leave one line out: the lines passing within LOLO_KM
-    errors = {"depth": [], "frac": []}
+    errors = []
     for file, line in layer.groupby("file"):
         if line.dist.min() > LOLO_KM * 1e3 or layer.file.nunique() < 2:
             continue
         rest = layer[layer.file != file]
         p = line.loc[[line.dist.idxmin()]]
         g = _gp(_km(rest, core_xy), rest.depth.values, 5.0)
-        errors["depth"].append(float(_predict(g, _km(p, core_xy))[0][0] - p.depth.iloc[0]))
-        rf = rest.dropna(subset=["thk"])
-        rf = rf[rf.thk > 0]
-        if gpf is not None and len(rf) >= 5 and np.isfinite(p.thk.iloc[0]):
-            g = _gp(_km(rf, core_xy), (rf.depth / rf.thk).values, 0.002)
-            errors["frac"].append(float(_predict(g, _km(p, core_xy))[0][0] * p.thk.iloc[0] - p.depth.iloc[0]))
-    for k, e in errors.items():
-        out[f"lolo_{k}_n"] = len(e)
-        out[f"lolo_{k}_rms"] = float(np.sqrt(np.mean(np.square(e)))) if e else np.nan
-        out[f"lolo_{k}_errors"] = json.dumps([round(v, 1) for v in e])
+        errors.append(float(_predict(g, _km(p, core_xy))[0][0] - p.depth.iloc[0]))
+    out["lolo_n"] = len(errors)
+    out["lolo_rms"] = float(np.sqrt(np.mean(np.square(errors)))) if errors else np.nan
+    out["lolo_errors"] = json.dumps([round(v, 1) for v in errors])
     return out
 
 
@@ -224,30 +192,23 @@ def _age(name: Optional[str], core: str, depth: float) -> Tuple[float, float]:
 
 def ages(row: dict, core: str, authors: Optional[str]) -> dict:
     """The ages (ka) at the depths of a tie: authors' chronology and reference chronology."""
-    out = {"chronology": authors or "", "reference": REFERENCE.get(core, "")}
-    for method in ("depth", "frac_depth"):
-        d = row.get(method, np.nan)
-        if not np.isfinite(d):
-            continue
-        a, _ = _age(authors, core, d) if authors else (np.nan, np.nan)
-        out[f"age_authors_{method}"] = a
-        r, ru = _age(out["reference"], core, d) if out["reference"] else (np.nan, np.nan)
-        # The uncertainty of the reference age from the depth: the slope of the chronology times the depth sd
-        sd = row.get(f"{method}_sd", np.nan)
-        r2, _ = _age(out["reference"], core, d + sd) if out["reference"] else (np.nan, np.nan)
-        out[f"age_ref_{method}"] = r
-        out[f"age_ref_{method}_unc_chrono"] = ru
-        out[f"age_ref_{method}_unc_depth"] = abs(r2 - r)
-    return out
+    ref = REFERENCE.get(core, "")
+    d, sd = row["depth"], row["depth_sd"]
+    a, _ = _age(authors, core, d) if authors else (np.nan, np.nan)
+    r, ru = _age(ref, core, d) if ref else (np.nan, np.nan)
+    # The uncertainty of the reference age from the depth: the slope of the chronology times the depth sd
+    r2, _ = _age(ref, core, d + sd) if ref else (np.nan, np.nan)
+    return {"chronology": authors or "", "reference": ref, "age_authors": a, "age_ref": r, "age_ref_unc_chrono": ru,
+            "age_ref_unc_depth": abs(r2 - r)}
 
 
 # --- All of it ----------------------------------------------------------------------------------------------------
 
 def _layer(args) -> dict:
-    core, xy, thk, dataset, irh, layer, authors = args
+    core, xy, dataset, irh, layer, authors = args
     row = {"core": core, "dataset": dataset, "irh": irh, "age_published": layer.age.iloc[0] / 1000,
-           "firn": layer.firn.iloc[0], "thk_core": thk[0], "thk_core_sd": thk[1]}
-    row.update(tie(layer, xy, thk))
+           "firn": layer.firn.iloc[0]}
+    row.update(tie(layer, xy))
     row.update(ages(row, core, authors))
     return row
 
@@ -263,9 +224,8 @@ def core_ties(core: str, build: str = BUILD, out: str = OUTPUT, jobs: int = 3) -
         return pd.DataFrame()
     c = ice_cores().loc[core]
     xy = (c.x, c.y)
-    thk = thickness_at(points, xy)
     meta = dating()
-    tasks = [(core, xy, thk, dataset, irh, layer, meta.get((dataset, int(irh)), {}).get(core))
+    tasks = [(core, xy, dataset, irh, layer, meta.get((dataset, int(irh)), {}).get(core))
              for (dataset, irh), layer in points.groupby(["dataset", "irh"]) if len(layer) >= 3]
     with ProcessPoolExecutor(jobs) as ex:
         df = pd.DataFrame(list(ex.map(_layer, tasks)))
@@ -283,8 +243,8 @@ def main(argv=None) -> None:
     dfs = [core_ties(core, a.build, a.out, a.jobs) for core in a.cores]
     df = pd.concat([d for d in dfs if len(d)], ignore_index=True)
     df.to_csv(os.path.join(a.out, "ties.csv"), index=False, float_format="%.6g")
-    cols = ["core", "dataset", "irh", "age_published", "lines", "nearest_km", "depth", "depth_sd", "frac_depth",
-            "lolo_depth_rms", "lolo_frac_rms", "chronology", "age_authors_depth", "age_ref_depth"]
+    cols = ["core", "dataset", "irh", "age_published", "lines", "nearest_km", "depth", "depth_sd", "lolo_rms",
+            "chronology", "age_authors", "age_ref"]
     print(df[[c for c in cols if c in df]].to_string(index=False, float_format="%.2f"))
 
 

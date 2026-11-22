@@ -166,7 +166,7 @@ the age of a layer:
    length scale and the noise are fitted to the data. Its mean at the core is the depth there. Its standard deviation
    (without the noise of the single points) is the uncertainty: small where a line passes over the core, growing with
    the distance to the nearest line.
-3. Two variants: (a) the depth below the surface; (b) the fractional depth (depth ÷ ice thickness), times the ice
+3. Two variants were tried: (a) the depth below the surface; (b) the fractional depth (depth ÷ ice thickness), times the ice
    thickness at the core, from a GP of the radar thickness of all datasets (EDC: 3219 ± 7 m).
 4. **Leave one line out:** each line passing within 3 km of the core is removed in turn. The depth predicted at its
    point nearest to the core, from the other lines, is compared with its own depth there. That is the error the method
@@ -179,14 +179,15 @@ the age of a layer:
 The depths are those of the v2 build, i.e. with the firn correction of each dataset (attribute `firn correction`);
 Leysinger_Vieli_2011 has none.
 
-**Results:** 113 ties: 75 at EDC, 14 at Vostok and 24 at Dome Fuji, from 9 datasets. Tables:
+**Results:** 104 ties: 72 at EDC, 14 at Vostok and 18 at Dome Fuji, from 9 datasets. Tables:
 `~/data/isochrones/harmonisation/ties/ties.csv`, with one table per core and the points used.
 
 *Depth or fractional depth?* The plain depth is better in 56 of the 60 layers that could be tested (with at least two
 lines within 3 km). The median of the leave-one-line-out errors (rms per layer) is 2.7 m for the depth and 12.3 m for
 the fractional depth: 3.1 m against 15.0 m at EDC, 1.9 against 2.0 at Vostok, and 2.4 against 3.9 at Dome Fuji. The
 radar ice thickness is noisy along the lines (bed picks, and the thickness filled in from Bedmap), and dividing by it
-brings that noise into the layer. **Decided for the next steps: the depth.** The uncertainty of the depth at the core
+brings that noise into the layer. **Decided (A, 2026-11-22): the depth only.** The fractional depth was removed from
+the code; this comparison is its record. The uncertainty of the depth at the core
 (GP) has a median of 1.6 m at EDC, 1.5 m at Vostok and 1.0 m at Dome Fuji.
 
 *Do we get the published ages back?* Δz, our depth minus the depth implied by the published age, per dataset:
@@ -211,7 +212,51 @@ out at 49.6 ka at EDC.
 *Leysinger Vieli et al. (2011):* we can't reproduce their ages, at EDC or at Vostok, on any of the chronologies
 (H2). At EDC their line is 13 km away and they dated it by fractional depth, and their depths have no firn correction.
 At Vostok the line passes 600 m from the core, but the ages differ by up to 5 ka. Their dating stays as published,
-documented; the database age of their layers will come from the ties of the other datasets (H5).
+documented. Their layers can be dated through the other datasets instead (below).
+
+### Dating Leysinger_Vieli_2011 through the other datasets
+
+Their lines are far from the cores, but they are crossed or passed by five datasets that we tied at EDC or Vostok
+ourselves: Cavitte_2020, Mulvaney_2023, Bodart_2025b, Chung_2023 and Winter_2018. Some of these come within 5 to
+270 m of their lines (`anta_database/harmonisation/transfer.py`). The steps:
+
+1. At each point of their lines (about every 2.5 km), each layer of a reference dataset is interpolated by a Gaussian
+   surface: its picks within 10 km, binned to 250 m along the lines, with the covariance found at the cores (Matern
+   3/2, 8 km length scale, 2 m noise; not refitted at each point). Layers whose depth there is uncertain by more
+   than 10 m are not used.
+2. The reference layers at that point, with our AICC2023 ages from the ties (H3), make a local depth-age profile.
+   A profile whose ages are out of order is not used.
+3. The Leysinger layer gets its age from that profile, linear in depth between the two reference layers around it.
+   Its depths are used as published (no firn correction), and shifted by +14 m as a test.
+
+Ages (ka), median over all the points of all lines and all reference datasets (Cavitte, Mulvaney, Bodart, Chung),
+16th to 84th percentile, with a +14 m firn shift:
+
+| IRH | Published | Through the other datasets | Points |
+|---|---|---|---|
+| 2 | 36.6 | 35.4 (33.2 to 40.6) | 224 |
+| 3 | 62.5 | 68.6 (66.7 to 71.3) | 32 |
+| 4 | 72.9 | 69.3 (65.6 to 73.8) | 275 |
+| 5 | 118.3 | 137.5 (131.6 to 138.4) | 14 |
+| 6 | 129.8 | 122.7 (117.5 to 126.6) | 207 |
+| 8 | 244.7 | 209.8 (198.8 to 216.6) | 116 |
+| 9 | 352.4 | 299.7 (293.6 to 361.7) | 7 |
+
+The firn shift changes the ages by 1 to 2 ka only.
+
+**Line by line, the two clusters of the paper differ.** On the lines of their Dome C cluster (108, 136a, 102), up to
+four reference datasets agree, within about ±3 ka along each line. IRH 2 is about 35 ka there, IRH 4 69, IRH 6 122,
+and IRH 8 210 ka: younger than published at depth, as found at EDC (Δz of −39 to −113 m). On line 009, of their
+Vostok cluster, the same IRHs 2, 4 and 6 come out at 53, 83 and 165 ka. The paper only *assumed* that three layers
+(2, 4, 6 here) are the same in both clusters, from their ages at the two cores (Combined Cluster case, paragraph 18).
+This does not support it: on 009 they look like deeper layers.
+
+**Limits.** Most of their Vostok cluster (lines 121, 123, 133, 134, toward the South Pole) has dated data within 10 km
+for only 0 to 19 % of its points (Beem_2021, Sanderson_2024, Yan_2025, none of them tied yet). Line 110 has none.
+Next: the ties at SPICEcore (Beem, Sanderson), then the transfer again.
+
+**Proposed for the database age of their layers:** the transfer ages, per cluster (their numbers split where the
+clusters disagree), with the spread above as the uncertainty. The published ages stay as published.
 
 *Across cores:* Cavitte's layers, dated at EDC, reach Vostok too. There, AICC2023 gives 37.7, 72.8 and 97.6 ka for
 the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carrying a layer from one core to another
