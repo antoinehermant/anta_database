@@ -270,7 +270,7 @@ binned to 250 m), and the target layer is read on the depth-age profile of the r
 
 Figures: `docs/harmonisation/figures/leysinger.py`.
 
-**Which dating is better?** For the Dome C cluster, with the +14 m firn shift:
+**Which dating is better?** For the Dome C cluster, with the +14 m firn shift (*superseded below: these depths are 50 to 60 m too shallow*):
 
 | IRH | Published | At EDC, 13 km (H3) | At the crossings | Crossings (references) | Spread between crossings (1.4826 MAD) | Depth part of the EDC tie |
 |---|---|---|---|---|---|---|
@@ -287,16 +287,57 @@ transfer where they only pass near; at the core only where neither exists.** The
 spread between the crossings, combined with the uncertainty of the reference datasets' own ages (their tie at the core
 and the chronology), which is common to all their crossings, so it doesn't average out.
 
-**For the manuscript: the two clusters of Leysinger Vieli et al. (2011) do not share their layers.** At the crossings
-with Cavitte_2020 and Winter_2018 near Vostok, line 009 gives IRH 2 at 49.5 ka (Dome C cluster: 34.4), IRH 4 at 81.1
-ka (69.0) and IRH 6 at 136.2 ka (125.2). The few crossings of the other lines of the Vostok cluster agree with 009
-(121: IRH 2 at 53 ka). The paper correlated the two clusters through their ice-core ages only (its Combined Cluster
-case), because the layers fade on line 102; the crossings show that the layers given the same number are different
-layers, 12 to 15 ka apart. This is the kind of result the database makes possible: a correlation that could only be
-assumed in 2011 can now be tested against the newer datasets crossing those lines.
+#### Same layers, 50 to 60 m shallower: matching by the sequence of layers
 
-**Proposed for the database age of their layers:** the ages at the crossings, per cluster (their numbers split
-where the clusters disagree), with the uncertainty above. The published ages stay as published.
+The ages above read the Leysinger depths on the Cavitte profile as they are. But are Leysinger's layers some of
+Cavitte's, at another depth? Their published ages (36.6, 72.9, 129.8 ka) are close to those of Cavitte layers 3, 5 and
+10 (38.1, 73.4, 127.8 ka).
+
+*The spacing between layers*, which no common shift changes, says yes. At the crossings of the Dome C cluster, from
+Leysinger 2 to 4 is 348 m and from Cavitte 3 to 5 is 357 m (ratio 0.989, 46 crossings); 4 to 6 against 5 to 10:
+0.977; 6 to 8 against 10 to 14: 1.016. Over all the ordered choices of four Cavitte layers (the layers cannot cross),
+the best match, with one common offset per crossing limited to ±120 m, is Cavitte 3, 5, 10, 14 (38.1, 73.4, 127.8,
+220.1 ka), with Leysinger 59 m shallower (median). The two upper layers are unambiguous. For the deeper two, Cavitte 9
+(121.1 ka) and 13 (200.1 ka) fit almost as well: the scatter of Leysinger's deep layers is too large.
+
+![Leysinger against Cavitte at the crossings](figures/leysinger_cavitte_offsets.png)
+
+*What the offset is not.* Cavitte minus Leysinger is 49 m for the 38 ka layer (sd 21 m, 47 crossings), 57 m for
+73 ka (sd 27), 80 m for 128 ka (sd 64) and 65 m for 220 ka (sd 72).
+- Not the firn: Leysinger has no firn correction, but that is about 14 m at Dome C.
+- Not the wave speed: a wave speed error would grow in proportion to depth, and the spacings agree within 2 %.
+- Not the ice thickness: Leysinger published normalised heights (raw file: "Normalised elevation layer"), and the
+  depths in the database are (1 − normalised height) × their ice thickness (the raw column "Bed elevation" is a
+  thickness). Their thickness is 42 m less than Cavitte's at the crossings (sd 67 m), but rebuilding their depths with
+  Cavitte's thickness doesn't reduce the offset or its scatter (38 ± 26 m for the 38 ka layer).
+- What it is: a mostly constant shift, and a scatter of 20 to 70 m from crossing to crossing. Both are within the
+  error the paper gives for its layers, 0.02 to 0.03 of the normalised height, i.e. 65 to 100 m at Dome C (auxiliary
+  material, section S2). Navigation of the 1970s flights adds to it.
+
+**So the 38 ka layer is there.** Leysinger IRH 2 is Cavitte's 38.1 ka layer, and IRH 4 its 73.4 ka layer. IRH 6 and 8
+are probably 127.8 and 220.1 ka, or the layers just above. **The ages read on the depth alone (34.4, 69.0, 125.2,
+211.6 ka in the table above) are biased young by the 50 to 60 m shift, and are superseded.** For a dataset whose
+depths are much less accurate than those of the newer ones, the layers must be matched by their sequence (order and
+spacing), not by depth: the "spacing fingerprint" of section 3.3 of the plan. It becomes the method of H5 for such
+datasets; the depth reading remains for datasets of comparable accuracy.
+
+**The Vostok cluster.** Line 009 crosses Cavitte only 3 times near Vostok, and no choice of Cavitte layers matches its
+layers with a common offset (145 m rms). The depth reading put its IRH 2, 4, 6 12 to 15 ka older than on the Dome C
+cluster. Those depths are 110 to 150 m *below* the Cavitte layers of the same published ages, where the Dome C cluster
+is 50 to 60 m *above*. That difference, 160 to 210 m, is larger than the paper's own error, which suggests that the
+layers the paper correlated between its two clusters (Combined Cluster case, paragraph 18, through their ice-core ages
+only) are not the same. With three crossings this is not established. To be tested with the ties at SPICEcore and the
+datasets crossing the rest of that cluster (Beem_2021, Sanderson_2024, Yan_2025).
+
+**For the manuscript:** (1) a dataset of the 1970s, dated in 2011 by fractional depth 13 km from EDC, is matched
+through 47 crossings with a dataset of today to the layers of known age: its 36.6 ka layer is the 38 ka layer seen in
+every EAIS dataset. (2) Its depths are 50 to 60 m too shallow, within its stated error: matching by the sequence of
+layers works where matching by depth fails. (3) The correlation of its two clusters, assumed in 2011, looks wrong;
+the newer datasets make it testable.
+
+**Proposed for the database age of their layers:** on the Dome C cluster, the ages of the Cavitte layers they
+match (38.1 and 73.4 ka; 127.8 and 220.1 ka marked uncertain), on AICC2023 through our tie of Cavitte at EDC. On the
+Vostok cluster, none yet. The published ages stay as published.
 
 *Across cores:* Cavitte's layers, dated at EDC, reach Vostok too. There, AICC2023 gives 37.7, 72.8 and 97.6 ka for
 the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carrying a layer from one core to another

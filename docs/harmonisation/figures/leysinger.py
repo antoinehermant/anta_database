@@ -157,6 +157,52 @@ def fig_profile(target, refs, ages):
     fig.savefig(os.path.join(HERE, "leysinger_crossing_profile.png"), dpi=160)
 
 
+def fig_offsets():
+    """Leysinger (Dome C cluster) against the Cavitte layers they match, at the crossings: depth against depth, and
+    the offset against depth (constant: a common shift; growing with depth: a wave speed or thickness scale)."""
+    from anta_database.harmonisation.transfer import crossings as _crossings
+
+    T, C = load(TARGET), load("Cavitte_2020")
+    c = _crossings(T, C)
+    c = c[~c.target_file.isin(VOSTOK_CLUSTER)]
+    pairs = [(2, 3, "38.1"), (4, 5, "73.4"), (6, 10, "127.8"), (8, 14, "220.1")]
+    colours = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4.6))
+    allz = []
+    for (l, r, age), col in zip(pairs, colours):
+        zl = np.array([x.target.get(l, np.nan) for x in c.itertuples()])
+        zr = np.array([x.ref.get(r, np.nan) for x in c.itertuples()])
+        ok = np.isfinite(zl) & np.isfinite(zr)
+        allz += list(zr[ok])
+        label = f"Leysinger {l} vs Cavitte {r} ({age} ka), n={ok.sum()}"
+        a1.scatter(zr[ok], zl[ok], s=16, color=col, edgecolor="white", lw=0.5, label=label, zorder=3)
+        a2.scatter(zr[ok], zr[ok] - zl[ok], s=16, color=col, edgecolor="white", lw=0.5, zorder=3)
+        a2.hlines(np.median(zr[ok] - zl[ok]), np.min(zr[ok]), np.max(zr[ok]), color=col, lw=2, zorder=4)
+    lim = (min(allz) - 100, max(allz) + 100)
+    a1.plot(lim, lim, color=MUTED, lw=1, ls=":")
+    a1.set_xlim(lim), a1.set_ylim(lim)
+    a1.invert_yaxis()
+    a1.set_xlabel("Cavitte_2020 depth at the crossing (m)")
+    a1.set_ylabel("Leysinger_Vieli_2011 depth (m, as published)")
+    a1.set_title("Depths at the crossings (Dome C cluster); dotted: same depth", loc="left", color=INK)
+    a1.legend(loc="lower right", frameon=False, fontsize=7.5)
+    a1.grid(color=GRID, lw=0.5)
+    a2.axhline(0, color=MUTED, lw=1, ls=":")
+    a2.axhspan(-14, 14, color=GRID, alpha=0.6, lw=0)
+    a2.annotate("±14 m: a firn correction", (min(allz), -14), xytext=(0, -11), textcoords="offset points",
+                fontsize=7.5, color=MUTED)
+    zz = np.linspace(min(allz), max(allz), 2)
+    a2.plot(zz, 0.03 * zz, color=MUTED, lw=1, ls="--")
+    a2.annotate("3 percent of the depth (wave speed or thickness)", (1250, 0.03 * 1250), xytext=(0, -14),
+                textcoords="offset points", fontsize=7.5, color=MUTED)
+    a2.set_xlabel("Cavitte_2020 depth (m)")
+    a2.set_ylabel("Cavitte − Leysinger (m); bar: median")
+    a2.set_title("Offset at each crossing", loc="left", color=INK)
+    a2.grid(color=GRID, lw=0.5)
+    fig.tight_layout()
+    fig.savefig(os.path.join(HERE, "leysinger_cavitte_offsets.png"), dpi=160)
+
+
 def main():
     target = load(TARGET)
     refs = {name: load(name) for name in REFS}
@@ -164,6 +210,7 @@ def main():
     fig_map(target, refs, cross[cross.firn == 14])
     fig_ages(cross)
     fig_profile(target, refs, reference_ages())
+    fig_offsets()
 
 
 if __name__ == "__main__":
