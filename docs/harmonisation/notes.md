@@ -154,3 +154,72 @@ the age of a layer:
 - **Not used by any dataset, not read:** EDML1, TALDICE-1, ST22, RICE17, Byrd-H1994, DFO-2006+AICC2012 (they're in
   `chronologies.json`). AICC2012 below 342 ka at Dome Fuji (Uemura et al., 2018) isn't read either; no layer is that
   deep there.
+
+---
+
+## H3. The depth of each layer at the cores (first pass, 2026-11-22)
+
+**Method** (`anta_database/harmonisation/ties.py`). For one layer of one dataset at one core:
+1. The points of the layer within 20 km of the core, as the median every 250 m along each line (at most 800 points
+   per fit: all those within 3 km of the core, a random sample of the others).
+2. A Gaussian process fitted to them, as a function of position. Its covariance is Matern 3/2, with a white noise; the
+   length scale and the noise are fitted to the data. Its mean at the core is the depth there. Its standard deviation
+   (without the noise of the single points) is the uncertainty: small where a line passes over the core, growing with
+   the distance to the nearest line.
+3. Two variants: (a) the depth below the surface; (b) the fractional depth (depth ÷ ice thickness), times the ice
+   thickness at the core, from a GP of the radar thickness of all datasets (EDC: 3219 ± 7 m).
+4. **Leave one line out:** each line passing within 3 km of the core is removed in turn. The depth predicted at its
+   point nearest to the core, from the other lines, is compared with its own depth there. That is the error the method
+   makes where there is no line, as at a core no line crosses.
+5. The age at that depth: (i) on the authors' chronology (raw_md.json of anta_json, "ice core" and "chronology"),
+   which should give their published age back; (ii) on the reference chronology of the core (AICC2023 at EDC and
+   Vostok, DF2021 at Dome Fuji). We also take the depth at which the authors' chronology gives the published age
+   ("implied depth"): our depth minus that depth, Δz, says where we and the authors differ, in metres.
+
+The depths are those of the v2 build, i.e. with the firn correction of each dataset (attribute `firn correction`);
+Leysinger_Vieli_2011 has none.
+
+**Results:** 113 ties: 75 at EDC, 14 at Vostok and 24 at Dome Fuji, from 9 datasets. Tables:
+`~/data/isochrones/harmonisation/ties/ties.csv`, with one table per core and the points used.
+
+*Depth or fractional depth?* The plain depth is better in 56 of the 60 layers that could be tested (with at least two
+lines within 3 km). The median of the leave-one-line-out errors (rms per layer) is 2.7 m for the depth and 12.3 m for
+the fractional depth: 3.1 m against 15.0 m at EDC, 1.9 against 2.0 at Vostok, and 2.4 against 3.9 at Dome Fuji. The
+radar ice thickness is noisy along the lines (bed picks, and the thickness filled in from Bedmap), and dividing by it
+brings that noise into the layer. **Decided for the next steps: the depth.** The uncertainty of the depth at the core
+(GP) has a median of 1.6 m at EDC, 1.5 m at Vostok and 1.0 m at Dome Fuji.
+
+*Do we get the published ages back?* Δz, our depth minus the depth implied by the published age, per dataset:
+
+| Core | Dataset | Layers | Δz median (m) | Δz range (m) | Reading |
+|---|---|---|---|---|---|
+| EDC | Cavitte_2020 | 19 | +0.2 | −2.0 to +2.9 | **Reproduced**: ages within 0.2 ka (1 ka for IRH 16 and 19) |
+| Dome Fuji | Wang_2023 | 7 | −0.7 | −12.5 to −0.3 | Reproduced, except IRH 6 (−12.5 m; its leave-one-line-out error is 15.6 m: a poorly traced layer) |
+| Dome Fuji | Winter_2018 | 2 | −0.9 | −1.4 to −0.3 | Reproduced |
+| EDC | Chung_2023 | 19 | +3.4 | −2.1 to +7.8 | Nearly constant: a different depth convention at the core? (one line, 260 m away) |
+| EDC | Bodart_2025b | 6 | +5.7 | +0.5 to +10.6 | Their leave-one-line-out errors are 7 to 20 m: few lines, scattered near EDC |
+| EDC | Winter_2018 | 4 | +6.8 | +0.6 to +11.8 | Not reproduced at EDC… |
+| Vostok | Winter_2018 | 4 | +6.9 | +2.8 to +13.7 | …nor at Vostok: ages perhaps from both cores together |
+| EDC | Mulvaney_2023 | 20 | +5.6 | +0.7 to **+28.8** | Grows with depth (0.67 % of the depth): a different wave speed? |
+| Dome Fuji | Bodart_2025a | 1 | +19.2 | | Dated at EDML (AICC2023): a check of DFO-2006 at Dome Fuji, not a tie |
+| EDC | Leysinger_Vieli_2011 | 4 | −80 | −113 to −39 | Their nearest line is 13 km away, dated by fractional depth, no firn correction |
+| Vostok | Leysinger_Vieli_2011 | 7 | +53 | −6 to +84 | Not reproduced with RR03 (our ice age), GT4 or AICC2023: ±5 ka |
+
+In ages: Mulvaney IRH 19 is 395.8 ka published, 405.9 ka at our depth on their AICC2012. Winter's 48 ka layer comes
+out at 49.6 ka at EDC.
+
+*Leysinger Vieli et al. (2011):* we can't reproduce their ages, at EDC or at Vostok, on any of the chronologies
+(H2). At EDC their line is 13 km away and they dated it by fractional depth, and their depths have no firn correction.
+At Vostok the line passes 600 m from the core, but the ages differ by up to 5 ka. Their dating stays as published,
+documented; the database age of their layers will come from the ties of the other datasets (H5).
+
+*Across cores:* Cavitte's layers, dated at EDC, reach Vostok too. There, AICC2023 gives 37.7, 72.8 and 97.6 ka for
+the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carrying a layer from one core to another
+(H5).
+
+**Still to do in H3:**
+- Ages on AICC2023 with their full uncertainty: the chronology, the depth, and the GICC05 counting error below 60 ka
+  (H2).
+- The other cores (EDML, TALDICE, BELDC, WDC, SPICEcore, Byrd).
+- An anta_json issue per dataset not reproduced (Chung, Bodart_2025b, Winter, Mulvaney), asking Julien for the tie
+  depth or method (queued for Monday).
