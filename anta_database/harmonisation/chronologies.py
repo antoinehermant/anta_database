@@ -78,7 +78,7 @@ def _table(path: str, start: str, encoding: str = "latin-1", sep: str = r"\s+", 
 
 def _noaa(path: str) -> pd.DataFrame:
     """A NOAA template file: the table after the # lines."""
-    return pd.read_csv(path, sep="\t", comment="#")
+    return pd.read_csv(path, sep="\t", comment="#", encoding="latin-1")
 
 
 def _edc3(path: str) -> pd.DataFrame:
@@ -122,6 +122,40 @@ def _byrd2001(path: str) -> pd.DataFrame:
     return pd.DataFrame({"depth": depth[ok].values, "age": age[ok].values / 1000, "age_unc": np.nan})
 
 
+def _rr2003(path: str) -> pd.DataFrame:
+    """Ruddiman and Raymo (2003) is a gas-age scale (their Table 1: tie points depth, gas age). The ice age at a
+    depth: their gas age there (linear between the ties), plus the difference between ice and gas age of GT4 at
+    the same depth (the delta age they started from). Our reconstruction: no ice-age table of RR03 is published."""
+    with open(path, encoding="latin-1") as f:
+        lines = f.read().splitlines()
+    i = next(i for i, l in enumerate(lines) if l.startswith("depth(m)"))
+    ties = []
+    for l in lines[i + 1:]:
+        if not l.strip():
+            break
+        ties.append([float(v) for v in l.split()])
+    ties = np.array(ties)
+    gt4 = _noaa(os.path.join(os.path.dirname(path), "..", "GT4", "gt4nat-noaa.txt")).dropna()
+    gt4 = gt4[(gt4.depth_m >= ties[0, 0]) & (gt4.depth_m <= ties[-1, 0])]
+    gas = np.interp(gt4.depth_m, ties[:, 0], ties[:, 1])
+    # The delta age of GT4 jumps by tens of years from one metre to the next, so the sum goes back by up to 50 years
+    # at 23 depths: the running maximum
+    age = np.maximum.accumulate(gas + (gt4.ice_ageBP.values - gt4.gas_ageBP.values) / 1000)
+    return pd.DataFrame({"depth": gt4.depth_m, "age": age, "age_unc": np.nan})
+
+
+def _gicc05(depth_column: int) -> Callable[[str], pd.DataFrame]:
+    """GICC05 at NGRIP or GRIP: age (yr b2k), depth in column depth_column, maximum counting error (last column,
+    2 sigma)."""
+    def read(path: str) -> pd.DataFrame:
+        with open(path, encoding="latin-1", newline="") as f:
+            lines = re.split(r"\r\n|\r|\n", f.read())
+        rows = [l.split() for l in lines if re.match(r"^\d+\s", l)]
+        t = pd.DataFrame(rows).apply(pd.to_numeric, errors="coerce")
+        return pd.DataFrame({"depth": t[depth_column], "age": t[0] / 1000, "age_unc": t[t.columns[-1]] / 2000})
+    return read
+
+
 AICC = "Bouchet et al. (2023), Climate of the Past 19"
 AICC_DOI = "10.5194/cp-19-2257-2023"
 AICC12 = "Bazin et al. (2013); Veres et al. (2013), Climate of the Past 9"
@@ -134,6 +168,15 @@ SOURCES: List[Chronology] = [
                  "PANGAEA.961017 (the AICC2012 column of AICC2023)", "BP1950", "not given in these files",
                  note="Uncertainties of AICC2012 not in the AICC2023 files", read=_aicc("AICC2012"))
       for core, file in [("EDC", "EDC"), ("EDML", "EDML"), ("TALDICE", "TALDICE"), ("Vostok", "VOSTOK")]],
+    Chronology("AICC2023", "NGRIP", "AICC2023/NGRIP_chronology.tab", AICC, AICC_DOI, "PANGAEA.961017", "BP1950",
+               "1 sigma", note="Equal to GICC05 over the last 60 ka (tie points every metre)", read=_aicc("AICC2023")),
+    Chronology("GICC05", "NGRIP", "ice_core_chronologies/GICC05/gicc05-60ka-20yr.txt",
+               "Svensson et al. (2008), Climate of the Past 4", "10.5194/cp-4-47-2008", "NOAA (gicc05-60ka-20yr.txt)",
+               "b2k", "maximum counting error, taken as 2 sigma", note="0-60 ka; NGRIP1 depth to 9.82 ka, NGRIP2 below",
+               read=_gicc05(1)),
+    Chronology("GICC05", "GRIP", "ice_core_chronologies/GICC05/gicc05-20yr.txt",
+               "Svensson et al. (2008), Climate of the Past 4", "10.5194/cp-4-47-2008", "NOAA (gicc05-20yr.txt)",
+               "b2k", "maximum counting error, taken as 2 sigma", note="0-41.76 ka", read=_gicc05(3)),
     Chronology("EDC3", "EDC", "ice_core_chronologies/EDC3/edc3-timescale.txt", "Parrenin et al. (2007), Climate of the Past 3",
                "10.5194/cp-3-485-2007", "NOAA WDS-Paleo 2007-083", "BP1950", "not given", read=_edc3),
     Chronology("WD2014", "WDC", "ice_core_chronologies/WD2014/wais-wd2014agemodel.txt",
@@ -160,7 +203,8 @@ SOURCES: List[Chronology] = [
     Chronology("Vostok-RR2003", "Vostok", "ice_core_chronologies/Ruddiman2003/vostok_methane_age.txt",
                "Ruddiman and Raymo (2003), Quaternary Science Reviews 22", "10.1016/S0277-3791(02)00082-8",
                "NOAA WDS-Paleo 2004-016", "BP1950", "not given",
-               note="A gas-age scale (CH4 tuned to insolation): the file gives no ice age", usable=False),
+               note="A gas-age scale (CH4 tuned to insolation, 149 to 3166 m, 2.35 to 344 ka): ice age reconstructed "
+                    "with the delta age of GT4", read=_rr2003),
 ]
 
 
@@ -174,8 +218,8 @@ def read(source: Chronology, data: str = DATA) -> pd.DataFrame:
     df = df.dropna(subset=["depth", "age"]).sort_values("depth").drop_duplicates("depth").reset_index(drop=True)
     if source.age_reference == "b2k":
         df["age"] -= 0.05
-    if not (np.diff(df.age) > 0).all():
-        raise ValueError(f"{source.name} {source.core}: the age does not increase with depth")
+    if not (np.diff(df.age) >= 0).all():
+        raise ValueError(f"{source.name} {source.core}: the age decreases with depth")
     return df
 
 
@@ -227,9 +271,14 @@ def build(out: str = OUTPUT, data: str = DATA) -> pd.DataFrame:
                      "age_min_ka": df.age.min(), "age_max_ka": df.age.max(),
                      "has_uncertainty": bool(df.age_unc.notna().any())})
     missing = [f"{s.name} {s.core}" for s in SOURCES if s not in sources(data)]
+    from anta_database.harmonisation.cores import ice_cores
+
+    dated = {r["core"] for r in rows}
+    cores = ice_cores().drop(columns=["x", "y"])
+    cores = {name: {k: (None if pd.isna(v) else v) for k, v in c.items()} for name, c in cores.iterrows() if name in dated}
     with open(os.path.join(out, "registry.json"), "w") as f:
-        json.dump({"age": "ka before 1950", "uncertainty": "ka, 1 sigma", "chronologies": rows, "missing": missing},
-                  f, indent=1, default=float)
+        json.dump({"age": "ka before 1950", "uncertainty": "ka, 1 sigma", "cores": cores, "chronologies": rows,
+                   "missing": missing}, f, indent=1, default=float, ensure_ascii=False)
     return pd.DataFrame(rows)
 
 

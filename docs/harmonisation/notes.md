@@ -105,6 +105,13 @@ CC BY-NC). The tables are written to `~/data/isochrones/harmonisation/chronologi
 | DFO-2006 | Dome Fuji | 0-2504 | 0-342 | none | Kawamura et al. (2007), NOAA (b2k, converted) |
 | GT4 | Vostok | 0-3310 | 0-423 | none | Petit et al. (1999), NOAA |
 | Byrd-BB2001 | Byrd | 940-2142 | 10-90 | none | Blunier and Brook (2001), NOAA (GISP2 scale) |
+| Vostok-RR2003 | Vostok | 150-3165 | 6-349 | none | Ruddiman and Raymo (2003), NOAA: **our reconstruction** of the ice age (below) |
+| AICC2023 | NGRIP | 8-3082 | 0-125 | 1 σ | Bouchet et al. (2023) |
+| GICC05 | NGRIP | 7-2427 | 0-60 | maximum counting error, as 2 σ, halved | Svensson et al. (2008), NOAA |
+| GICC05 | GRIP | 5-2097 | 0-32 | idem | idem |
+
+The Greenland chronologies are there for reference: for the uncertainty of AICC2023 (below), and for Greenland
+isochrones later. The Greenland cores are not in `ice_cores.csv` yet.
 
 From WD2014 to AICC2023 we use the 395 volcanic ties between WDC and EDC of Bouchet et al. (2023), valid from 10 to
 57 ka (`wd2014_to_aicc2023`). The difference AICC2023 − WD2014 is +65 years at 20 ka, −136 at 40 ka and −312 at 57 ka.
@@ -120,17 +127,30 @@ the age of a layer:
 | Dome Fuji: DFO-2006 − DF2021 (300, 600, 1000, 1500, 2000 m) | +0.19 | −0.23 | −1.96 | +0.21 | −0.79 | |
 
 **What we found, and what is still open:**
-- **The uncertainty of AICC2023 over the last glacial is very small:** 20 to 100 years between 30 and 50 ka at EDC (for
-  example, 22 years at 41 ka), but about 1 ka at 100 and 200 ka. It is probably the uncertainty relative to the
-  Greenland ties (GICC05), without the error of GICC05's own layer count (about 1.6 ka at 40 ka). To check in Bouchet
-  et al. (2023) before it goes into the uncertainty of a layer's age.
-- **Vostok-RR2003** (Ruddiman and Raymo, 2003), which we gave as the chronology of Leysinger Vieli et al. (2011) at
-  Vostok, is a gas-age scale: the file has no ice age. It can't date a layer as it stands. To check in H3, when their
-  published ages are compared with our depths at Vostok: they may have used another scale.
+- **Over the last 60 ka, the uncertainty of AICC2023 is relative to the Greenland layer count.** Bouchet et al. (2023,
+  section 2.1) hold NGRIP exactly to the layer-counted GICC05 by absolute tie points every metre over the last 60 kyr.
+  So AICC2023 equals GICC05 at NGRIP within a year (checked: 35.087 ka at 2000 m in both), and its uncertainty there
+  (17 years at 35 ka at NGRIP, 20 to 100 years at EDC between 30 and 50 ka) leaves out the counting error of GICC05
+  (650 years at 35 ka and 1.25 ka at 58 ka, 1 σ). Bouchet et al. also recommend timescales tied to WD2014 over the last
+  60 kyr. *Proposed:* for a layer younger than 60 ka, add the counting error of GICC05 at its age to the AICC2023
+  uncertainty (in quadrature), and give its WD2014 age too (through the volcanic ties).
+- **Leysinger Vieli et al. (2011) at Vostok.** The paper (paragraph 17) dates the Vostok layers with "the ages
+  calculated by Ruddiman and Raymo [2003]". It uses Parrenin et al. (2007), i.e. EDC3, at EPICA, and there the layers
+  are dated through the normalised depth on a line 13 km from the core. But Ruddiman and Raymo (2003) is a gas-age
+  scale: their Table 1 has 33 tie points of depth and gas age, and no ice-age table is published. We reconstruct the
+  ice age the way it was most likely done: their gas age at a depth (linear between the ties) plus the ice minus gas
+  age of GT4 there (the delta age they started from). The steps of the GT4 delta age make the sum go back by up to
+  50 years at 23 depths; we keep the running maximum. Between 1000 and 2000 m it is within 1.2 ka of GT4; it differs
+  by −6.3 ka at 2500 m and +12.8 ka at 3000 m. If it doesn't give their published ages back in H3, we document it and
+  leave the dating of that dataset to the AICC2023 ties of the other datasets.
 - **AICC2012 uncertainties** are not in the AICC2023 files (Bazin et al., 2013 published them separately). They're only
   needed to compare with the papers that used AICC2012.
-- **Depth scales:** the tables of a core must use the same depth as the radar tie (depth below the surface today).
-  Still to check: DF2021 (DF1 or DF2 depth?) and the Vostok depth of AICC2023 (5G?).
+- **Depth scales.** DF2021 is on the DF1 depth (Oyabu et al., 2022: the age markers are given at "ice depth (m, DF1)",
+  and those measured on DF2 or DF2001 are converted to DF1 depth). So are DFO-2006 and our position of Dome Fuji. At
+  Vostok the record is a composite of several boreholes (3G, 4G, 5G, some hundreds of metres apart, matched by their
+  depths); AICC2012 and AICC2023 don't say on which depth log, and the cores are within the precision of our position
+  (300 m). The difference between the logs is a few metres at most, small next to the depth of a layer from the
+  radar.
 - **Not used by any dataset, not read:** EDML1, TALDICE-1, ST22, RICE17, Byrd-H1994, DFO-2006+AICC2012 (they're in
   `chronologies.json`). AICC2012 below 342 ka at Dome Fuji (Uemura et al., 2018) isn't read either; no layer is that
   deep there.
