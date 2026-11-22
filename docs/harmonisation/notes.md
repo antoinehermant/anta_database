@@ -312,7 +312,7 @@ the best match, with one common offset per crossing limited to ±120 m, is Cavit
   Cavitte's thickness doesn't reduce the offset or its scatter (38 ± 26 m for the 38 ka layer).
 - What it is: a mostly constant shift, and a scatter of 20 to 70 m from crossing to crossing. Both are within the
   error the paper gives for its layers, 0.02 to 0.03 of the normalised height, i.e. 65 to 100 m at Dome C (auxiliary
-  material, section S2). Navigation of the 1970s flights adds to it.
+  material, section 3, "Sources of data error": a rough worst case for the drift of a pick between layers). Navigation of the 1970s flights adds to it.
 
 **So the 38 ka layer is there.** Leysinger IRH 2 is Cavitte's 38.1 ka layer, and IRH 4 its 73.4 ka layer. IRH 6 and 8
 are probably 127.8 and 220.1 ka, or the layers just above. **The ages read on the depth alone (34.4, 69.0, 125.2,
