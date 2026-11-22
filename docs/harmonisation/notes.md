@@ -75,3 +75,62 @@ Muldoon_2023 lines 33 and 46 km from that point, but 54 and 66 km from the core,
 from the core came in), the 3D viewer and
 the submission form (`web/src/icecore-sites.ts`, checked against the table by `python -m
 anta_database.harmonisation.cores`), and the harmonisation.
+
+---
+
+## H2. Chronologies
+
+Every age of the harmonisation comes from a published depth-age table of an ice core. They come in many formats
+(PANGAEA, NOAA, data papers), with ages before 1950 or 2000, in years or thousands of years, and with
+uncertainties at 1 or 2 sigma or none at all.
+
+**What we did.** One reader per published file (`anta_database/harmonisation/chronologies.py`). Each one gives the
+same table: depth (m, on the depth scale of the core's log), ice age (ka before 1950), and uncertainty (ka, 1 sigma, NaN
+where none is published). Every table is checked: the age must increase with depth. The source files are read where
+they were downloaded, with their origin, and are not redistributed until their licences are checked (SP19 is
+CC BY-NC). The tables are written to `~/data/isochrones/harmonisation/chronologies/<core>/<name>.csv`, with
+`registry.json` (H2 done on 2026-11-22).
+
+| Chronology | Core | Depth (m) | Age (ka) | Uncertainty | Source |
+|---|---|---|---|---|---|
+| **AICC2023** | EDC | 0-3193 | 0-813 | 1 σ | Bouchet et al. (2023), PANGAEA.961017 |
+| **AICC2023** | EDML | 18-2416 | 0-145 | 1 σ | idem |
+| **AICC2023** | TALDICE | 0-1597 | 0-492 | 1 σ | idem |
+| **AICC2023** | Vostok | 0-3272 | 0-408 | 1 σ | idem |
+| AICC2012 | EDC, EDML, TALDICE (to 207 ka), Vostok | | | none in these files | the AICC2012 column of the AICC2023 files |
+| EDC3 | EDC | 0-3189 | 0-802 | none | Parrenin et al. (2007), NOAA |
+| WD2014 | WDC | 0-3404 | 0-67.75 | 2 σ, halved | Buizert et al. (2015), Sigl et al. (2016), NOAA |
+| SP19 | SPICEcore | 0-1751 | 0-54.3 | total, halved | Winski et al. (2019), USAP-DC 601206 |
+| DF2021 | Dome Fuji | 0-2150 | 0-208 | 2 σ, halved | Oyabu et al. (2022), NIPR ADS |
+| DFO-2006 | Dome Fuji | 0-2504 | 0-342 | none | Kawamura et al. (2007), NOAA (b2k, converted) |
+| GT4 | Vostok | 0-3310 | 0-423 | none | Petit et al. (1999), NOAA |
+| Byrd-BB2001 | Byrd | 940-2142 | 10-90 | none | Blunier and Brook (2001), NOAA (GISP2 scale) |
+
+From WD2014 to AICC2023 we use the 395 volcanic ties between WDC and EDC of Bouchet et al. (2023), valid from 10 to
+57 ka (`wd2014_to_aicc2023`). The difference AICC2023 − WD2014 is +65 years at 20 ka, −136 at 40 ka and −312 at 57 ka.
+
+**How much the chronologies of a core differ** (age of the same depth, ka), i.e. what a change of scale alone does to
+the age of a layer:
+
+| | 500 m | 1000 m | 1500 m | 2000 m | 2500 m | 3000 m |
+|---|---|---|---|---|---|---|
+| EDC: AICC2012 − AICC2023 | +0.24 | +0.43 | −2.27 | +0.85 | +0.05 | −1.24 |
+| EDC: EDC3 − AICC2023 | −0.33 | −0.67 | −1.49 | −1.64 | +0.15 | −1.50 |
+| Vostok: GT4 − AICC2023 | −3.17 | +0.13 | −2.39 | −1.01 | +1.11 | −13.0 |
+| Dome Fuji: DFO-2006 − DF2021 (300, 600, 1000, 1500, 2000 m) | +0.19 | −0.23 | −1.96 | +0.21 | −0.79 | |
+
+**What we found, and what is still open:**
+- **The uncertainty of AICC2023 over the last glacial is very small:** 20 to 100 years between 30 and 50 ka at EDC (for
+  example, 22 years at 41 ka), but about 1 ka at 100 and 200 ka. It is probably the uncertainty relative to the
+  Greenland ties (GICC05), without the error of GICC05's own layer count (about 1.6 ka at 40 ka). To check in Bouchet
+  et al. (2023) before it goes into the uncertainty of a layer's age.
+- **Vostok-RR2003** (Ruddiman and Raymo, 2003), which we gave as the chronology of Leysinger Vieli et al. (2011) at
+  Vostok, is a gas-age scale: the file has no ice age. It can't date a layer as it stands. To check in H3, when their
+  published ages are compared with our depths at Vostok: they may have used another scale.
+- **AICC2012 uncertainties** are not in the AICC2023 files (Bazin et al., 2013 published them separately). They're only
+  needed to compare with the papers that used AICC2012.
+- **Depth scales:** the tables of a core must use the same depth as the radar tie (depth below the surface today).
+  Still to check: DF2021 (DF1 or DF2 depth?) and the Vostok depth of AICC2023 (5G?).
+- **Not used by any dataset, not read:** EDML1, TALDICE-1, ST22, RICE17, Byrd-H1994, DFO-2006+AICC2012 (they're in
+  `chronologies.json`). AICC2012 below 342 ka at Dome Fuji (Uemura et al., 2018) isn't read either; no layer is that
+  deep there.
