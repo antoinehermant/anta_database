@@ -99,6 +99,13 @@ SETTINGS = {
         "note": "The raw file has no line IDs: lines cut where consecutive points are more than 50 km apart, and "
         "named after Table 1 of Leysinger Vieli et al. (2011), which they match by length and point spacing.",
     },
+    # The thickness of the files is that of BedMachine v2 (acknowledged in the header), a gridded product, not measured
+    # along the lines: left out, so the three come from the Bedmap survey points of the same traces
+    "Sanderson_2024": {
+        "drop_vars": {f: ["ICE_THK"] for f in ("EA_H1_38ka.csv", "EA_H2_90ka.csv", "EA_H3_162ka_filtered.csv")},
+        "note": "Ice thickness of the files left out: it is that of BedMachine v2 (a gridded product), not measured "
+        "along the lines. Ice thickness, bed and surface elevation from the Bedmap survey points of the same traces.",
+    },
     "Siegert_2004": {
         "line_ids": "dataset",
         "note": "Age uncertainties from Ashmore et al. (2020), for all layers but the 0.8 ka one; not in the "

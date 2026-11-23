@@ -32,10 +32,11 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
   the viewer showed the Bedmap2 grid surface in the elevation view). Bedmap1: 3.4 % of its points, Bedmap2 0.004 %,
   Bedmap3 0.07 % (108 lines); in v2 only 12 filled points were concerned (Cavitte_2020 3, Bodart_2021 5,
   Ashmore_2020 4). **Fixed in v2**
-- **To look at: Sanderson_2024, its thickness against the Bedmap2 surface and bed.** Sanderson has its own thickness
-  only; surface and bed come from Bedmap2 (BAS_2007_AGAP). On median S - T - B is 6.5 m, but on 202,142 points it is
-  more than 50 m (up to 700 m): where the two picks of the bed differ. Taking the bed as the Bedmap surface minus
-  Sanderson's thickness would keep the three consistent.
+- **Sanderson_2024: its ice thickness is gridded** (BedMachine v2, acknowledged in the header of the files), not
+  measured along the lines: left out (`drop_vars`), so thickness, bed and surface all come from the Bedmap2 survey
+  points of the same traces (BAS_2007_AGAP_AIR_BM2): 95 % of its points have two or three of them, the others only a
+  surface (no bed pick in Bedmap). Before, its gridded thickness with the Bedmap surface and bed disagreed by more
+  than 50 m at 202,142 points. **Fixed in v2**
 - **Line ID flag `assigned` dropped** (anta_json #9, Julien): Winter_2018's line IDs (`AWI...`, the column `Line` of
   its files) have the flag `original`; flags are original, not_provided, project_acq-year_number, bedmap. **Fixed in v2**
 - **Lines without IDs:** named after the dataset, numbered when cut.
