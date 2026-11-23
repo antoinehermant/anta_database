@@ -402,6 +402,28 @@ to point, and its line 134 (15 km away) is 250 m shallower for IRH 1, so the dep
 
 Figure: `docs/harmonisation/figures/leysinger_cores.py`.
 
+**Is Leysinger IRH 1 (17.5 ka) Sanderson's 38.5 ka layer?** (2026-11-23) Probably not, but it can't be excluded.
+- *For:* Leysinger's lines 121 and 134 run between SPICEcore and Vostok, with Sanderson lines within 2 km at 23
+  places. Away from SPICEcore, Sanderson 1, 2, 3 (38.5, 90.4, 161.9 ka) sit near Leysinger 1, 3, 5, in sequence,
+  Leysinger 0 to 140 m deeper (5 to 10 percent). With Leysinger's depth errors (below), that is within its error.
+- *Against:* near Vostok, Leysinger line 009 can be compared with Winter and Cavitte, whose depths agree with the ice
+  core: Cavitte's 38.1 ka layer is 114 m below Leysinger 1 (MAD 20 m, 96 points over 109 km), Winter's 38.2 ka 145 m
+  below it (MAD 9 m). Leysinger 2 is Winter's 48.3 ka layer (20 m apart, MAD 9 m), as the age of IRH 2 on AICC2023 at
+  Vostok (46.7 ka) says. For Leysinger 1 to be the 38 ka layer, line 009 would be about 25 percent too shallow near
+  Vostok (three times its offset at Dome C), and its IRH 2 would not fall on the 48 ka layer.
+- *Leysinger against itself:* lines 009 and 121 cross 225 km from Vostok (93 m apart), with almost the same ice
+  thickness (3071 and 3000 m), but line 121 puts every layer 12 to 19 percent deeper (IRH 1: 657 against 565 m). So the
+  normalised heights of its lines don't agree, or the IRH numbers change between lines. Within 50 km of SPICEcore,
+  line 121's layers jump and cross; there Sanderson 1 falls near Leysinger 2, not 1.
+- *So:* depth alone can't decide on lines 121 and 134, and the IRH numbers of Leysinger may not mean the same layer
+  on all its lines. Near Vostok, where the other datasets are dense, Leysinger 1 is a younger layer (about 24 ka on
+  AICC2023) and Leysinger 2 the 48 ka layer, not the 38 ka one. That differs from the Dome C cluster, where Leysinger 2
+  is Cavitte's 38.1 ka layer: Leysinger's IRH numbers don't follow one reflection across its survey.
+
+![Leysinger lines 121 and 134 against Sanderson](figures/leysinger_sanderson.png)
+
+Figure: `docs/harmonisation/figures/leysinger_sanderson.py`.
+
 ![Layers at SPICEcore](figures/spicecore_ties.png)
 
 Figure: `docs/harmonisation/figures/spicecore.py`.
