@@ -369,7 +369,37 @@ The same method at SPICEcore, on SP19 (Winski et al., 2019), which reaches 1751 
 - Sanderson IRH 1 and Beem IRH 5 are probably the same 38 ka reflection: 30 m apart at the core, within their sd
   (11 and 19 m) and Beem's missing firn correction (about 12 m). To check at their crossings.
 - **Leysinger_Vieli_2011** is not reproduced here either (17.5 ka published, 25 ka on SP19 at our depth; its points are
-  sparse, from normalised heights).
+  sparse, from normalised heights). Compared with Vostok below.
+
+**Leysinger_Vieli_2011 at Vostok and SPICEcore.** Its lines reach both cores (0.6 and 0.75 km), so the same layer can
+be dated twice, each time on the core's own chronology:
+
+| IRH | Published (ka) | Vostok depth (m) | Vostok AICC2023 (ka) | Vostok RR03 (ka) | SPICEcore depth (m) | SPICEcore SP19 (ka) |
+|---|---|---|---|---|---|---|
+| 1 | 17.5 | 419 ± 2 | 24.2 | 23.0 | 1189 | 25.2 (22.3 to 28.3) |
+| 2 | 36.6 | 669 ± 3 | 46.7 | 38.4 | 1568 | 43.9 (41.6 to 46.7) |
+| 3 | 62.5 | 937 ± 4 | 65.4 | 67.5 | 1730 | 53.0 (50.1 to 54.3) |
+| 4 | 72.9 | 1108 ± 4 | 78.4 | 76.4 | 1870 | below SP19 (1751 m) |
+
+The SPICEcore range is ±50 m of depth: within 5 km of the core, Leysinger's line 121 jumps by 50 to 100 m from point
+to point, and its line 134 (15 km away) is 250 m shallower for IRH 1, so the depth of the Gaussian surface there
+(± 13 to 16 m) is too optimistic (leave-one-line-out 224 to 334 m).
+
+- **IRH 1 and 2 agree between the cores** (24.2 against 25.2 ka; 46.7 against 43.9 ka, within the SPICEcore range),
+  and both disagree with the published 17.5 and 36.6 ka. So Leysinger's layers are older than published, which is
+  what the Dome C cluster says too (its IRH 2 is Cavitte's 38.1 ka layer, not 36.6 ka; H3 above).
+- **IRH 3 does not agree** (65.4 against 53.0 ka): at SPICEcore it is 20 m above the bottom of SP19, where the
+  scatter of line 121 matters most.
+- **At Vostok, RR03 and AICC2023 differ by up to 8 ka between 600 and 750 m** (38.4 against 46.7 ka at 669 m for
+  IRH 2); AICC2012 is the same as AICC2023 there, GT4 in between. RR03 (gas age + the GT4 delta age, H2) gives back the
+  published 36.6 ka for IRH 2 within 2 ka: part of the published ages comes from the chronology, not the layers.
+- Only Leysinger links Vostok and SPICEcore directly. The 38 ka layer links them otherwise: Sanderson at SPICEcore
+  (39.0 ka on SP19) and Winter or Cavitte at Vostok, through Winter's lines. To check: is Leysinger IRH 2 that layer
+  (46.7 and 43.9 ka here, older)?
+
+![Leysinger layers at the three cores](figures/leysinger_cores.png)
+
+Figure: `docs/harmonisation/figures/leysinger_cores.py`.
 
 ![Layers at SPICEcore](figures/spicecore_ties.png)
 
