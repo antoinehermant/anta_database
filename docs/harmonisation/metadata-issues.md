@@ -25,6 +25,17 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
     2 km or more on the smooth lines (ground lines, DC_LDC_DIVIDE), where a short straight stretch can be real.
     16,324 more depths (straight stretches in all: 314,767).
   **Fixed in v2**
+- **Bedmap survey points wrong in themselves** (2026-11-23): a Bedmap point with surface, thickness and bed whose
+  |S - T - B| is more than 50 m is wrong in one of them, which can't be told; none of the three is taken in the
+  fill (`reconnect.py`, `INCONSISTENT`). E.g. a surface of -607.5 m at the first point of the Bedmap3 line
+  IR1HI2_2009342_VCD_JKB1a_X08a, which three points of Cavitte's VCD_JKB1a_X08a had taken (thickness and surface;
+  the viewer showed the Bedmap2 grid surface in the elevation view). Bedmap1: 3.4 % of its points, Bedmap2 0.004 %,
+  Bedmap3 0.07 % (108 lines); in v2 only 12 filled points were concerned (Cavitte_2020 3, Bodart_2021 5,
+  Ashmore_2020 4). **Fixed in v2**
+- **To look at: Sanderson_2024, its thickness against the Bedmap2 surface and bed.** Sanderson has its own thickness
+  only; surface and bed come from Bedmap2 (BAS_2007_AGAP). On median S - T - B is 6.5 m, but on 202,142 points it is
+  more than 50 m (up to 700 m): where the two picks of the bed differ. Taking the bed as the Bedmap surface minus
+  Sanderson's thickness would keep the three consistent.
 - **Line ID flag `assigned` dropped** (anta_json #9, Julien): Winter_2018's line IDs (`AWI...`, the column `Line` of
   its files) have the flag `original`; flags are original, not_provided, project_acq-year_number, bedmap. **Fixed in v2**
 - **Lines without IDs:** named after the dataset, numbered when cut.

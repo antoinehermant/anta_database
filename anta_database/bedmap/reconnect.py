@@ -63,6 +63,10 @@ CROSS_TRACK_CENTRE = 5.0  # m, |signed median|
 CROSS_TRACK_DIST = 80.0  # m, per point, to the Bedmap point the values come from
 CROSS_TRACK_SEARCH = 1000.0  # m, points farther from the Bedmap line are not on it
 JOIN_GAP = 500.0  # m, Bedmap points joined into a line
+# m: a Bedmap point whose surface, thickness and bed are all given but |S - T - B| is larger is wrong in one
+# of them, which can't be told: none of the three is taken (e.g. a surface of -607.5 m in
+# UTIG_2010_ICECAP_AIR_BM3, IR1HI2_2009342_VCD_JKB1a_X08a; 0.07 percent of the Bedmap3 points)
+INCONSISTENT = 50.0
 # Platform of a Bedmap survey, from its name (seismic soundings are on the ground)
 SURVEY_PLATFORMS = {"AIR": "airborne", "GRN": "ground-based", "SEI": "ground-based"}
 DIST_ATTRS = {
@@ -119,6 +123,10 @@ def _values(path: str) -> Dict[str, np.ndarray]:
         out = {"xy": np.c_[ds.PSX.values, ds.PSY.values]}
         for var in VARIABLES:
             out[var] = ds[var].values.astype(np.float64) if var in ds else np.full(len(ds.PSX), np.nan)
+    if {"SURF_ELEV", "ICE_THK", "BED_ELEV"} <= set(VARIABLES):
+        wrong = np.abs(out["SURF_ELEV"] - out["ICE_THK"] - out["BED_ELEV"]) > INCONSISTENT
+        for var in ("SURF_ELEV", "ICE_THK", "BED_ELEV"):
+            out[var][wrong] = np.nan
     return out
 
 
