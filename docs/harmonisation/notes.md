@@ -536,3 +536,45 @@ or the next best where Cavitte doesn't have the layer. The spread of the ages be
 mostly the depth offsets between datasets; the depth scale (which dataset's depth is right at the core, i.e. the
 offsets of H4) decides the final ages. Still to do: the same at Vostok and Dome Fuji, then join the three through
 the datasets that reach two of them (Winter, Cavitte: the 38 ka layer).
+
+---
+
+## H5 at Vostok: the same reflections, with Sanderson and Yan (2026-11-23)
+
+Only Winter_2018 (IRH 1-4, 0.1 km), Cavitte_2020 (3, 5, 7; one line, 0.1 km) and Leysinger_Vieli_2011 (1-7, line 009,
+0.6 km) reach the core. Two more datasets join through them: Sanderson_2024 (460 km away) through Winter, along the
+same flight (SPICEcore above), and Yan_2025 (124 km away) through Cavitte: Yan's line `20131127_01` runs along a
+Cavitte line (60 m apart). Its other 30 lines (LSE, PEL) are 500 to 800 km from any Cavitte line; only R42a passes
+22 km from one. So Yan 1-9 (6.5 to 23.5 ka, modelled) and 12, 14, 16 (38.1, 73.4, 96.5 ka) never meet Cavitte and
+are not in the ladder.
+
+**Placing the layers that don't reach Vostok.** On the shared track, each layer is carried to Vostok by its position
+between the two Cavitte layers tied at Vostok just above and below it at the same point (the surface above Cavitte 3),
+linear in depth, median over the points. Checked on Cavitte's own layers 1, 2, 4, 6, which don't reach Vostok: placed
+at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (published 10.0, 29.4, 46.4, 82.0).
+
+| Pair | Layers | Difference (m) | How |
+|---|---|---|---|
+| Cavitte − Winter | 38.1 = 38.2 ka | 6.1 (MAD 0.9, 9 crossings) | crossings within 30 km |
+| Leysinger − Winter | Leysinger 2 (36.6) = 48.3 ka | −19.9 (MAD 8.9, 78 points) | points within 1 km, line 009; likely |
+| Yan − Cavitte | Yan 10 = Cavitte 1 (10.0 ka) | +5.3 (MAD 5.0, 673 points) | same track, within 300 m |
+| Yan − Cavitte | Yan 11 = Cavitte 2 (29.4 ka) | −15.9 (MAD 1.5, 656 points) | same track |
+| Yan − Cavitte | Yan 13 = Cavitte 4 (46.4 ka) | −19 (placed at Vostok) | likely: Cavitte has no IRH 4 where Yan has 13 |
+| Yan − Cavitte | Yan 15 = Cavitte 6 (82.0 ka) | −24 (placed at Vostok) | likely: same |
+| Sanderson → Winter | 38.5 = 38.2; 90.4 = 90.2; 161.9 = 161.1 ka | | sure; likely; doubtful (SPICEcore above) |
+
+![Layers at Vostok and the reflections they share](figures/vostok_horizons_ladder.png)
+
+- **The 38 ka layer joins four datasets at Vostok:** Sanderson, Winter, Cavitte, and through Cavitte's EDC ladder
+  Mulvaney, Bodart_2025b and Chung's neighbours. With Sanderson at SPICEcore (39.0 ka on SP19), it is one reflection
+  from EDC to Vostok to SPICEcore.
+- **Yan is about 16 to 24 m shallower than Cavitte** for 29.4, 46.4 and 82 ka, with a very small scatter for 29.4 ka
+  (1.5 m over 656 points, so the same radargrams). Cavitte has +14.6 m of firn correction added by us; Yan's firn
+  correction is "unknown" (anta_json #13). This says Yan's depths have **no firn correction**, about 15 m like Cavitte's
+  at Dome C. The 10 ka layer doesn't fit (Yan 5 m deeper): to look at (the shallowest layer, or another reflection).
+- **Leysinger at Vostok:** IRH 2 (published 36.6 ka) is Winter's 48.3 ka layer, 20 m shallower; its IRH 1 (17.5 ka)
+  has no partner (the 38 ka layer is 114 to 145 m below it). See the Leysinger notes above.
+- Winter 48.3 and Cavitte 73.4, 96.5 ka, and the deep Leysinger layers, have no partner at Vostok yet.
+
+Script: `docs/harmonisation/scripts/vostok_horizons.py` (writes matches_Vostok.csv and placed_Vostok.csv); figure:
+`docs/harmonisation/figures/vostok_horizons.py`.
