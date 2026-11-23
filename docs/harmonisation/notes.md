@@ -565,8 +565,8 @@ at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (
 
 ![Layers at Vostok and the reflections they share](figures/vostok_horizons_ladder.png)
 
-- **The 38 ka layer joins four datasets at Vostok:** Sanderson, Winter, Cavitte, and through Cavitte's EDC ladder
-  Mulvaney, Bodart_2025b and Chung's neighbours. With Sanderson at SPICEcore (39.0 ka on SP19), it is one reflection
+- **The 38 ka layer joins three datasets at Vostok:** Sanderson, Winter and Cavitte; at EDC, Cavitte and Winter join it
+  to Mulvaney and Bodart_2025b (EDC ladder). With Sanderson at SPICEcore (39.0 ka on SP19), it is one reflection
   from EDC to Vostok to SPICEcore.
 - **Yan is about 16 to 24 m shallower than Cavitte** for 29.4, 46.4 and 82 ka, with a very small scatter for 29.4 ka
   (1.5 m over 656 points, so the same radargrams). Cavitte has +14.6 m of firn correction added by us; Yan's firn
