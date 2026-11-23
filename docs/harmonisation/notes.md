@@ -557,7 +557,7 @@ at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (
 |---|---|---|---|
 | Cavitte − Winter | 38.1 = 38.2 ka | 6.1 (MAD 0.9, 9 crossings) | crossings within 30 km |
 | Leysinger − Winter | Leysinger 2 (36.6) = 48.3 ka | −19.9 (MAD 8.9, 78 points) | points within 1 km, line 009; likely |
-| Yan − Cavitte | Yan 10 = Cavitte 1 (10.0 ka) | +5.3 (MAD 5.0, 673 points) | same track, within 300 m |
+| Yan − Cavitte | Yan 10 = Cavitte 1 (10.0 ka)? | +5.3 (MAD 5.0, 673 points) | same track, within 300 m; doubtful (below) |
 | Yan − Cavitte | Yan 11 = Cavitte 2 (29.4 ka) | −15.9 (MAD 1.5, 656 points) | same track |
 | Yan − Cavitte | Yan 13 = Cavitte 4 (46.4 ka) | −19 (placed at Vostok) | likely: Cavitte has no IRH 4 where Yan has 13 |
 | Yan − Cavitte | Yan 15 = Cavitte 6 (82.0 ka) | −24 (placed at Vostok) | likely: same |
@@ -571,7 +571,20 @@ at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (
 - **Yan is about 16 to 24 m shallower than Cavitte** for 29.4, 46.4 and 82 ka, with a very small scatter for 29.4 ka
   (1.5 m over 656 points, so the same radargrams). Cavitte has +14.6 m of firn correction added by us; Yan's firn
   correction is "unknown" (anta_json #13). This says Yan's depths have **no firn correction**, about 15 m like Cavitte's
-  at Dome C. The 10 ka layer doesn't fit (Yan 5 m deeper): to look at (the shallowest layer, or another reflection).
+  at Dome C. The 10 ka layer doesn't fit (Yan 5 m deeper): see below.
+- **Yan's two 10 ka layers are not the same reflection.** Yan_2025 has IRH 4 (10 ka, modelled) and IRH 10 (10 ka,
+  from EDC through Cavitte). IRH 10 is on three lines only (the track `20131127_01`, and PEL R42a and R43a), IRH 4 on 30
+  others. Where both are picked (5 points on R42a) IRH 10 is 131 m below IRH 4 and 3 to 5 m from IRH 6 (13.5 ka,
+  modelled); at both ends where the two meet (R42a near km 470, R43a near km 2510) IRH 10 continues IRH 6, not IRH 4.
+  IRH 4 never reaches the track or Cavitte, and the track crosses no other Yan line, so IRH 4 can't be traced to
+  Cavitte through Yan's own crossings. So Yan's IRH 10 is older than its IRH 4, and on the track it lies 5 m below
+  Cavitte's 10 ka layer where, with Yan's missing firn correction, Cavitte's layer would be about 15 m *above* it in
+  Yan's depths. Both say the same: Yan's IRH 10 is probably a reflection about 20 m below Cavitte's 10 ka layer (about
+  1 ka older there), not that layer; its match is marked doubtful. The firn finding rests on 29.4, 46.4 and 82 ka.
+
+![Yan's two 10 ka layers](figures/yan_10ka.png)
+
+Figure: `docs/harmonisation/figures/yan_10ka.py`.
 - **Leysinger at Vostok:** IRH 2 (published 36.6 ka) is Winter's 48.3 ka layer, 20 m shallower; its IRH 1 (17.5 ka)
   has no partner (the 38 ka layer is 114 to 145 m below it). See the Leysinger notes above.
 - Winter 48.3 and Cavitte 73.4, 96.5 ka, and the deep Leysinger layers, have no partner at Vostok yet.

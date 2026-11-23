@@ -40,6 +40,10 @@ RADIUS = 30e3
 LEYSINGER_LINE, LEYSINGER_KM = "009.nc", 110
 YAN_LINE = "20131127_01.nc"
 SANDERSON = [(1, 1, "sure"), (3, 2, "likely"), (4, 3, "doubtful")]  # Winter IRH, Sanderson IRH
+# Yan 10 (10 ka from EDC) is close to Cavitte 1 along the track, but 5 m deeper where the other Yan layers are 16 to 24 m
+# shallower than Cavitte's, and on lines R42a and R43a it continues Yan 6 (13.5 ka), 131 m below Yan 4 (its other
+# 10 ka layer): doubtful (notes.md, H5 at Vostok)
+DOUBTFUL_YAN = {10}
 
 
 def pairs_at_crossings(A, B, na, nb):
@@ -100,7 +104,8 @@ def main():
     for r in best.itertuples():
         if abs(r.dz) <= 20 and r.mad <= 10:
             out.append(dict(a="Cavitte_2020", ia=r.ia, b="Yan_2025", ib=r.ib, n=r.n, dz=r.dz, mad=r.mad,
-                            how="sure", method=f"points within 300 m, Yan line {YAN_LINE}"))
+                            how="doubtful" if r.ib in DOUBTFUL_YAN else "sure",
+                            method=f"points within 300 m, Yan line {YAN_LINE}"))
 
     # 4. Sanderson through Winter (notes.md, SPICEcore)
     for iw, isd, how in SANDERSON:
