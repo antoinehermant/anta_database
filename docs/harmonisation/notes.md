@@ -343,12 +343,50 @@ Vostok cluster, none yet. The published ages stay as published.
 the layers published at 38.1, 73.4 and 96.5 ka. That is the first test of carrying a layer from one core to another
 (H5).
 
+### SPICEcore (2026-11-23)
+
+The same method at SPICEcore, on SP19 (Winski et al., 2019), which reaches 1751 m (54.3 ka):
+`core_ties("SPICEcore")` → `ties_SPICEcore.csv` (kept out of `ties.csv` for now). Three datasets have lines within
+20 km: Sanderson_2024 (two lines crossing 0.8 km from the core), Beem_2021 (one line, 0.8 km) and Leysinger_Vieli_2011
+(sparse points, 0.75 km).
+
+| Dataset | IRH | Published (ka) | Our depth (m) | Leave-one-line-out (m) | SP19 at our depth (ka) |
+|---|---|---|---|---|---|
+| Sanderson_2024 | 1 | 38.5 ± 2.2 | 1456 ± 11 | 28 | 39.0 ± 0.3 (depth: ± 0.4) |
+| Sanderson_2024 | 2 | 90.4 ± 3.6 | 1913 ± 10 | 30 | below SP19 |
+| Sanderson_2024 | 3 | 161.9 ± 6.8 | no line within 20 km | | |
+| Beem_2021 | 1 | 4.7 | 379 ± 3 | | 4.6 |
+| Beem_2021 | 2 | 10.7 | 746 ± 13 | | 10.4 |
+| Beem_2021 | 5 | 37.6 | 1426 ± 19 | | 37.7 |
+| Beem_2021 | 6 | 51.4 | 1460 ± 23 | | 39.2 |
+
+- **Sanderson's 38.5 ka layer is reproduced** on SP19 (39.0 ka, within its ±2.2 ka). The depth is less sure than
+  at EDC (two lines only: leave-one-line-out 28 m, about ±1 ka here). Its 90.4 ka layer is 160 m below the bottom of
+  SPICEcore: its age can only come from Vostok and EDC, through Winter_2018 (the ladder, H5), as the authors did.
+- **Beem_2021** IRH 1, 2 and 5 are reproduced (one line, no firn correction). IRH 6 (51.4 ka) is only 34 m below
+  IRH 5 at the core and SP19 gives it 39.2 ka: not reproduced, to look at (its single line, or the layers merging near
+  the core).
+- Sanderson IRH 1 and Beem IRH 5 are probably the same 38 ka reflection: 30 m apart at the core, within their sd
+  (11 and 19 m) and Beem's missing firn correction (about 12 m). To check at their crossings.
+- **Leysinger_Vieli_2011** is not reproduced here either (17.5 ka published, 25 ka on SP19 at our depth; its points are
+  sparse, from normalised heights).
+
+![Layers at SPICEcore](figures/spicecore_ties.png)
+
+Figure: `docs/harmonisation/figures/spicecore.py`.
+
+**Sanderson_2024 and EDC.** Sanderson has no line near EDC (859 km); it crosses only Winter_2018 (4,227 crossings,
+mostly where its line A11 runs along Winter's 099046st10, the same flight). Point by point along it (within 300 m):
+38.5 ka = Winter's 38.2 ka (68 percent of the points within 20 m, median 0.3 m), 90.4 ka likely Winter's 90.2 ka (37
+percent), 161.9 ka doubtful (8 percent: over 180 km the two follow different reflections, up to 200 m apart). In the
+EDC ladder (H5), its layers are drawn at the depth of the Winter layer they follow. So Sanderson's 38 ka layer joins
+SPICEcore to EDC through Winter: the first link between the two cores.
+
 **Still to do in H3:**
 - Ages on AICC2023 with their full uncertainty: the chronology, the depth, and the GICC05 counting error below 60 ka
   (H2).
-- The other cores (EDML, TALDICE, BELDC, WDC, SPICEcore, Byrd).
-- An anta_json issue per dataset not reproduced (Chung, Bodart_2025b, Winter, Mulvaney), asking Julien for the tie
-  depth or method (queued for Monday).
+- The other cores (EDML, TALDICE, BELDC, WDC, Byrd).
+- The answers to anta_json #18 to #21 (Winter, Chung, Bodart_2025b, Mulvaney).
 
 ---
 

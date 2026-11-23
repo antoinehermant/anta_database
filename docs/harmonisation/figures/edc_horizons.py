@@ -18,26 +18,34 @@ import pandas as pd
 from anta_database.harmonisation.ties import OUTPUT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ORDER = ["Winter_2018", "Bodart_2025b", "Cavitte_2020", "Leysinger_Vieli_2011", "Chung_2023", "Mulvaney_2023"]
+ORDER = ["Sanderson_2024", "Winter_2018", "Bodart_2025b", "Cavitte_2020", "Leysinger_Vieli_2011", "Chung_2023", "Mulvaney_2023"]
 INK, MUTED, GRID = "#1f1f1e", "#6b6a64", "#e4e3dd"
 COLOURS = dict(zip(["Cavitte_2020", "Mulvaney_2023", "Bodart_2025b", "Chung_2023", "Winter_2018"],
-                   ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]), Leysinger_Vieli_2011=MUTED)
+                   ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]), Leysinger_Vieli_2011=MUTED, Sanderson_2024="#3d3c38")
 # Leysinger_Vieli_2011 is matched to Cavitte_2020 by the sequence of its layers, not by depth (notes.md, H3): its
 # layers are 50 to 60 m shallower. IRH 2 and 4 are sure, IRH 6 and 8 likely.
 LEYSINGER = {2: (3, True), 4: (5, True), 6: (10, False), 8: (14, False)}
+# Sanderson_2024 has no line near EDC (859 km): it crosses only Winter_2018, mostly along the same flight (A11 and
+# 099046st10). Its layers are drawn at the depth at EDC of the Winter layer they follow (hollow): 38.5 ka is Winter's
+# 38.2 ka (68 percent of the points within 20 m), 90.4 ka likely its 90.2 ka (37 percent), 161.9 ka doubtful (8 percent:
+# the two follow different reflections over 180 km).
+SANDERSON = {1: (1, "sure"), 2: (3, "likely"), 3: (4, "doubtful")}
+SANDERSON_AGES = {1: 38.5, 2: 90.4, 3: 161.9}
 plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED,
                      "ytick.color": MUTED, "axes.spines.top": False, "axes.spines.right": False})
 
 
 def ladder(t, m):
-    fig, ax = plt.subplots(figsize=(11, 9))
+    fig, ax = plt.subplots(figsize=(12, 9.5))
     col = {d: i for i, d in enumerate(ORDER)}
     for d in ORDER:
+        if d == "Sanderson_2024":
+            continue
         g = t[t.dataset == d]
         x = col[d]
         ax.errorbar(np.full(len(g), x), g.depth, yerr=g.depth_sd, fmt="_", ms=18, mew=2, color=COLOURS[d],
                     ecolor=COLOURS[d], elinewidth=1, zorder=3)
-        side = -1 if x < 2 else 1
+        side = -1 if x < col["Cavitte_2020"] else 1
         for r in g.itertuples():
             ax.annotate(f"{round(r.age_published, 1):g}", (x, r.depth), xytext=(side * 14, -3), textcoords="offset points",
                         ha="right" if side < 0 else "left", fontsize=7, color=MUTED)
@@ -52,9 +60,19 @@ def ladder(t, m):
     for ib, (ia, sure) in LEYSINGER.items():
         ax.plot([xa, xb], [depth[("Cavitte_2020", ia)], depth[("Leysinger_Vieli_2011", ib)]], color=MUTED, lw=1,
                 ls="--" if sure else ":", zorder=2)
+    xs, xw = col["Sanderson_2024"], col["Winter_2018"]
+    style = {"sure": dict(ls="--", alpha=1), "likely": dict(ls=":", alpha=1), "doubtful": dict(ls=":", alpha=0.4)}
+    for ib, (ia, how) in SANDERSON.items():
+        z = depth[("Winter_2018", ia)]
+        ax.plot([xs, xw], [z, z], color=MUTED, lw=1, zorder=2, **style[how])
+        ax.scatter([xs], [z], s=70, marker="_", color=COLOURS["Sanderson_2024"], lw=2,
+                   alpha=style[how]["alpha"], zorder=3)
+        ax.annotate(f"{SANDERSON_AGES[ib]:g}" + ("?" if how == "doubtful" else ""), (xs, z), xytext=(-14, -3),
+                    textcoords="offset points", ha="right", fontsize=7, color=MUTED)
     ax.plot([], [], color=INK, lw=0.8, alpha=0.55, label="Matched at the crossings (depth and order)")
-    ax.plot([], [], color=MUTED, lw=1, ls="--", label="Leysinger_Vieli_2011: matched by the sequence of its layers")
-    ax.plot([], [], color=MUTED, lw=1, ls=":", label="Leysinger_Vieli_2011: the same, likely")
+    ax.plot([], [], color=MUTED, lw=1, ls="--", label="Leysinger: matched by the sequence of its layers; "
+            "Sanderson: the same reflection along Winter's lines, far from EDC")
+    ax.plot([], [], color=MUTED, lw=1, ls=":", label="The same, likely (faint: doubtful)")
     ax.legend(loc="lower left", frameon=False, fontsize=7.5, labelcolor=INK)
     ax.set_xticks(range(len(ORDER)), [d.replace("_Vieli", " Vieli") for d in ORDER], fontsize=8)
     ax.set_xlim(-0.8, len(ORDER) - 0.2)
@@ -62,7 +80,8 @@ def ladder(t, m):
     ax.set_ylabel("Depth at EDC (m): the Gaussian surface of each layer at the core, ±1 sd")
     ax.grid(axis="y", color=GRID, lw=0.5)
     ax.set_title("Layers at EDC, and the horizons joining them (matched at the crossings by depth and order only).\n"
-                 "Numbers: published ages (ka), not used for the matching. Leysinger: its nearest line is 13 km away", loc="left", color=INK, fontsize=9.5)
+                 "Numbers: published ages (ka), not used for the matching. Leysinger: its nearest line is 13 km away.\n"
+                 "Sanderson: no line near EDC (859 km), drawn at the depth of the Winter layer it follows", loc="left", color=INK, fontsize=9.5)
     fig.tight_layout()
     fig.savefig(os.path.join(HERE, "edc_horizons_ladder.png"), dpi=160)
 
