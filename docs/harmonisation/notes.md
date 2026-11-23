@@ -386,8 +386,9 @@ to point, and its line 134 (15 km away) is 250 m shallower for IRH 1, so the dep
 (± 13 to 16 m) is too optimistic (leave-one-line-out 224 to 334 m).
 
 - **IRH 1 and 2 agree between the cores** (24.2 against 25.2 ka; 46.7 against 43.9 ka, within the SPICEcore range),
-  and both disagree with the published 17.5 and 36.6 ka. So Leysinger's layers are older than published, which is
-  what the Dome C cluster says too (its IRH 2 is Cavitte's 38.1 ka layer, not 36.6 ka; H3 above).
+  and both disagree with the published 17.5 and 36.6 ka: in the Vostok cluster, Leysinger's layers are older than
+  published. In the Dome C cluster, IRH 2 is Cavitte's 38.1 ka layer (H3 above), so 44 to 47 ka here is another,
+  older layer: one more sign that the two clusters' IRH 2 are not the same reflection.
 - **IRH 3 does not agree** (65.4 against 53.0 ka): at SPICEcore it is 20 m above the bottom of SP19, where the
   scatter of line 121 matters most.
 - **At Vostok, RR03 and AICC2023 differ by up to 8 ka between 600 and 750 m** (38.4 against 46.7 ka at 669 m for
