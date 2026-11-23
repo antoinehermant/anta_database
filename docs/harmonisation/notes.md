@@ -582,6 +582,15 @@ at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (
   Yan's depths. Both say the same: Yan's IRH 10 is probably a reflection about 20 m below Cavitte's 10 ka layer (about
   1 ka older there), not that layer; its match is marked doubtful. The firn finding rests on 29.4, 46.4 and 82 ka.
 
+- *Could Yan's IRH 10 be the 13.5 ka layer, with one offset for all its layers?* No. With the offset of its other
+  layers (Yan 16 to 24 m shallower than Cavitte), IRH 10 lies 15 to 22 m below Cavitte's 10 ka layer: 10.6 to 10.9 ka
+  at Vostok on AICC2023, counted from Cavitte 1 (10.0 ka at 219 m), or 11.5 to 11.8 ka from its placed depth (which puts
+  Cavitte 1 itself 0.9 ka too old). The 13.5 ka layer is at 299 m at Vostok, about 80 m below Cavitte's 10 ka layer:
+  IRH 10 would need an offset of about 80 m, four times that of the other layers. So IRH 10 on the track is a reflection
+  about 0.5 to 1.5 ka older than Cavitte's 10 ka layer. Then either Yan's modelled 13.5 ka for IRH 6 is about 2 ka too
+  old (IRH 10 continues IRH 6 on R42a and R43a), or IRH 10 on the track and on the PEL lines are not the same
+  reflection (nothing joins them but the number).
+
 ![Yan's two 10 ka layers](figures/yan_10ka.png)
 
 Figure: `docs/harmonisation/figures/yan_10ka.py`.
