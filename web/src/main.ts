@@ -2421,12 +2421,64 @@ function regionFilter(
   };
 }
 
+/**
+ * Line ID patterns, as the line_id of anta_database's queries: "*" (or "%") any characters, "?" one
+ * character, case not minded; several patterns, between commas or spaces, for the lines matching
+ * any of them. A pattern without a wildcard is the whole line ID. Null for no pattern.
+ */
+function lineIdMatcher(text: string): ((lineId: string) => boolean) | null {
+  const patterns = text.split(/[\s,]+/).filter(Boolean);
+  if (!patterns.length) return null;
+  const regexps = patterns.map(
+    (p) => new RegExp(`^${p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/[*%]/g, ".*").replace(/\?/g, ".")}$`, "i"),
+  );
+  return (lineId) => regexps.some((r) => r.test(lineId));
+}
+
+/**
+ * Lines by their ID: only the lines whose ID matches the patterns typed (lineIdMatcher) are shown,
+ * with the other filters. Kept with the settings. Returns a function clearing it (Reset filters).
+ */
+function lineIdFilter(index: IrhIndex): () => void {
+  const state = { lineId: "" };
+  const info = document.createElement("div");
+  info.className = "region-info";
+  const apply = () => {
+    const matches = lineIdMatcher(state.lineId);
+    isochrones.lineIds = matches
+      ? new Set(index.tracks.filter((t) => matches(t.line_id)).map((t) => lineKey(t.dataset, t.line_id)))
+      : null;
+    if (!isochrones.lineIds) info.textContent = "";
+    else {
+      const n = isochrones.lineIds.size;
+      const datasets = new Set([...isochrones.lineIds].map((k) => k.split("\u0001")[0])).size;
+      info.textContent = n ? `${count(n, "line")} in ${count(datasets, "dataset")} match` : "No line matches";
+    }
+    queueFilter();
+  };
+  const controller = filters.add(state, "lineId").name("Line ID").onChange(apply);
+  const input = controller.domElement.querySelector("input");
+  if (input) {
+    input.placeholder = "ASB*, *DC*, VCD_JKB1a_X08a";
+    input.spellcheck = false;
+    input.autocomplete = "off";
+  }
+  controller.domElement.after(info);
+  addHelp(
+    controller,
+    "Only the lines whose ID matches are shown. * stands for any characters (ASB* for the IDs starting with ASB, *DC* for those with DC in them), ? for one character. A pattern without * is the whole ID. Several patterns, between commas or spaces, show the lines matching any of them. Upper and lower case are the same. The other filters still apply.",
+  );
+  return () => controller.setValue("");
+}
+
 function buildFilters(index: IrhIndex, regions: Regions | null): void {
   // First in the folder: every region removed, every dataset and age ticked
   let clearRegions: (() => void) | null = null;
   let ageBoxes: CheckboxFolder<AgeKey> | null = null;
   // And the view of the whole continent
+  let clearLineIds: (() => void) | null = null;
   const reset = () => {
+    clearLineIds?.();
     clearRegions?.(); // also ticks every dataset
     if (!clearRegions) showDatasets?.(() => true);
     ageBoxes?.tick(() => true);
@@ -2448,6 +2500,8 @@ function buildFilters(index: IrhIndex, regions: Regions | null): void {
   }
   // The regions, setting the boxes of the datasets
   if (regions?.regions.length) clearRegions = regionFilter(index, regions, showDatasets);
+  // The lines by their ID
+  clearLineIds = lineIdFilter(index);
   // The ages, then the isochrones without age, then the basal unit (not an age, here for now)
   const rank = (k: AgeKey) => (typeof k === "number" ? 0 : k === null ? 1 : 2);
   const ages = [...new Set(index.features.map(ageKey))].sort((a, b) => rank(a) - rank(b) || (a as number) - (b as number));

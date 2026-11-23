@@ -213,9 +213,14 @@ export class Isochrones {
   readonly hiddenAges = new Set<AgeKey>();
   /** The lines of the region chosen (lineKey), or null for all. */
   regionLines: Set<string> | null = null;
+  /** The lines whose ID matches the Line ID filter (lineKey), or null for all. */
+  lineIds: Set<string> | null = null;
 
   lineHidden(dataset: string, lineId: string): boolean {
-    return this.hiddenDatasets.has(dataset) || (this.regionLines !== null && !this.regionLines.has(lineKey(dataset, lineId)));
+    if (this.hiddenDatasets.has(dataset)) return true;
+    if (this.regionLines === null && this.lineIds === null) return false;
+    const key = lineKey(dataset, lineId);
+    return (this.regionLines !== null && !this.regionLines.has(key)) || (this.lineIds !== null && !this.lineIds.has(key));
   }
 
   get group(): THREE.Group {
