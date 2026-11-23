@@ -12,7 +12,9 @@ The other lines have such fills too, without picks to compare (anta_json #10). I
 follows a straight line, rounded to 0.1 m: from one point to the next its change is the same but
 for the rounding (second difference at most 0.1 m), when real picks vary by about 1 m. With
 --min-km, the fills of all the lines and IRHs of at least that length along the line become nan
-too, but for their two ends (picks, which the straight line joins). Shorter ones can be smooth picks.
+too, but for their two ends (picks, which the straight line joins). Shorter ones can be smooth picks; but
+where the other picks of the layer on the line are noisy (less than SMOOTH_SHARE of their second differences
+within the rounding), the stretches of NOISY_MIN_KM or more are fills too (VCD_JKB1a_X08a, anta_json #10).
 
 Then, on all the files (with --min-km):
 - CUTS: depths removed by hand, by line, IRH and km along the line (from its first point in the files,
@@ -47,6 +49,10 @@ LAYERS = 20  # in the picks
 ALL_LAYERS = 26
 SAME_POINT = 1.0  # m
 FLAT = 0.1 + 1e-6  # m: largest second difference of a straight line rounded to 0.1 m
+# A layer on a line is smooth when at least this share of the second differences of its picks are within FLAT
+# (the ground lines, DC_LDC_DIVIDE...): there only the stretches of --min-km are taken as fills; on the others,
+# from NOISY_MIN_KM
+SMOOTH_SHARE, NOISY_MIN_KM = 0.6, 1.0
 DEPTH_COLUMN = "IRHdepth_m"
 THICKNESS, BED, DISTANCE = "thk_m", "bedelv_mABSL", "distance_m"  # distance_m is in km
 # (line, IRHs, first km, last km, why): km from the first point of the line in the files
@@ -103,6 +109,10 @@ def fills(raw: pd.DataFrame, min_km: float) -> np.ndarray:
     for _, rows in raw.groupby("line", sort=False).indices.items():
         # Runs of points with a depth, in the order of the file (along the line)
         ok = np.isfinite(depth[rows])
+        second = np.abs(np.diff(depth[rows][ok], 2))
+        second = second[second < 20]  # not across the gaps
+        noisy = len(second) >= 50 and np.mean(second <= FLAT) < SMOOTH_SHARE
+        length = min(min_km, NOISY_MIN_KM) if noisy else min_km
         breaks = np.flatnonzero(np.diff(np.r_[0, ok.astype(int), 0]))
         for start, stop in zip(breaks[::2], breaks[1::2]):
             run = rows[start:stop]
@@ -114,7 +124,7 @@ def fills(raw: pd.DataFrame, min_km: float) -> np.ndarray:
             edges = np.flatnonzero(np.diff(np.r_[0, flat.astype(int), 0]))
             for a, b in zip(edges[::2], edges[1::2]):
                 # second differences a..b-1: points a..b+1 on one straight line, a and b+1 its ends
-                if along[b + 1] - along[a] >= min_km * 1000:
+                if along[b + 1] - along[a] >= length * 1000:
                     remove[run[a + 1 : b + 1]] = True
     return remove
 

@@ -19,7 +19,6 @@ The values of "line ID flag":
 - original: the line ID of the radar survey, given with the published files or in the article;
 - not_provided: none given, named by the database after the dataset (<Dataset>, <Dataset>_<n>);
 - project_acq-year_number: none given, named after the project, year and a number;
-- assigned: named by the authors of the dataset, not the line ID of the radar survey;
 - bedmap: taken from the Bedmap survey line of the same traces.
 """
 
@@ -33,7 +32,7 @@ import xarray as xr
 from anta_database.netcdf import write
 
 FILE = "line_ids.json"
-FLAGS = ("original", "not_provided", "project_acq-year_number", "assigned", "bedmap")
+FLAGS = ("original", "not_provided", "project_acq-year_number", "bedmap")
 
 
 def load(dataset_dir: str, text: str | None = None) -> dict:

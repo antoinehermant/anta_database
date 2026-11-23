@@ -20,7 +20,13 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
     than 10 m off. Only this line is caught.
   - The flat (interpolated) stretches of IRH 3 (around 276-371 km) and IRH 11 (3-869 km) seen in v1 were already
     removed in v2 (straight stretches of 2 km or more).
+  - Shorter fills (1 to 2 km, VCD_JKB1a_X08a): straight stretches of 1 km or more removed where the other picks of
+    the layer on the line are noisy (less than 60 % of their second differences within 0.1 m: most airborne lines);
+    2 km or more on the smooth lines (ground lines, DC_LDC_DIVIDE), where a short straight stretch can be real.
+    16,324 more depths (straight stretches in all: 314,767).
   **Fixed in v2**
+- **Line ID flag `assigned` dropped** (anta_json #9, Julien): Winter_2018's line IDs (`AWI...`, the column `Line` of
+  its files) have the flag `original`; flags are original, not_provided, project_acq-year_number, bedmap. **Fixed in v2**
 - **Lines without IDs:** named after the dataset, numbered when cut.
   - Leysinger_Vieli_2011: cut at jumps above 50 km into 9 lines (`Leysinger_Vieli_2011_1` to `_9`).
     The steps have a clear gap: largest within a line 30 km, smallest between lines 205 km. **Fixed**

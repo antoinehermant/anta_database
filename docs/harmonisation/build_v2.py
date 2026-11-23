@@ -65,7 +65,8 @@ SETTINGS = {
         "which dated the IRHs at the depths + 14.6 m at EPICA Dome C. Depths interpolated across the gaps "
         "of the HiCARS lines (OIA_JKB2n_*, IRH 1-20) removed, with the picks of M. Cavitte (2025), and on all "
         "the lines the interpolated stretches of 2 km or more (depths on a straight line, second difference "
-        "at most 0.1 m), but for their two ends. On ASB_JKB1a_R09Ea, IRH 11 removed in the first 5 km of the line, "
+        "at most 0.1 m), but for their two ends; of 1 km or more where the other picks of the layer on the line "
+        "are noisy (less than 60 percent of their second differences within 0.1 m). On ASB_JKB1a_R09Ea, IRH 11 removed in the first 5 km of the line, "
         "where it crosses the bed. Ice thickness and bed removed where their sum (the surface) is more than 50 m "
         "off its running median over 10 km, and around it while more than 10 m off: both filled across a gap with "
         "straight lines of different ends (190 points of ASB_JKB1a_R09Ea).",
