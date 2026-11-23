@@ -18,16 +18,19 @@ import pandas as pd
 from anta_database.harmonisation.ties import OUTPUT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ORDER = ["Winter_2018", "Bodart_2025b", "Cavitte_2020", "Chung_2023", "Mulvaney_2023"]
-COLOURS = dict(zip(["Cavitte_2020", "Mulvaney_2023", "Bodart_2025b", "Chung_2023", "Winter_2018"],
-                   ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]))
+ORDER = ["Winter_2018", "Bodart_2025b", "Cavitte_2020", "Leysinger_Vieli_2011", "Chung_2023", "Mulvaney_2023"]
 INK, MUTED, GRID = "#1f1f1e", "#6b6a64", "#e4e3dd"
+COLOURS = dict(zip(["Cavitte_2020", "Mulvaney_2023", "Bodart_2025b", "Chung_2023", "Winter_2018"],
+                   ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]), Leysinger_Vieli_2011=MUTED)
+# Leysinger_Vieli_2011 is matched to Cavitte_2020 by the sequence of its layers, not by depth (notes.md, H3): its
+# layers are 50 to 60 m shallower. IRH 2 and 4 are sure, IRH 6 and 8 likely.
+LEYSINGER = {2: (3, True), 4: (5, True), 6: (10, False), 8: (14, False)}
 plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED,
                      "ytick.color": MUTED, "axes.spines.top": False, "axes.spines.right": False})
 
 
 def ladder(t, m):
-    fig, ax = plt.subplots(figsize=(10, 9))
+    fig, ax = plt.subplots(figsize=(11, 9))
     col = {d: i for i, d in enumerate(ORDER)}
     for d in ORDER:
         g = t[t.dataset == d]
@@ -36,7 +39,7 @@ def ladder(t, m):
                     ecolor=COLOURS[d], elinewidth=1, zorder=3)
         side = -1 if x < 2 else 1
         for r in g.itertuples():
-            ax.annotate(f"{r.age_published:g}", (x, r.depth), xytext=(side * 14, -3), textcoords="offset points",
+            ax.annotate(f"{round(r.age_published, 1):g}", (x, r.depth), xytext=(side * 14, -3), textcoords="offset points",
                         ha="right" if side < 0 else "left", fontsize=7, color=MUTED)
     depth = t.set_index(["dataset", "irh"]).depth
     for r in m.itertuples():
@@ -45,13 +48,21 @@ def ladder(t, m):
         if za is None or zb is None:
             continue
         ax.plot([xa, xb], [za, zb], color=INK, lw=0.8, alpha=0.55 if abs(xa - xb) == 1 else 0.25, zorder=2)
-    ax.set_xticks(range(len(ORDER)), ORDER)
+    xa, xb = col["Cavitte_2020"], col["Leysinger_Vieli_2011"]
+    for ib, (ia, sure) in LEYSINGER.items():
+        ax.plot([xa, xb], [depth[("Cavitte_2020", ia)], depth[("Leysinger_Vieli_2011", ib)]], color=MUTED, lw=1,
+                ls="--" if sure else ":", zorder=2)
+    ax.plot([], [], color=INK, lw=0.8, alpha=0.55, label="Matched at the crossings (depth and order)")
+    ax.plot([], [], color=MUTED, lw=1, ls="--", label="Leysinger_Vieli_2011: matched by the sequence of its layers")
+    ax.plot([], [], color=MUTED, lw=1, ls=":", label="Leysinger_Vieli_2011: the same, likely")
+    ax.legend(loc="lower left", frameon=False, fontsize=7.5, labelcolor=INK)
+    ax.set_xticks(range(len(ORDER)), [d.replace("_Vieli", " Vieli") for d in ORDER], fontsize=8)
     ax.set_xlim(-0.8, len(ORDER) - 0.2)
     ax.invert_yaxis()
     ax.set_ylabel("Depth at EDC (m): the Gaussian surface of each layer at the core, ±1 sd")
     ax.grid(axis="y", color=GRID, lw=0.5)
     ax.set_title("Layers at EDC, and the horizons joining them (matched at the crossings by depth and order only).\n"
-                 "Numbers: published ages (ka), not used for the matching", loc="left", color=INK, fontsize=9.5)
+                 "Numbers: published ages (ka), not used for the matching. Leysinger: its nearest line is 13 km away", loc="left", color=INK, fontsize=9.5)
     fig.tight_layout()
     fig.savefig(os.path.join(HERE, "edc_horizons_ladder.png"), dpi=160)
 

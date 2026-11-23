@@ -415,6 +415,15 @@ deeper than their usual offset, so it may be another layer about 10 m below.
 
 ![Layers at EDC and the horizons](figures/edc_horizons_ladder.png)
 
+Leysinger_Vieli_2011 is in the figure too, matched to Cavitte by the sequence of its layers (H3), not by the
+crossings: its depths at the core come from a line 13 km away (sd 8 to 44 m).
+
+**Mulvaney, H3 and H5 together (2026-11-23).** H3 reproduces Mulvaney's ages from its own depths within 3.5 m down to
+IRH 9 (98 ka), and H5 finds its layers 10.5 m deeper than Cavitte's: no contradiction. Mulvaney dated its layers at
+its own depths, which are about 10 to 15 m deeper than Cavitte's for the same reflection (at the core and at the
+crossings), so the same reflection gets an older age (39.2 against 38.1 ka, up to 262.2 against 254.5 ka). Below
+IRH 9 its ages also drift from its depths (to +29 m). Asked in anta_json #21; Winter #18, Chung #19, Bodart_2025b #20.
+
 **Depth offsets between datasets** (the second dataset deeper, m): Mulvaney − Cavitte +10.5, Bodart − Cavitte +9.2,
 Winter − Cavitte +5.2, Chung − Cavitte +1.9, and so on. They are about **constant with depth** in every pair (figure):
 a shift, from the firn correction or the pick of the surface, not a wave-speed scale. They don't follow the firn
