@@ -9,6 +9,18 @@ Checked on 2026-11-01 on the published data, with Antoine's answers. **Fixed** m
   Muldoon_2023, Mulvaney_2023, Bodart_2025a and b are correct). Document this rule in the docs.
 - **Siegert_2004:** citation corrected to 2004. **Fixed**
 - **Bodart_2025a, b:** publication DOI updated to the final paper, `10.5194/tc-20-1379-2026`. **Fixed**
+- **Bodart_2025a and b swapped** (anta_json #23, 2026-11-23): Wilkes (TALDICE, EDC; Zenodo 17348094) is a,
+  Dronning Maud Land (EDML, Dome Fuji; Zenodo 17348976) b, as in the paper. In anta_json and v2 (`build_v2.py`
+  `WORKING_NAMES`: the working copy keeps the old directory names); v1 keeps the old names. **Fixed in v2**
+- **Cavitte_2020, ASB_JKB1a_R09Ea** (anta_json #16, #22, 2026-11-23), in `fix_cavitte.py`, v2:
+  - IRH 11 (160.4 ka) removed in the first 5 km of the line, where it crosses the bed (469 depths, `CUTS`).
+  - The surface spike at 543-544 km (up to 430 m): the published thickness and bed are both filled across a gap with
+    straight lines of different ends, so their sum (our surface) jumps. Thickness and bed removed there (190 points),
+    by a rule on all the lines: thickness + bed more than 50 m off its 10 km running median, and around it while more
+    than 10 m off. Only this line is caught.
+  - The flat (interpolated) stretches of IRH 3 (around 276-371 km) and IRH 11 (3-869 km) seen in v1 were already
+    removed in v2 (straight stretches of 2 km or more).
+  **Fixed in v2**
 - **Lines without IDs:** named after the dataset, numbered when cut.
   - Leysinger_Vieli_2011: cut at jumps above 50 km into 9 lines (`Leysinger_Vieli_2011_1` to `_9`).
     The steps have a clear gap: largest within a line 30 km, smallest between lines 205 km. **Fixed**

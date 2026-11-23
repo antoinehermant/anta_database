@@ -241,7 +241,7 @@ def main(argv=None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("target")
     p.add_argument("--refs", nargs="+", default=["Cavitte_2020", "Mulvaney_2023", "Winter_2018", "Chung_2023",
-                                                   "Bodart_2025b"])
+                                                   "Bodart_2025a"])
     p.add_argument("--firn", nargs="+", type=float, default=[0.0])
     p.add_argument("--build", default=BUILD)
     p.add_argument("-o", "--out", default=OUTPUT)

@@ -18,9 +18,9 @@ import pandas as pd
 from anta_database.harmonisation.ties import OUTPUT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ORDER = ["Sanderson_2024", "Winter_2018", "Bodart_2025b", "Cavitte_2020", "Leysinger_Vieli_2011", "Chung_2023", "Mulvaney_2023"]
+ORDER = ["Sanderson_2024", "Winter_2018", "Bodart_2025a", "Cavitte_2020", "Leysinger_Vieli_2011", "Chung_2023", "Mulvaney_2023"]
 INK, MUTED, GRID = "#1f1f1e", "#6b6a64", "#e4e3dd"
-COLOURS = dict(zip(["Cavitte_2020", "Mulvaney_2023", "Bodart_2025b", "Chung_2023", "Winter_2018"],
+COLOURS = dict(zip(["Cavitte_2020", "Mulvaney_2023", "Bodart_2025a", "Chung_2023", "Winter_2018"],
                    ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]), Leysinger_Vieli_2011=MUTED, Sanderson_2024="#3d3c38")
 # Leysinger_Vieli_2011 is matched to Cavitte_2020 by the sequence of its layers, not by depth (notes.md, H3): its
 # layers are 50 to 60 m shallower. IRH 2 and 4 are sure, IRH 6 and 8 likely.

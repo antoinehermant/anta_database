@@ -14,6 +14,15 @@ for the rounding (second difference at most 0.1 m), when real picks vary by abou
 --min-km, the fills of all the lines and IRHs of at least that length along the line become nan
 too, but for their two ends (picks, which the straight line joins). Shorter ones can be smooth picks.
 
+Then, on all the files (with --min-km):
+- CUTS: depths removed by hand, by line, IRH and km along the line (from its first point in the files,
+  column distance_m, in km): where a layer crosses the bed (anta_json #16, #22).
+- Spikes of the surface: the published files have no surface, the compilation takes thickness + bed. Where
+  both were filled across a gap with straight lines of different ends, their sum jumps by hundreds of metres
+  (ASB_JKB1a_R09Ea, anta_json #22). Where thickness + bed is more than SPIKE m off its running median over
+  SPIKE_WINDOW_KM along the line, and around it while more than SPIKE_EDGE m off, thickness and bed are
+  removed (Bedmap may fill them, from its own line of the same traces).
+
 Writes the corrected files, byte for byte the published ones but for these depths, to the v2
 sources (or --out); the files left as published are links to the working copy (only read).
 
@@ -39,6 +48,12 @@ ALL_LAYERS = 26
 SAME_POINT = 1.0  # m
 FLAT = 0.1 + 1e-6  # m: largest second difference of a straight line rounded to 0.1 m
 DEPTH_COLUMN = "IRHdepth_m"
+THICKNESS, BED, DISTANCE = "thk_m", "bedelv_mABSL", "distance_m"  # distance_m is in km
+# (line, IRHs, first km, last km, why): km from the first point of the line in the files
+CUTS = [
+    ("ASB_JKB1a_R09Ea", [11], 0.0, 5.0, "the 160.4 ka layer crosses the bed in the first 5 km (anta_json #16, #22)"),
+]
+SPIKE, SPIKE_EDGE, SPIKE_WINDOW_KM = 50.0, 10.0, 10.0  # m, m, km
 
 
 def picks(irh: int) -> pd.DataFrame:
@@ -47,11 +62,14 @@ def picks(irh: int) -> pd.DataFrame:
     return df[df["depth(m)"].notna()]
 
 
-def rewrite(src: Path, out: Path, remove: np.ndarray) -> None:
-    """src byte for byte into out, but for the depth of the rows removed (nan). out may be src, or a
-    link to the working copy: then replaced by a file, never written through."""
+def rewrite(src: Path, out: Path, remove) -> None:
+    """src byte for byte into out, but for the values removed (nan): remove is the rows of the depth, or
+    {column: rows}. out may be src, or a link to the working copy: then replaced by a file, never written
+    through."""
+    if not isinstance(remove, dict):
+        remove = {DEPTH_COLUMN: remove}
     tmp = out.with_suffix(".tmp")
-    row, header, column = -1, None, None
+    row, header, columns = -1, None, None
     with open(src, encoding="utf-8") as fin, open(tmp, "w", encoding="utf-8", newline="") as fout:
         for text in fin:
             if text.startswith("#") or not text.strip():
@@ -59,17 +77,20 @@ def rewrite(src: Path, out: Path, remove: np.ndarray) -> None:
                 continue
             if header is None:
                 header = text.rstrip("\r\n").split(",")
-                column = header.index(DEPTH_COLUMN)
+                columns = [(header.index(name), rows) for name, rows in remove.items()]
                 fout.write(text)
                 continue
             row += 1
-            if remove[row]:
+            hit = [k for k, rows in columns if rows[row]]
+            if hit:
                 end = "\r\n" if text.endswith("\r\n") else "\n"
                 fields = text.rstrip("\r\n").split(",")
-                fields[column] = "nan"
+                for k in hit:
+                    fields[k] = "nan"
                 text = ",".join(fields) + end
             fout.write(text)
-    assert row + 1 == len(remove), f"{src.name}: {row + 1} rows written, {len(remove)} read"
+    for name, rows in remove.items():
+        assert row + 1 == len(rows), f"{src.name}: {row + 1} rows written, {len(rows)} read"
     if out.is_symlink():
         out.unlink()
     os.replace(tmp, out)
@@ -106,6 +127,55 @@ def remove_fills(irh: int, min_km: float) -> dict:
         rewrite(out.resolve() if out.is_symlink() else out, out, remove)
     lines = raw.loc[remove, "line"].value_counts()
     return {"IRH": irh, "removed": int(remove.sum()), "lines": lines.to_dict()}
+
+
+def cuts(raw: pd.DataFrame, irh: int) -> np.ndarray:
+    """The rows of the depths removed by hand (CUTS)."""
+    remove = np.zeros(len(raw), bool)
+    for line, irhs, first, last, _ in CUTS:
+        if irh not in irhs:
+            continue
+        on = (raw["line"] == line).to_numpy()
+        if on.any():
+            km = raw[DISTANCE].to_numpy() - raw.loc[on, DISTANCE].min()
+            remove |= on & (km >= first) & (km <= last) & raw[DEPTH_COLUMN].notna().to_numpy()
+    return remove
+
+
+def spikes(raw: pd.DataFrame) -> np.ndarray:
+    """The rows where thickness + bed (the surface of the compilation) jumps: more than SPIKE m off its
+    running median over SPIKE_WINDOW_KM, and around them while more than SPIKE_EDGE m off."""
+    from scipy.ndimage import median_filter
+
+    remove = np.zeros(len(raw), bool)
+    surface = (raw[THICKNESS] + raw[BED]).to_numpy()
+    km = raw[DISTANCE].to_numpy()
+    for _, rows in raw.groupby("line", sort=False).indices.items():
+        rows = rows[np.isfinite(surface[rows])]
+        if len(rows) < 5:
+            continue
+        step = np.median(np.abs(np.diff(km[rows]))) or 0.01
+        size = max(5, int(SPIKE_WINDOW_KM / step) | 1)
+        off = np.abs(surface[rows] - median_filter(surface[rows], size=size, mode="nearest"))
+        edge = off > SPIKE_EDGE
+        # The runs over SPIKE_EDGE that reach SPIKE somewhere
+        bounds = np.flatnonzero(np.diff(np.r_[0, edge.astype(int), 0]))
+        for a, b in zip(bounds[::2], bounds[1::2]):
+            if off[a:b].max() > SPIKE:
+                remove[rows[a:b]] = True
+    return remove
+
+
+def fix_all(irh: int) -> dict:
+    """CUTS (depths) and the spikes of the surface (thickness and bed) of the file of one IRH."""
+    out = OUT / "raw" / f"OIA_EDC_IRH{irh}.csv"
+    raw = pd.read_csv(out, comment="#", usecols=["line", DISTANCE, THICKNESS, BED, DEPTH_COLUMN])
+    cut, spike = cuts(raw, irh), spikes(raw)
+    if cut.any() or spike.any():
+        rewrite(out.resolve() if out.is_symlink() else out, out, {DEPTH_COLUMN: cut, THICKNESS: spike, BED: spike})
+    return {"IRH": irh, "depths cut": int(cut.sum()), "cut lines": raw.loc[cut, "line"].value_counts().to_dict(),
+            "thickness and bed removed": int(spike.sum()),
+            "spike lines": raw.loc[spike, "line"].value_counts().to_dict()}
 
 
 def fix_layer(irh: int, transformer: Transformer) -> dict:
@@ -157,6 +227,12 @@ def main() -> None:
             print(f"IRH {r['IRH']:2d}: {r['removed']:6d} depths of straight stretches of {args.min_km:g} km or more, on {len(r['lines'])} lines")
         print("total removed (straight stretches):", sum(r["removed"] for r in stretches))
         result["straight_stretches"] = {"min_km": args.min_km, "layers": stretches}
+        fixed = [fix_all(irh) for irh in range(1, ALL_LAYERS + 1)]
+        for r in fixed:
+            print(f"IRH {r['IRH']:2d}: {r['depths cut']:5d} depths cut {r['cut lines']}, thickness and bed removed at "
+                  f"{r['thickness and bed removed']} points {r['spike lines']}")
+        result["cuts"] = {"cuts": [list(c[:1]) + [c[1], c[2], c[3], c[4]] for c in CUTS], "layers": fixed}
+        result["surface_spikes"] = {"spike_m": SPIKE, "edge_m": SPIKE_EDGE, "window_km": SPIKE_WINDOW_KM}
     (OUT / "fix_cavitte.json").write_text(json.dumps(result, indent=1))
 
 

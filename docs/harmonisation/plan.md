@@ -33,9 +33,9 @@ fall in only **10,193 distinct 1 km cells**. Two causes:
   whole survey of 36,520 km. Cavitte_2020 × Yan_2025 is 2,029 crossings from a *single* pair of files,
   and Sanderson_2024 × Winter_2018 has 3,786 of its 3,909 from one pair.
 - **The same flights traced twice:** 57 % of the Chung_2023 points lie within 50 m of a Mulvaney_2023
-  point, 18 % of Bodart_2025a in Franke_2025, 17 % of Mulvaney_2023 in Cavitte_2020, 11 % of Chung_2023
+  point, 18 % of Bodart_2025b in Franke_2025, 17 % of Mulvaney_2023 in Cavitte_2020, 11 % of Chung_2023
   in Cavitte_2020, 9 % of Sanderson_2024 in Winter_2018, 6 % of Bodart_2021 in Muldoon_2023. Some file
-  names are shared too (Cavitte/Mulvaney: 6, Bodart_2025a/Franke: 2).
+  names are shared too (Cavitte/Mulvaney: 6, Bodart_2025b/Franke: 2).
 
   **Close tracks are not the same data** (A, 2026-11-11): Chung_2023 and Mulvaney_2023 lie very close to each
   other but are different datasets, and must never be treated as the same lines or merged. Their crossings
@@ -51,12 +51,12 @@ cluster, so one pair of lines cannot outweigh the rest.
 | Franke_2025 × Winter_2018 | 16,218 |
 | Sanderson_2024 × Winter_2018 | 3,909 |
 | Cavitte_2020 × Yan_2025 | 2,029 |
-| Bodart_2025b × Winter_2018 | 1,333 |
+| Bodart_2025a × Winter_2018 | 1,333 |
 | Cavitte_2020 × Mulvaney_2023 | 1,289 |
-| Bodart_2025a × Franke_2025 | 1,253 |
+| Bodart_2025b × Franke_2025 | 1,253 |
 | Chung_2023 × Mulvaney_2023 | 763 |
-| Bodart_2025b × Cavitte_2020 | 710 |
-| Bodart_2025a × Winter_2018 | 511 |
+| Bodart_2025a × Cavitte_2020 | 710 |
+| Bodart_2025b × Winter_2018 | 511 |
 | Bodart_2021 × Muldoon_2023 | 313 |
 | 23 more pairs | 1 to 200 each |
 
@@ -72,7 +72,7 @@ cluster, so one pair of lines cannot outweigh the rest.
 At the crossovers, the same-looking layers show the following. Depth differences are the median
 over the crossings, ± the median absolute deviation.
 - **Same tie, same age, small depth difference:**
-  - Bodart_2025a vs Franke_2025 (25.6, 38.1, 52.2, 73.4 and 91 ka): **1–3 m**;
+  - Bodart_2025b vs Franke_2025 (25.6, 38.1, 52.2, 73.4 and 91 ka): **1–3 m**;
   - Cavitte_2020 vs Chung_2023 (73.4, 96.5 and 121 ka): **0–3 m**;
   - Ashmore_2020 vs Bodart_2021 (4.7 ka): 5 m.
 - **Systematic depth offsets of 5–20 m between datasets**, larger than the scatter (±1–3 m).
@@ -107,12 +107,12 @@ Cavitte IRH 11 (160.4 ka) and IRH 12 (166.4 ka) both come out closest to Chung I
 
 | Core | Datasets with an IRH point within 20 km (distance of the nearest point) |
 |---|---|
-| EDC | Cavitte 0.03 km (19 IRHs), Winter 0.03, Bodart_2025b 0.09, Mulvaney 0.17, Chung 0.19, Leysinger-Vieli 12.9 |
-| Little Dome C (BELDC) | Cavitte 0.02 (26 IRHs), Mulvaney 0.02 (20), Chung 0.04 (16), Bodart_2025b 0.35, Winter 0.73, Leysinger-Vieli 1.18 |
-| Dome Fuji | Wang 0.01 (7), Franke 0.12 (8), Winter 0.13, Bodart_2025a 0.13 |
+| EDC | Cavitte 0.03 km (19 IRHs), Winter 0.03, Bodart_2025a 0.09, Mulvaney 0.17, Chung 0.19, Leysinger-Vieli 12.9 |
+| Little Dome C (BELDC) | Cavitte 0.02 (26 IRHs), Mulvaney 0.02 (20), Chung 0.04 (16), Bodart_2025a 0.35, Winter 0.73, Leysinger-Vieli 1.18 |
+| Dome Fuji | Wang 0.01 (7), Franke 0.12 (8), Winter 0.13, Bodart_2025b 0.13 |
 | Vostok | Winter 0.07, Cavitte 0.08, Leysinger-Vieli 0.60 |
-| EDML | Franke 0.15 (8), Winter 0.15, Bodart_2025a 0.23 |
-| TALDICE | Bodart_2025b 0.02 (1 IRH) |
+| EDML | Franke 0.15 (8), Winter 0.15, Bodart_2025b 0.23 |
+| TALDICE | Bodart_2025a 0.02 (1 IRH) |
 | South Pole (SPICEcore) | Sanderson 0.69, Leysinger-Vieli 0.77, Beem 0.89 |
 | WAIS Divide | Bodart_2021 0.49 (3), Muldoon 6.2 |
 | Byrd | Jacobel 0.31, Muldoon 0.94 |
@@ -216,7 +216,7 @@ to examine: the picks (peak or leading edge), the radar systems, and the surface
 ### 3.2b Common parameters (*Proposed*)
 
 - **Wave speed: 168.5 m/us.** 10 of the 14 datasets with a known value use it; the others are Beem_2021 (167),
-  Franke_2025 (169), Bodart_2025a (169.5) and Muldoon_2023 (a range of 168–169.5).
+  Franke_2025 (169), Bodart_2025b (169.5) and Muldoon_2023 (a range of 168–169.5).
 - **Firn correction: from GSFC-FDM v1.2.1** (Medley et al., 2022; on Zenodo, Antarctica on a 12.5 km grid, 1980–2022).
   - It is openly available, and already used for this purpose by Napoleoni et al. (2026). I found no download for
     IMAU-FDM (Veldhuijsen et al., 2023), the alternative.
@@ -534,15 +534,15 @@ build**, compiled from the raw files.
   missing thickness, bed and surface filled from the Bedmap survey points (`*_SOURCE`, `BEDMAP_POINT_DIST`), the
   Bodart_2021 split traces merged (anta_json #5), the out-of-order lines reordered (#6). `compare_v2.py` explains
   every difference with v1. Shown in `/viewer-dev/` (hidden), its processing page in `/processing/`.
-- **Open in anta_json:** #1 (Bodart_2025a, chronology at Dome Fuji), #2 (Leysinger_Vieli_2011, dating per line),
+- **Open in anta_json:** #1 (Bodart_2025b, chronology at Dome Fuji), #2 (Leysinger_Vieli_2011, dating per line),
   #3 (Napoleoni_2026, out of v2 until resubmitted), #4 (Winter_2018, 25 lines without a Bedmap thickness), #6 and
   #7 (ordering of lines that turn back on themselves).
 - **Dating metadata still missing** (raw_md.json of anta_json main):
 
   | Missing | Datasets |
   |---|---|
-  | `ice core` | Bodart_2025a (#1), Bodart_2025b, Leysinger_Vieli_2011 (#2), Sanderson_2024, Winter_2018 |
-  | `chronology` | Bodart_2025a (#1), Leysinger_Vieli_2011 (#2), Muldoon_2023, Siegert_2004 |
+  | `ice core` | Bodart_2025b (#1), Bodart_2025a, Leysinger_Vieli_2011 (#2), Sanderson_2024, Winter_2018 |
+  | `chronology` | Bodart_2025b (#1), Leysinger_Vieli_2011 (#2), Muldoon_2023, Siegert_2004 |
   | `firn correction applied` | Beem_2021, Jacobel_2005, Leysinger_Vieli_2011, Siegert_2004, Yan_2025 |
   | `dating method` | Chung_2023 (2 IRHs), Mulvaney_2023 (1 IRH) |
 
@@ -580,8 +580,8 @@ and `check_depth_correction.py` (N2). Output in `~/data/isochrones/harmonisation
     stretches up to 250 m bridged (Chung's flights weave 6 to 100 m around Mulvaney's). Sampled every km;
   - 1,894 clusters: each coincident track is one, and the crossings of one pair of lines chained within 2 km
     are one. Every comparison is summarised per cluster first, so one shared flight counts once (S3).
-  - Largest: Franke x Winter 9,419 km coincident (100 tracks, the same AWI flights), Bodart_2025a x Franke
-    1,905 km, Bodart_2021 x Muldoon 1,487 km, Bodart_2025b x Winter 1,454 km, Sanderson x Winter 1,035 km.
+  - Largest: Franke x Winter 9,419 km coincident (100 tracks, the same AWI flights), Bodart_2025b x Franke
+    1,905 km, Bodart_2021 x Muldoon 1,487 km, Bodart_2025a x Winter 1,454 km, Sanderson x Winter 1,035 km.
     Chung x Mulvaney: 128 km coincident, 15 clusters. They stay different data (decided 2026-11-11).
 - **Ice cores (explore.py):** as on 2026-11-01. Within 1 km: EDC, BELDC, Dome Fuji, Vostok, EDML, TALDICE,
   SPICEcore, WDC, Byrd. None near Taylor Dome, Law Dome, Siple Dome, Skytrain, RICE, Fletcher, Berkner, JRI.
@@ -593,7 +593,7 @@ and `check_depth_correction.py` (N2). Output in `~/data/isochrones/harmonisation
   read from the files. Correlation of measured and predicted offsets +0.51 (-0.18 on 2026-11-01), but the median
   |offset| only drops from 17.6 to 16.1 m: the published parameters still explain little. Left out because the
   value of their firn correction is not known in v2 ("by the authors, value not known", it varies by site):
-  Winter, Bodart_2025a, Bodart_2025b, Muldoon; and Beem, Jacobel, Leysinger, Siegert, Yan (not known at all).
+  Winter, Bodart_2025b, Bodart_2025a, Muldoon; and Beem, Jacobel, Leysinger, Siegert, Yan (not known at all).
   **For Julien's review:** a value per site, where the paper gives one.
 
 ### Other v2 items
@@ -737,14 +737,14 @@ build with complete metadata, which phase 2 starts from. Who: **A** = Antoine, *
 | F4 | anta_json #9: line IDs given by the database (Winter `AWIxxx`) | A `line ID flag` value `assigned`, next to `original`, `not_provided` and `bedmap`, explained in the docs |
 | F5 | anta_json #4: Winter_2018, 25 AWI lines of 1997-2002 not filled from Bedmap (26-36 m apart, Bedmap2 at 146 m spacing). J: be more forgiving for old surveys | Allow a distance scaled on the Bedmap point spacing (e.g. half of it) instead of 10 m for every survey, then test the coverage on these 25 lines and the control datasets |
 | F6 | Cavitte_2020 depths below the bed (IRH 11 on `ASB_JKB1a_R09Ea`, up to 744 m; IRH 18 and 19 on `VCD_JKB1a_X08a`) | Keep as published, exclude them from the matching (S7), and list them in the processing page |
-| F7 | Lines with turns (anta_json #7, Bodart_2025b `W52`, Bodart_2021 `20181022_01_001_025`) | Accept for v2: the values are right, only a small piece is out of order. Solved later by the `segment` level (T9) |
+| F7 | Lines with turns (anta_json #7, Bodart_2025a `W52`, Bodart_2021 `20181022_01_001_025`) | Accept for v2: the values are right, only a small piece is out of order. Solved later by the `segment` level (T9) |
 
 ### 2. Metadata to fill in anta_json (J, A)
 
 - [ ] **Line IDs** (#9): Siegert_2004 `005`; Jacobel_2005 `US-ITASE-2001` and `US-ITASE-2002`; Wang_2023 without `IRH_`.
 - [ ] **Dating method** of Chung_2023 (2 IRHs) and Mulvaney_2023 (1 IRH).
 - [ ] **Chronology** of Jacobel, Siegert, Leysinger-Vieli and Muldoon (one layer), as decided in F1.
-- [ ] **Firn correction values per site**, where the papers give one (Winter, Bodart_2025a, Bodart_2025b, Muldoon), for the
+- [ ] **Firn correction values per site**, where the papers give one (Winter, Bodart_2025b, Bodart_2025a, Muldoon), for the
       depth test of 2.4.
 - [ ] **Beem_2021:** years (2016-2017, done), the project `PPT` that has no line, the wave speed of 167 m/us.
 
@@ -873,7 +873,7 @@ to the contributor.
   v2 ships without `IRH_DEPTH_H`, and the paper reports the offsets per dataset. The rest of the plan doesn't depend on it.
 - **S2. Deep matching.** Below about 1,500 m, layers are as close together as the offsets between datasets. Some links stay a judgement call, and reviewers
   will look there first. Rule proposed above: no confident link, no merge.
-- **S3. Agreement isn't independent evidence.** Several datasets took their ages from another by correlation (Bodart_2025a from Franke, Sanderson from Winter,
+- **S3. Agreement isn't independent evidence.** Several datasets took their ages from another by correlation (Bodart_2025b from Franke, Sanderson from Winter,
   Yan from Cavitte), and some share the same radar flights (57 % of Chung's points lie within 50 m of Mulvaney's). Their agreement partly
   reflects that shared origin, so links must be counted per cluster, and the validation must not treat them as separate confirmations.
 - **S4. No single age scale across the continent.** The East is on AICC2023; the West is probably a separate network on WD2014. The published WD2014-AICC2023

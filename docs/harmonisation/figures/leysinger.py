@@ -18,7 +18,7 @@ from anta_database.harmonisation.ties import OUTPUT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TARGET = "Leysinger_Vieli_2011"
-REFS = ["Cavitte_2020", "Mulvaney_2023", "Bodart_2025b", "Chung_2023", "Winter_2018"]
+REFS = ["Cavitte_2020", "Mulvaney_2023", "Bodart_2025a", "Chung_2023", "Winter_2018"]
 # Categorical slots in fixed order (dataviz reference palette)
 COLOURS = dict(zip(REFS, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]))
 # The two clusters of Leysinger Vieli et al. (2011), paragraph 17

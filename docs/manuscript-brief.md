@@ -158,8 +158,8 @@ first (section 15).
 | Ashmore_2020 | Ashmore et al. (2020) | IRH | 58 | 3 | 2.6–6.9 | 807,349 | 1,408,828 | 35.8 |
 | Beem_2021 | Beem et al. (2021) | IRH | 15 | 8 | 4.7–93.9 | 104,089 | 597,653 | 7.7 |
 | Bodart_2021 | Bodart et al. (2021) | IRH | 34 | 4 | 2.6–16.5 | 805,496 | 1,462,219 | 37.2 |
-| Bodart_2025a | Bodart and Sutter (2025a) | IRH | 7 | 7 | 4.8–91.0 | 183,204 | 808,605 | 10.5 |
-| Bodart_2025b | Bodart and Sutter (2025b) | IRH | 73 | 9 | 6.6–128.4 | 1,247,278 | 2,568,164 | 59.1 |
+| Bodart_2025a | Bodart and Sutter (2025a) | IRH | 73 | 9 | 6.6–128.4 | 1,247,278 | 2,568,164 | 59.1 |
+| Bodart_2025b | Bodart and Sutter (2025b) | IRH | 7 | 7 | 4.8–91.0 | 183,204 | 808,605 | 10.5 |
 | Cavitte_2020 | Cavitte et al. (2020) | IRH | 77 | 26 | 10.0–708.5 | 1,463,368 | 16,201,427 | 136.3 |
 | Chung_2023 | Chung et al. (2023) | IRH | 12 | 19 | 73.3–473.0 | 52,281 | 991,271 | 8.7 |
 | Franke_2025 | Franke et al. (2025) | IRH | 208 | 9 | 4.8–91.0 | 758,762 | 4,623,080 | 60.8 |
@@ -184,8 +184,8 @@ In addition:
 | Ashmore_2020 | | | | | BAS | IMAFI | PASIN | 2010 |
 | Beem_2021 | ✓ | ✓ | ✓ | | PRIC, UTIG | SPC, PPT | HICARS | 2016, 2017 |
 | Bodart_2021 | ✓ | | | | BAS, NASA-CReSIS | BBAS, OIB | PASIN, MCoRDS | 2004, 2016, 2018 |
-| Bodart_2025a | ✓ | ✓ | ✓ | | AWI | CHARISO, ANTR, SNACC-DML | AWI-UWB, EMR | 1999–2025 |
-| Bodart_2025b | ✓ | ✓ | ✓ | | AWI, BAS, NASA-CReSIS, UTIG-AAD | WISE_ISODYN, OIB, ICECAP, ANTR | PASIN, MCoRDS, HiCARS, EMR | 2005–2019 |
+| Bodart_2025a | ✓ | ✓ | ✓ | | AWI, BAS, NASA-CReSIS, UTIG-AAD | WISE_ISODYN, OIB, ICECAP, ANTR | PASIN, MCoRDS, HiCARS, EMR | 2005–2019 |
+| Bodart_2025b | ✓ | ✓ | ✓ | | AWI | CHARISO, ANTR, SNACC-DML | AWI-UWB, EMR | 1999–2025 |
 | Cavitte_2020 | ✓ | ✓ | ✓ | | BAS, NASA-CReSIS, UTIG-AAD | ICECAP-OIA, OIB, BE-OI | (missing) | 2009–2016 (one line "none") |
 | Chung_2023 | ✓ | | | ✓ | UA, UTIG | BE-OI | HiCARS, LDC-VHF | (missing) |
 | Franke_2025 | ✓ | ✓ | ✓ | | AWI | ANTR | EMR, AWI-UWB | (missing) |
@@ -212,8 +212,8 @@ columns show the list as stored, and some datasets store them per line.
 | Ashmore_2020 | 10.5281/zenodo.4945301 | 10.1029/2019GL086663 |
 | Beem_2021 | 10.15784/601437 | 10.5194/tc-15-1719-2021 |
 | Bodart_2021 | 10.5285/F2DE31AF-9F83-44F8-9584-F0190A2CC3EB | 10.1029/2020JF005927 |
-| Bodart_2025a | 10.5281/zenodo.17348976 | 10.5194/egusphere-2025-5381 |
-| Bodart_2025b | 10.5281/zenodo.17348094 | 10.5194/egusphere-2025-5381 |
+| Bodart_2025a | 10.5281/zenodo.17348094 | 10.5194/egusphere-2025-5381 |
+| Bodart_2025b | 10.5281/zenodo.17348976 | 10.5194/egusphere-2025-5381 |
 | Cavitte_2020 | 10.15784/601411 | 10.5194/essd-13-4759-2021 |
 | Chung_2023 | 10.1594/PANGAEA.957176 | 10.5194/tc-17-3461-2023 |
 | Franke_2025 | 10.1594/PANGAEA.973266 | 10.5194/tc-19-1153-2025 |
@@ -233,8 +233,8 @@ Ages per IRH, in ka (± uncertainty; "–" = no uncertainty given):
 - **Ashmore_2020:** 2.615±0.305, 4.72±0.28, 6.94±0.31
 - **Beem_2021:** 4.7, 10.7, 16.8, 29.1, 37.6, 51.4, 72.5, 93.9 (all –)
 - **Bodart_2021:** 2.615±0.305, 4.72±0.28, 6.94±0.31, 16.5±0.79
-- **Bodart_2025a:** 4.8±0.6, 7.4±0.8, 25.6±0.1, 38.1±0.1, 52.2±0.1, 73.4±0.9, 91±1.1
-- **Bodart_2025b:** 6.6±0.1, 13.1±0.3, 37.7±0.5, 64.1±2.5, 73.1±1.2, 90.8±1.4, 117±1.3, 122.8±1, 128.4±3.6
+- **Bodart_2025a:** 6.6±0.1, 13.1±0.3, 37.7±0.5, 64.1±2.5, 73.1±1.2, 90.8±1.4, 117±1.3, 122.8±1, 128.4±3.6
+- **Bodart_2025b:** 4.8±0.6, 7.4±0.8, 25.6±0.1, 38.1±0.1, 52.2±0.1, 73.4±0.9, 91±1.1
 - **Cavitte_2020:** 10±0.3, 29.4±0.9, 38.1±0.7, 46.4±0.9, 73.4±2.1, 82±1.6, 96.5±1.8, 106.3±1.9,
   121.1±1.8, 127.8±1.8, 160.4±3.9, 166.4±3.6, 200.1±2.6, 220.1±3.3, 254.5±5.5, 277.9±4.9,
   327.3±4.1, 341.5±5.6, 366.5±7.9, 399.5±9.7, 419.8±13.7, 482.7±22.1, 516.8±21.9, 560.2±27.2,

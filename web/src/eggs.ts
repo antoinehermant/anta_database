@@ -2,7 +2,7 @@
  * Hidden things to find: an alien vessel crashed into the Transantarctic
  * Mountains, near Mount Kirkpatrick; the fossil of Charybdis, the sea monster
  * of Greek myth, in a deep trough under the ice, towards the coast from the
- * lines of Bodart and Sutter (2025b); and the whirlpool she left in the
+ * lines of Bodart and Sutter (2025a); and the whirlpool she left in the
  * Southern Ocean, off the Wilkes Subglacial Basin; and the cromlech of ice
  * cores standing on the surface next to Little Dome C; and the glass of whisky
  * of Claude Lorius, on a table outside Dumont d'Urville station; and a train
@@ -1249,7 +1249,7 @@ const VESSEL_SIZE = 9;
 const VESSEL_AT = polarStereographic(-84.36, 165.6); // a flank of Mount Kirkpatrick
 const FOSSIL_SIZE = 10;
 const FOSSIL_RELIEF = 1.5; // relief made a bit higher, not to vanish in the bed
-const FOSSIL_AT = polarStereographic(-69.72, 152.79); // a deep trough, coastward of Bodart and Sutter (2025b)
+const FOSSIL_AT = polarStereographic(-69.72, 152.79); // a deep trough, coastward of Bodart and Sutter (2025a)
 // Sunk into the bed (in units of its size): about half the thickness of the tentacles
 const FOSSIL_BURIED = 0.01;
 const WHIRLPOOL_RADIUS = 35; // at the sea surface, down to a point at the seafloor
@@ -1452,7 +1452,7 @@ export class EasterEggs {
     this.group.add(this.endurance, this.vessel, this.fossil, this.whirlpool, this.cromlech, this.island, this.station, this.table.group, this.train, this.slap);
     this.fossilRows = [
       ["Position", "69.7° S, 152.8° E, at the bottom of a deep trough"],
-      ["Near", "the lines of Bodart and Sutter (2025b)"],
+      ["Near", "the lines of Bodart and Sutter (2025a)"],
       ["Age", "older than the oldest isochrone"],
       ["Searched by", "Johannes Sutter, still on the quest to find it"],
     ];

@@ -65,7 +65,10 @@ SETTINGS = {
         "which dated the IRHs at the depths + 14.6 m at EPICA Dome C. Depths interpolated across the gaps "
         "of the HiCARS lines (OIA_JKB2n_*, IRH 1-20) removed, with the picks of M. Cavitte (2025), and on all "
         "the lines the interpolated stretches of 2 km or more (depths on a straight line, second difference "
-        "at most 0.1 m), but for their two ends.",
+        "at most 0.1 m), but for their two ends. On ASB_JKB1a_R09Ea, IRH 11 removed in the first 5 km of the line, "
+        "where it crosses the bed. Ice thickness and bed removed where their sum (the surface) is more than 50 m "
+        "off its running median over 10 km, and around it while more than 10 m off: both filled across a gap with "
+        "straight lines of different ends (190 points of ASB_JKB1a_R09Ea).",
     },
     "Wang_2023": {
         "wave_speed": 0.08425,
@@ -104,6 +107,9 @@ SETTINGS = {
     "Winter_2018": {"note": "Lines from the column Line of the published files."},
     "Yan_2025": {"note": "Line IDs are the names of the raw files, without their ending _depth."},
 }
+# Datasets of anta_json in another directory of the working copy: Bodart_2025a and b swapped in anta_json
+# (#23: Wilkes is a, Dronning Maud Land b), the working copy keeps the old names
+WORKING_NAMES = {"Bodart_2025a": "Bodart_2025b", "Bodart_2025b": "Bodart_2025a"}
 # Columns of the raw files taken as other variables than in the working copy
 COLUMNS = {"Winter_2018": {"Event": "Line"}}  # the lines, not the events (flights)
 
@@ -111,7 +117,7 @@ COLUMNS = {"Winter_2018": {"Event": "Line"}}  # the lines, not the events (fligh
 def raw_files(name: str) -> dict:
     """Name in BUILD -> file: those of SOURCES instead of those of WORKING."""
     files = {}
-    for src in sorted((WORKING / name / "raw").iterdir()):
+    for src in sorted((WORKING / WORKING_NAMES.get(name, name) / "raw").iterdir()):
         if src.is_file() and "." in src.name:
             files[src.name] = src
     corrected = SOURCES / name / "raw"
@@ -138,7 +144,7 @@ def prepare(name: str, ref: str) -> Path:
         os.symlink(src, out / "raw" / file)
     # From the commit, not the working copy of anta_json: what is checked out may be a branch not reviewed
     (out / "raw_md.json").write_text(git("show", f"{ref}:{name}/raw_md.json"), encoding="utf-8")
-    columns = (WORKING / name / "original_new_column_names.csv").read_text().splitlines()
+    columns = (WORKING / WORKING_NAMES.get(name, name) / "original_new_column_names.csv").read_text().splitlines()
     header = columns[0].split(",")
     for old, new in COLUMNS.get(name, {}).items():
         header[header.index(old)] = new

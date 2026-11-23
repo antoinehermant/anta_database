@@ -766,6 +766,7 @@ renderer.setAnimationLoop((time: number) => {
   lastRender = time;
   needsRender = false;
   if (iceCores.group.visible) iceCores.update(camera, renderer.domElement.clientHeight);
+  if (regionOutlines.group.visible) regionOutlines.update(camera, renderer.domElement.clientHeight);
   // Dashes of the grounding lines: the same length on screen at any zoom
   if (groundingLines.group.visible) groundingLines.setDashPixel(pixelAtTarget());
   regionOutlines.setDashPixel(pixelAtTarget());
@@ -897,7 +898,7 @@ scene.add(iceCores.group);
 
 // Survey aircraft flying along the tracks, with their radar pulses
 // One per dataset, flying the legs of its tracks, found once the tracks are loaded
-const AIRCRAFT_DATASETS = ["Franke_2025", "Sanderson_2024", "Yan_2025", "Wang_2023", "Cavitte_2020", "Bodart_2021", "Bodart_2025b"];
+const AIRCRAFT_DATASETS = ["Franke_2025", "Sanderson_2024", "Yan_2025", "Wang_2023", "Cavitte_2020", "Bodart_2021", "Bodart_2025a"];
 let legs: Map<string, FlightLine[]> | null = null;
 // The index is loaded, and the filters of the last visit restored: what to show is known
 let filtersReady: Promise<void>;

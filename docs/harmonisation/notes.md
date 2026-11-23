@@ -62,10 +62,10 @@ The old table of the regions was much further off: Talos Dome 37.6 km, Vostok 21
   any tie there.
 
 **The radar near the cores** (nearest point with a layer, v2 build, corrected positions): EDC: Winter_2018 30 m,
-Cavitte_2020 30 m, Bodart_2025b 80 m, Mulvaney_2023 170 m, Chung_2023 190 m. BELDC: Cavitte_2020, Mulvaney_2023 20 m,
-Chung_2023 40 m. Dome Fuji: Wang_2023 10 m, Franke_2025, Winter_2018, Bodart_2025a 120 m. Vostok: Winter_2018 70 m,
-Cavitte_2020 80 m, Leysinger_Vieli_2011 600 m. EDML: Franke_2025, Winter_2018 150 m, Bodart_2025a 230 m. TALDICE:
-Bodart_2025b 10 m. SPICEcore: Sanderson_2024 630 m, Leysinger_Vieli_2011 750 m, Beem_2021 810 m. WDC: Bodart_2021
+Cavitte_2020 30 m, Bodart_2025a 80 m, Mulvaney_2023 170 m, Chung_2023 190 m. BELDC: Cavitte_2020, Mulvaney_2023 20 m,
+Chung_2023 40 m. Dome Fuji: Wang_2023 10 m, Franke_2025, Winter_2018, Bodart_2025b 120 m. Vostok: Winter_2018 70 m,
+Cavitte_2020 80 m, Leysinger_Vieli_2011 600 m. EDML: Franke_2025, Winter_2018 150 m, Bodart_2025b 230 m. TALDICE:
+Bodart_2025a 10 m. SPICEcore: Sanderson_2024 630 m, Leysinger_Vieli_2011 750 m, Beem_2021 810 m. WDC: Bodart_2021
 520 m, Muldoon_2023 6.1 km. Byrd: Jacobel_2005 310 m, Muldoon_2023 940 m. ABN: Cavitte_2020 3.7 km. None within 20 km:
 Taylor Dome, Law Dome, Siple Dome, Skytrain, RICE, Fletcher, Berkner, James Ross Island.
 
@@ -198,11 +198,11 @@ the code; this comparison is its record. The uncertainty of the depth at the cor
 | Dome Fuji | Wang_2023 | 7 | −0.7 | −12.5 to −0.3 | Reproduced, except IRH 6 (−12.5 m; its leave-one-line-out error is 15.6 m: a poorly traced layer) |
 | Dome Fuji | Winter_2018 | 2 | −0.9 | −1.4 to −0.3 | Reproduced |
 | EDC | Chung_2023 | 19 | +3.4 | −2.1 to +7.8 | Nearly constant: a different depth convention at the core? (one line, 260 m away) |
-| EDC | Bodart_2025b | 6 | +5.7 | +0.5 to +10.6 | Their leave-one-line-out errors are 7 to 20 m: few lines, scattered near EDC |
+| EDC | Bodart_2025a | 6 | +5.7 | +0.5 to +10.6 | Their leave-one-line-out errors are 7 to 20 m: few lines, scattered near EDC |
 | EDC | Winter_2018 | 4 | +6.8 | +0.6 to +11.8 | Not reproduced at EDC… |
 | Vostok | Winter_2018 | 4 | +6.9 | +2.8 to +13.7 | …nor at Vostok: ages perhaps from both cores together |
 | EDC | Mulvaney_2023 | 20 | +5.6 | +0.7 to **+28.8** | Grows with depth (0.67 % of the depth): a different wave speed? |
-| Dome Fuji | Bodart_2025a | 1 | +19.2 | | Dated at EDML (AICC2023): a check of DFO-2006 at Dome Fuji, not a tie |
+| Dome Fuji | Bodart_2025b | 1 | +19.2 | | Dated at EDML (AICC2023): a check of DFO-2006 at Dome Fuji, not a tie |
 | EDC | Leysinger_Vieli_2011 | 4 | −80 | −113 to −39 | Their nearest line is 13 km away, dated by fractional depth, no firn correction |
 | Vostok | Leysinger_Vieli_2011 | 7 | +53 | −6 to +84 | Not reproduced with RR03 (our ice age), GT4 or AICC2023: ±5 ka |
 
@@ -217,7 +217,7 @@ documented. Their layers can be dated through the other datasets instead (below)
 ### Dating Leysinger_Vieli_2011 through the other datasets
 
 Their lines are far from the cores, but they are crossed or passed by five datasets that we tied at EDC or Vostok
-ourselves: Cavitte_2020, Mulvaney_2023, Bodart_2025b, Chung_2023 and Winter_2018. Some of these come within 5 to
+ourselves: Cavitte_2020, Mulvaney_2023, Bodart_2025a, Chung_2023 and Winter_2018. Some of these come within 5 to
 270 m of their lines (`anta_database/harmonisation/transfer.py`). The steps:
 
 1. At each point of their lines (about every 2.5 km), each layer of a reference dataset is interpolated by a Gaussian
@@ -258,7 +258,7 @@ Next: the ties at SPICEcore (Beem, Sanderson), then the transfer again.
 #### At the crossings themselves
 
 The lines do cross: 156 crossings with the five newer datasets (Cavitte 51, Mulvaney 49, Chung 24, Winter 18,
-Bodart_2025b 14), most of them on the Dome C cluster (figure). At a crossing no surface is needed: the layers of both
+Bodart_2025a 14), most of them on the Dome C cluster (figure). At a crossing no surface is needed: the layers of both
 lines are interpolated along each line to the crossing point (the target's points are 2.5 km apart, the reference's
 binned to 250 m), and the target layer is read on the depth-age profile of the reference layers there.
 
@@ -439,7 +439,7 @@ SPICEcore to EDC through Winter: the first link between the two cores.
 - Ages on AICC2023 with their full uncertainty: the chronology, the depth, and the GICC05 counting error below 60 ka
   (H2).
 - The other cores (EDML, TALDICE, BELDC, WDC, Byrd).
-- The answers to anta_json #18 to #21 (Winter, Chung, Bodart_2025b, Mulvaney).
+- The answers to anta_json #18 to #21 (Winter, Chung, Bodart_2025a, Mulvaney).
 
 ---
 
@@ -451,7 +451,7 @@ Kept here as we go, so that each is handled on purpose in H5 and stated in the m
 |---|---|---|---|
 | Leysinger_Vieli_2011 | Depths from normalised heights times a thickness; 50 to 60 m shallower than the newer datasets at the crossings, scatter 20 to 70 m (within its stated error of 0.02 to 0.03 of the thickness). Line 13 km from EDC; ages not reproduced at EDC or Vostok. Its two clusters probably don't share the layers the paper correlated | H3, 2026-11-22 | Matched by the sequence of its layers, not by depth; dated through the matched Cavitte layers (Dome C cluster only) |
 | Mulvaney_2023 | Published ages not reproduced at EDC (Δz growing with depth, up to 29 m); at the crossings 10.5 m deeper than Cavitte, with a large scatter below 2000 m; its 75.2 ka layer sits 21 m below Cavitte's 73.4 ka (usual: 10.5 m) | H3 and below | Anta_json issue on Monday; its deep layers and the 75 ka link marked uncertain |
-| Bodart_2025b | Few lines near EDC, leave-one-line-out errors 7 to 20 m; its 128 ka layer at the core 15 to 21 m off the crossings | H3 and below | Anta_json issue on Monday; matched at the crossings rather than at the core |
+| Bodart_2025a | Few lines near EDC, leave-one-line-out errors 7 to 20 m; its 128 ka layer at the core 15 to 21 m off the crossings | H3 and below | Anta_json issue on Monday; matched at the crossings rather than at the core |
 | Wang_2023, IRH 6 | Leave-one-line-out error 15.6 m at Dome Fuji; age not reproduced (−12.5 m) | H3 | Marked uncertain |
 
 ---
@@ -459,7 +459,7 @@ Kept here as we go, so that each is handled on purpose in H5 and stated in the m
 ## H5, first look: the same reflections across the datasets at EDC (2026-11-22)
 
 Can we already say which layers of the datasets near EDC are the same reflection? Five datasets have layers within
-30 km of the core: Cavitte_2020 (25 layers), Mulvaney_2023 (20), Chung_2023 (19), Bodart_2025b (6), Winter_2018 (4).
+30 km of the core: Cavitte_2020 (25 layers), Mulvaney_2023 (20), Chung_2023 (19), Bodart_2025a (6), Winter_2018 (4).
 Script: `docs/harmonisation/scripts/edc_horizons.py`; outputs `crossings_EDC.parquet`, `matches_EDC.csv`,
 `horizons_EDC.csv` next to `ties.csv`.
 
@@ -478,7 +478,7 @@ Only depth and order are used. **The published ages are kept aside, as an indepe
 **Results.** 35 matched pairs make **18 horizons**, none with two layers of the same dataset. The published ages of
 their members agree within 0.2 to 2.1 ka for 16 of them, though the matching never saw them:
 
-| Depth at EDC (m) | Cavitte | Mulvaney | Bodart_2025b | Winter | Chung | AICC2023 (our tie of Cavitte) | Spread of our ties |
+| Depth at EDC (m) | Cavitte | Mulvaney | Bodart_2025a | Winter | Chung | AICC2023 (our tie of Cavitte) | Spread of our ties |
 |---|---|---|---|---|---|---|---|
 | 317 | 10.0 | 10.5 | | | | 10.0 | 0.5 |
 | 609 | 29.4 | 30.4 | | | | 29.3 | 1.2 |
@@ -513,7 +513,7 @@ crossings: its depths at the core come from a line 13 km away (sd 8 to 44 m).
 IRH 9 (98 ka), and H5 finds its layers 10.5 m deeper than Cavitte's: no contradiction. Mulvaney dated its layers at
 its own depths, which are about 10 to 15 m deeper than Cavitte's for the same reflection (at the core and at the
 crossings), so the same reflection gets an older age (39.2 against 38.1 ka, up to 262.2 against 254.5 ka). Below
-IRH 9 its ages also drift from its depths (to +29 m). Asked in anta_json #21; Winter #18, Chung #19, Bodart_2025b #20.
+IRH 9 its ages also drift from its depths (to +29 m). Asked in anta_json #21; Winter #18, Chung #19, Bodart_2025a #20.
 
 **Depth offsets between datasets** (the second dataset deeper, m): Mulvaney − Cavitte +10.5, Bodart − Cavitte +9.2,
 Winter − Cavitte +5.2, Chung − Cavitte +1.9, and so on. They are about **constant with depth** in every pair (figure):
@@ -566,7 +566,7 @@ at 243, 487, 670 and 1148 m, AICC2023 there gives 10.9, 31.1, 46.7 and 81.4 ka (
 ![Layers at Vostok and the reflections they share](figures/vostok_horizons_ladder.png)
 
 - **The 38 ka layer joins three datasets at Vostok:** Sanderson, Winter and Cavitte; at EDC, Cavitte and Winter join it
-  to Mulvaney and Bodart_2025b (EDC ladder). With Sanderson at SPICEcore (39.0 ka on SP19), it is one reflection
+  to Mulvaney and Bodart_2025a (EDC ladder). With Sanderson at SPICEcore (39.0 ka on SP19), it is one reflection
   from EDC to Vostok to SPICEcore.
 - **Yan is about 16 to 24 m shallower than Cavitte** for 29.4, 46.4 and 82 ka, with a very small scatter for 29.4 ka
   (1.5 m over 656 points, so the same radargrams). Cavitte has +14.6 m of firn correction added by us; Yan's firn

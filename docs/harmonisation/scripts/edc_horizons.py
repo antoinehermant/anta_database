@@ -25,7 +25,7 @@ from anta_database.harmonisation.cores import ice_cores
 from anta_database.harmonisation.ties import OUTPUT
 from anta_database.harmonisation.transfer import crossings, load
 
-DATASETS = ["Cavitte_2020", "Mulvaney_2023", "Winter_2018", "Chung_2023", "Bodart_2025b"]
+DATASETS = ["Cavitte_2020", "Mulvaney_2023", "Winter_2018", "Chung_2023", "Bodart_2025a"]
 RADIUS = 30e3
 
 
