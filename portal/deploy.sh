@@ -71,4 +71,5 @@ fi
 	done
 } | ssh "$HOST" "umask 077 && cat > $DIR/portal.env"
 echo "PORTAL_DOMAIN=$DOMAIN" | ssh "$HOST" "cat > $DIR/caddy.env"
-ssh "$HOST" "cd $DIR && docker compose build --pull && docker compose up -d --remove-orphans && docker compose ps"
+# The worker runs the same image as the portal: built once (two builds at once collide on its name)
+ssh "$HOST" "cd $DIR && docker compose build --pull portal && docker compose up -d --remove-orphans && docker compose ps"

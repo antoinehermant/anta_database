@@ -346,19 +346,26 @@ openstack server create antadatabase-portal --flavor a1-ram2-disk0 --image "Ubun
 ## A test copy (for a security review)
 
 A whole second pipeline, for someone to test it as the maintainer (receive the emails, review,
-publish) without any access to the official one: its own Infomaniak Public Cloud project, server,
+publish) without any access to the official one: its own Infomaniak Public Cloud projects, server,
 buckets, keys and domain. Nothing in it can reach the official portal or the public bucket, and
-deleting the project removes it all.
+deleting the two projects removes it all.
 
-1. **The project** (in the Infomaniak Manager, by the owner of the account): a new Public Cloud
-   project, e.g. `antadatabase-test`; its OpenStack file (openrc) in `~/.config/openstack/`. The
-   tester can be invited to it with their own account.
-2. **Keys and buckets**, in that project: S3 keys (`openstack ec2 credentials create`), an AWS
-   profile for them, and five private buckets: submissions, contact, compiled, review, and a test
-   public bucket, filled once with a copy of the official one (`aws s3 sync` from the official
-   bucket, never with `--delete`), readable publicly like it.
-3. **The server**: as above ("Online"), in the test project, with a keypair holding the tester's
-   SSH key and the maintainer's, and the same security group.
+1. **Two projects** (in the Infomaniak Manager, by the owner of the account), as the official
+   ones: one for the public bucket (`antadatabase-test`), one for the portal
+   (`antadatabase-portal-test`), so that the server has no key of the public bucket, as in the
+   official setup. Their OpenStack files (openrc) in `~/.config/openstack/`. The tester can be
+   invited to them with their own account.
+2. **Keys and buckets**: in each project, S3 keys (`openstack ec2 credentials create`) and an AWS
+   profile for them, with `request_checksum_calculation = when_required` and
+   `response_checksum_validation = when_required` in `~/.aws/config` (Infomaniak doesn't take the
+   newer checksums). In the portal project, four private buckets: submissions, contact, compiled,
+   review. In the other, the test public bucket, readable by everyone like the official one
+   (`swift post -r '.r:*' <bucket>`), filled once with a copy of `v1/` and `web/` of the official
+   bucket (through a local folder: `aws s3 sync` down with the official profile, up with the test
+   one; never with `--delete`).
+3. **The server**: as above ("Online"), in the portal test project, with a keypair holding the
+   maintainer's SSH key (the tester's is added to `~/.ssh/authorized_keys` on the server), and the
+   same security group.
 4. **The domain**: a DNS record, e.g. `api-test.antadatabase.com`, to the server.
 5. **The settings**, kept out of git like the official ones (`.env*` is ignored):
    - `portal/.env.test`: as `.env.example`, with the tester's address in `PORTAL_MAINTAINER_EMAIL`,
