@@ -37,8 +37,11 @@ remove deletes it with the dataset.
 
 The release copy (default ~/data/isochrones/AntADatabase-release) is only written by this
 script, and made identical to the bucket before each change. Settings in
-~/.config/antadatabase/review.json: release_dir, bedmap (bedmap3.nc, for the 3D viewer), host
-(of the portal), public_profile and portal_profile (AWS profiles, ~/.aws/credentials).
+~/.config/antadatabase/review.json (or the file of $ANTA_REVIEW_CONFIG): release_dir, bedmap
+(bedmap3.nc, for the 3D viewer), host (of the portal), public_profile and portal_profile (AWS
+profiles, ~/.aws/credentials). For another copy of the portal (README.md, "A test copy"), also:
+endpoint (S3), public_bucket and public_url (the bucket published to, and its address for reading),
+submissions_bucket (to check the keys); they default to the official ones.
 """
 
 import argparse
@@ -55,16 +58,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CONFIG_FILE = Path.home() / ".config" / "antadatabase" / "review.json"
+CONFIG_FILE = Path(os.environ.get("ANTA_REVIEW_CONFIG") or Path.home() / ".config" / "antadatabase" / "review.json").expanduser()
 DEFAULTS = {
     "release_dir": str(Path.home() / "data" / "isochrones" / "AntADatabase-release"),
     "bedmap": str(Path.home() / "data" / "bedmap" / "bedmap3.nc"),
     "host": "ubuntu@api.antadatabase.com",
     "public_profile": "infomaniak",
     "portal_profile": "antadatabase-portal",
+    "endpoint": "https://s3.pub1.infomaniak.cloud",
+    "public_bucket": "antadatabase",
+    "public_url": "",  # empty: the address of the official bucket, from the package
+    "submissions_bucket": "antadatabase-submissions",
 }
-ENDPOINT = "https://s3.pub1.infomaniak.cloud"
-BUCKET = "antadatabase"
 # Marks a dataset of the release copy added from a submission: <Dataset>/.submission
 MARKER = ".submission"
 # Bucket prefix of the raw files of the datasets, raw/<Dataset>/ (see above)
@@ -78,9 +83,22 @@ PUBLISHING_ON_HOLD = (
 CONTENT_TYPES = {".csv": "text/csv", ".tab": "text/tab-separated-values", ".json": "application/json"}
 
 
+# Another copy of the portal ($ANTA_REVIEW_CONFIG) sets these itself: none of the official ones by default
+OWN_SETTINGS = ("host", "public_profile", "portal_profile", "public_bucket", "public_url", "submissions_bucket")
+
+
 def settings() -> dict:
     saved = json.loads(CONFIG_FILE.read_text()) if CONFIG_FILE.exists() else {}
+    if os.environ.get("ANTA_REVIEW_CONFIG"):
+        missing = [k for k in OWN_SETTINGS if not saved.get(k)]
+        if missing:
+            sys.exit(f"Set {', '.join(missing)} in {CONFIG_FILE} (ANTA_REVIEW_CONFIG): another copy of the portal "
+                     "uses none of the official settings")
     return DEFAULTS | saved
+
+
+ENDPOINT = settings()["endpoint"]
+BUCKET = settings()["public_bucket"]  # the public bucket: the published database, viewer data, raw files
 
 
 def s3(profile: str):
@@ -133,7 +151,7 @@ def cmd_init(args) -> None:
     print(f"Settings in {CONFIG_FILE}:\n{json.dumps(cfg, indent=2)}")
     for name in ("public_profile", "portal_profile"):
         try:
-            s3(cfg[name]).list_objects_v2(Bucket=BUCKET if name == "public_profile" else "antadatabase-submissions", MaxKeys=1)
+            s3(cfg[name]).list_objects_v2(Bucket=BUCKET if name == "public_profile" else cfg["submissions_bucket"], MaxKeys=1)
         except Exception as e:
             sys.exit(f"The AWS profile {cfg[name]} ({name}) does not work: {e}")
     manage("list")
@@ -280,7 +298,7 @@ def cmd_retry(args) -> None:
 def public_url(prefix: str) -> str:
     from anta_database.cloud.sync import BUCKET_URL
 
-    return f"{BUCKET_URL}/{prefix}"
+    return f"{(settings()['public_url'] or BUCKET_URL).rstrip('/')}/{prefix}"
 
 
 def db_prefix() -> str:
@@ -432,7 +450,7 @@ def publish_release(release: Path, cfg: dict, args, name: str, present: bool, co
         sys.exit(f"{name} is {'not ' if present else ''}in the export of the 3D viewer")
 
     os.environ["AWS_PROFILE"] = cfg["public_profile"]
-    plan = publish(str(release), BUCKET, database_prefix, db_version=args.db_version, dry_run=True)
+    plan = publish(str(release), BUCKET, database_prefix, endpoint_url=ENDPOINT, db_version=args.db_version, dry_run=True)
     step(f"To publish to {BUCKET}/{database_prefix} and {BUCKET}/{web_prefix}" + (" (TEST)" if args.test else ""))
     print(f"Database version {plan['db_version']}: {len(plan['uploaded'])} files to upload, {len(plan['deleted'])} to delete")
     for rel in [*plan["uploaded"][:8], *(["..."] if len(plan["uploaded"]) > 8 else [])]:
@@ -444,7 +462,7 @@ def publish_release(release: Path, cfg: dict, args, name: str, present: bool, co
         sys.exit(f"Not published. Run {command} again to go on.")
 
     version = plan["db_version"]
-    publish(str(release), BUCKET, database_prefix, db_version=version)
+    publish(str(release), BUCKET, database_prefix, endpoint_url=ENDPOINT, db_version=version)
     print(f"Viewer data: {upload_web(stage, web_prefix, cfg['public_profile'])} files uploaded")
     shutil.rmtree(stage, ignore_errors=True)
 

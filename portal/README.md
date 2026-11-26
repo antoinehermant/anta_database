@@ -342,3 +342,40 @@ openstack server create antadatabase-portal --flavor a1-ram2-disk0 --image "Ubun
   --boot-from-volume 30 --network ext-net1 --security-group portal --key-name anthe-laptop \
   --user-data portal/cloud-init.yaml --wait
 ```
+
+## A test copy (for a security review)
+
+A whole second pipeline, for someone to test it as the maintainer (receive the emails, review,
+publish) without any access to the official one: its own Infomaniak Public Cloud project, server,
+buckets, keys and domain. Nothing in it can reach the official portal or the public bucket, and
+deleting the project removes it all.
+
+1. **The project** (in the Infomaniak Manager, by the owner of the account): a new Public Cloud
+   project, e.g. `antadatabase-test`; its OpenStack file (openrc) in `~/.config/openstack/`. The
+   tester can be invited to it with their own account.
+2. **Keys and buckets**, in that project: S3 keys (`openstack ec2 credentials create`), an AWS
+   profile for them, and five private buckets: submissions, contact, compiled, review, and a test
+   public bucket, filled once with a copy of the official one (`aws s3 sync` from the official
+   bucket, never with `--delete`), readable publicly like it.
+3. **The server**: as above ("Online"), in the test project, with a keypair holding the tester's
+   SSH key and the maintainer's, and the same security group.
+4. **The domain**: a DNS record, e.g. `api-test.antadatabase.com`, to the server.
+5. **The settings**, kept out of git like the official ones (`.env*` is ignored):
+   - `portal/.env.test`: as `.env.example`, with the tester's address in `PORTAL_MAINTAINER_EMAIL`,
+     a mailbox of its own for sending (not the official noreply), and all the names of the end of
+     `.env.example`: `PORTAL_DOMAIN=api-test.antadatabase.com`, the test buckets, and
+     `PORTAL_ORIGINS` for the test site (e.g. `http://localhost:5173`);
+     `PORTAL_SITE_URL` to the test site, for the links of the emails;
+   - `portal/.env.server.test`: the S3 keys of the test project.
+6. **Deploy**: `PORTAL_ENV_FILE=.env.test PORTAL_SERVER_ENV_FILE=.env.server.test portal/deploy.sh`.
+   It deploys to `ubuntu@<PORTAL_DOMAIN>`, and refuses settings files that leave a name to its
+   official value. Caddy gets the HTTPS certificate of the test domain by itself.
+7. **The test site**, whose forms send to the test portal and whose viewer reads the test bucket,
+   run by the tester from the repository:
+   `cd web && npm install && VITE_PORTAL_URL=https://api-test.antadatabase.com VITE_DATA_URL=<test bucket URL>/web npm run dev`.
+8. **The review**: `anta-review` on the tester's computer (above, "Review"), with its own settings
+   file: `ANTA_REVIEW_CONFIG=~/.config/antadatabase/review-test.json anta-review init`, the file
+   holding `host` (`ubuntu@api-test.antadatabase.com`), `public_profile` and `portal_profile` (the
+   test keys), `public_bucket`, `public_url` (its address for reading, as in `VITE_DATA_URL` without
+   `/web`) and `submissions_bucket`. With `ANTA_REVIEW_CONFIG` set, all of these must be in the file.
+   While publishing is on hold (v2), `accept --test` publishes under `test/` of the test bucket.

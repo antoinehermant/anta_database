@@ -30,6 +30,10 @@ services:
     image: caddy:2
     restart: unless-stopped
     logging: *logging
+    # Only the domain (PORTAL_DOMAIN, see deploy.sh): Caddy gets none of the keys of portal.env
+    env_file:
+      - path: caddy.env
+        format: raw
     ports:
       - "80:80"
       - "443:443"

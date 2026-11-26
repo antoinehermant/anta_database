@@ -1,4 +1,5 @@
-# HTTPS for the portal: Caddy gets and renews the certificate of the domain by itself
-api.antadatabase.com {
+# HTTPS for the portal: Caddy gets and renews the certificate of the domain by itself. The domain
+# is PORTAL_DOMAIN of caddy.env, written by deploy.sh (api.antadatabase.com, or a test copy's)
+{$PORTAL_DOMAIN:api.antadatabase.com} {
 	reverse_proxy portal:8000
 }
