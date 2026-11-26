@@ -94,7 +94,10 @@ def settings() -> dict:
         if missing:
             sys.exit(f"Set {', '.join(missing)} in {CONFIG_FILE} (ANTA_REVIEW_CONFIG): another copy of the portal "
                      "uses none of the official settings")
-    return DEFAULTS | saved
+    cfg = DEFAULTS | saved
+    for key in ("release_dir", "bedmap"):  # paths may start with ~
+        cfg[key] = str(Path(cfg[key]).expanduser())
+    return cfg
 
 
 ENDPOINT = settings()["endpoint"]
