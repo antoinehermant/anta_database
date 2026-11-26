@@ -360,7 +360,8 @@ deleting the two projects removes it all.
    `response_checksum_validation = when_required` in `~/.aws/config` (Infomaniak doesn't take the
    newer checksums). In the portal project, four private buckets: submissions, contact, compiled,
    review. In the other, the test public bucket, readable by everyone like the official one
-   (`swift post -r '.r:*' <bucket>`), filled once with a copy of `v1/` and `web/` of the official
+   (`swift post -r '.r:*' <bucket>`) and by the viewer from any site
+   (`swift post -m 'Access-Control-Allow-Origin:*' <bucket>`), filled once with a copy of `v1/` and `web/` of the official
    bucket (through a local folder: `aws s3 sync` down with the official profile, up with the test
    one; never with `--delete`).
 3. **The server**: as above ("Online"), in the portal test project, with a keypair holding the
